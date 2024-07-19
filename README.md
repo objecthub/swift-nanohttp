@@ -1,2 +1,3 @@
-# swift-nanohttp
+# Swift NanoHTTP
+
 A tiny extensible and configurable HTTP server written in Swift for macOS, iOS, and Linux.

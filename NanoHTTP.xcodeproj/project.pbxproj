@@ -10,6 +10,38 @@
 		CC50C0992C4B1A1100482E4B /* NanoHTTP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; };
 		CC50C09E2C4B1A1100482E4B /* NanoHTTPTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C09D2C4B1A1100482E4B /* NanoHTTPTests.swift */; };
 		CC50C09F2C4B1A1100482E4B /* NanoHTTP.h in Headers */ = {isa = PBXBuildFile; fileRef = CC50C0932C4B1A1100482E4B /* NanoHTTP.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CC50C0BF2C4BA95600482E4B /* NanoHTTPDemo.h in Headers */ = {isa = PBXBuildFile; fileRef = CC50C0B32C4BA95500482E4B /* NanoHTTPDemo.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CC50C0C72C4BAA7B00482E4B /* NanoHTTPRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0C62C4BAA7B00482E4B /* NanoHTTPRequest.swift */; };
+		CC50C0C92C4BAC1B00482E4B /* NanoHTTPResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0C82C4BAC1B00482E4B /* NanoHTTPResponse.swift */; };
+		CC50C0CB2C4BAC7B00482E4B /* NanoHTTPRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0CA2C4BAC7B00482E4B /* NanoHTTPRouter.swift */; };
+		CC50C0CD2C4BACDF00482E4B /* NanoHTTPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0CC2C4BACDF00482E4B /* NanoHTTPServer.swift */; };
+		CC50C0CF2C4BAD2200482E4B /* NanoHTTPServerIO.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0CE2C4BAD2200482E4B /* NanoHTTPServerIO.swift */; };
+		CC50C0D12C4BAD7A00482E4B /* NanoHTTPParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0D02C4BAD7A00482E4B /* NanoHTTPParser.swift */; };
+		CC50C0D32C4BADB600482E4B /* NanoHTTPConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0D22C4BADB600482E4B /* NanoHTTPConnection.swift */; };
+		CC50C0D52C4BADE800482E4B /* NanoSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0D42C4BADE800482E4B /* NanoSocket.swift */; };
+		CC50C0D72C4BAE5400482E4B /* String+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0D62C4BAE5400482E4B /* String+Extensions.swift */; };
+		CC50C0D92C4BAE8F00482E4B /* String+File.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0D82C4BAE8F00482E4B /* String+File.swift */; };
+		CC50C0DB2C4BAEDF00482E4B /* NanoFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0DA2C4BAEDF00482E4B /* NanoFiles.swift */; };
+		CC50C0DD2C4BAF2D00482E4B /* NanoWebSockets.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0DC2C4BAF2D00482E4B /* NanoWebSockets.swift */; };
+		CC50C0DF2C4BAFFC00482E4B /* NanoProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0DE2C4BAFFC00482E4B /* NanoProcess.swift */; };
+		CC50C0E12C4BB02F00482E4B /* NanoScopes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0E02C4BB02F00482E4B /* NanoScopes.swift */; };
+		CC50C0E32C4BB0D500482E4B /* NanoHTTPDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0E22C4BB0D500482E4B /* NanoHTTPDemo.swift */; };
+		CC50C0E52C4BB10500482E4B /* NanoHTTP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; };
+		CC50C0E62C4BB10500482E4B /* NanoHTTP.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		CC50C0F12C4BB43A00482E4B /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0F02C4BB43A00482E4B /* main.swift */; };
+		CC50C0F52C4BB47F00482E4B /* NanoHTTP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; };
+		CC50C0F62C4BB47F00482E4B /* NanoHTTP.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		CC50C0F92C4BB47F00482E4B /* NanoHTTPDemo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0B12C4BA95500482E4B /* NanoHTTPDemo.framework */; };
+		CC50C0FA2C4BB47F00482E4B /* NanoHTTPDemo.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0B12C4BA95500482E4B /* NanoHTTPDemo.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		CC50C1062C4BB7FB00482E4B /* DemoServerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C1052C4BB7FB00482E4B /* DemoServerApp.swift */; };
+		CC50C1082C4BB7FB00482E4B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C1072C4BB7FB00482E4B /* ContentView.swift */; };
+		CC50C10A2C4BB7FB00482E4B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CC50C1092C4BB7FB00482E4B /* Assets.xcassets */; };
+		CC50C10D2C4BB7FB00482E4B /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CC50C10C2C4BB7FB00482E4B /* Preview Assets.xcassets */; };
+		CC50C1112C4BBC8A00482E4B /* NanoHTTP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; };
+		CC50C1122C4BBC8A00482E4B /* NanoHTTP.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		CC50C1152C4BBC8A00482E4B /* NanoHTTPDemo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0B12C4BA95500482E4B /* NanoHTTPDemo.framework */; };
+		CC50C1162C4BBC8A00482E4B /* NanoHTTPDemo.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0B12C4BA95500482E4B /* NanoHTTPDemo.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		CC50C11B2C4BBE9500482E4B /* DemoServerContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C11A2C4BBE9500482E4B /* DemoServerContainer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -20,7 +52,89 @@
 			remoteGlobalIDString = CC50C08F2C4B1A1100482E4B;
 			remoteInfo = NanoHTTP;
 		};
+		CC50C0E72C4BB10500482E4B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC50C08F2C4B1A1100482E4B;
+			remoteInfo = NanoHTTP;
+		};
+		CC50C0F72C4BB47F00482E4B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC50C08F2C4B1A1100482E4B;
+			remoteInfo = NanoHTTP;
+		};
+		CC50C0FB2C4BB47F00482E4B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC50C0B02C4BA95500482E4B;
+			remoteInfo = NanoHTTPDemo;
+		};
+		CC50C1132C4BBC8A00482E4B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC50C08F2C4B1A1100482E4B;
+			remoteInfo = NanoHTTP;
+		};
+		CC50C1172C4BBC8A00482E4B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC50C0B02C4BA95500482E4B;
+			remoteInfo = NanoHTTPDemo;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		CC50C0E92C4BB10500482E4B /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				CC50C0E62C4BB10500482E4B /* NanoHTTP.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC50C0EC2C4BB43A00482E4B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		CC50C0FD2C4BB47F00482E4B /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				CC50C0F62C4BB47F00482E4B /* NanoHTTP.framework in Embed Frameworks */,
+				CC50C0FA2C4BB47F00482E4B /* NanoHTTPDemo.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC50C1192C4BBC8A00482E4B /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				CC50C1122C4BBC8A00482E4B /* NanoHTTP.framework in Embed Frameworks */,
+				CC50C1162C4BBC8A00482E4B /* NanoHTTPDemo.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = NanoHTTP.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -30,6 +144,31 @@
 		CC50C0A82C4B1B5100482E4B /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		CC50C0A92C4B1B5F00482E4B /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		CC50C0AA2C4B1C9300482E4B /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
+		CC50C0B12C4BA95500482E4B /* NanoHTTPDemo.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = NanoHTTPDemo.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		CC50C0B32C4BA95500482E4B /* NanoHTTPDemo.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NanoHTTPDemo.h; sourceTree = "<group>"; };
+		CC50C0C62C4BAA7B00482E4B /* NanoHTTPRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPRequest.swift; sourceTree = "<group>"; };
+		CC50C0C82C4BAC1B00482E4B /* NanoHTTPResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPResponse.swift; sourceTree = "<group>"; };
+		CC50C0CA2C4BAC7B00482E4B /* NanoHTTPRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPRouter.swift; sourceTree = "<group>"; };
+		CC50C0CC2C4BACDF00482E4B /* NanoHTTPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPServer.swift; sourceTree = "<group>"; };
+		CC50C0CE2C4BAD2200482E4B /* NanoHTTPServerIO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPServerIO.swift; sourceTree = "<group>"; };
+		CC50C0D02C4BAD7A00482E4B /* NanoHTTPParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPParser.swift; sourceTree = "<group>"; };
+		CC50C0D22C4BADB600482E4B /* NanoHTTPConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPConnection.swift; sourceTree = "<group>"; };
+		CC50C0D42C4BADE800482E4B /* NanoSocket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoSocket.swift; sourceTree = "<group>"; };
+		CC50C0D62C4BAE5400482E4B /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
+		CC50C0D82C4BAE8F00482E4B /* String+File.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+File.swift"; sourceTree = "<group>"; };
+		CC50C0DA2C4BAEDF00482E4B /* NanoFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoFiles.swift; sourceTree = "<group>"; };
+		CC50C0DC2C4BAF2D00482E4B /* NanoWebSockets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoWebSockets.swift; sourceTree = "<group>"; };
+		CC50C0DE2C4BAFFC00482E4B /* NanoProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoProcess.swift; sourceTree = "<group>"; };
+		CC50C0E02C4BB02F00482E4B /* NanoScopes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoScopes.swift; sourceTree = "<group>"; };
+		CC50C0E22C4BB0D500482E4B /* NanoHTTPDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPDemo.swift; sourceTree = "<group>"; };
+		CC50C0EE2C4BB43A00482E4B /* DemoServer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = DemoServer; sourceTree = BUILT_PRODUCTS_DIR; };
+		CC50C0F02C4BB43A00482E4B /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		CC50C1032C4BB7FB00482E4B /* DemoServer iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "DemoServer iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		CC50C1052C4BB7FB00482E4B /* DemoServerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoServerApp.swift; sourceTree = "<group>"; };
+		CC50C1072C4BB7FB00482E4B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		CC50C1092C4BB7FB00482E4B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		CC50C10C2C4BB7FB00482E4B /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		CC50C11A2C4BBE9500482E4B /* DemoServerContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoServerContainer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -48,6 +187,32 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CC50C0AE2C4BA95500482E4B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC50C0E52C4BB10500482E4B /* NanoHTTP.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC50C0EB2C4BB43A00482E4B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC50C0F52C4BB47F00482E4B /* NanoHTTP.framework in Frameworks */,
+				CC50C0F92C4BB47F00482E4B /* NanoHTTPDemo.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC50C1002C4BB7FB00482E4B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC50C1112C4BBC8A00482E4B /* NanoHTTP.framework in Frameworks */,
+				CC50C1152C4BBC8A00482E4B /* NanoHTTPDemo.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -58,8 +223,12 @@
 				CC50C0A92C4B1B5F00482E4B /* README.md */,
 				CC50C0AA2C4B1C9300482E4B /* CHANGELOG.md */,
 				CC50C0922C4B1A1100482E4B /* NanoHTTP */,
+				CC50C0B22C4BA95500482E4B /* NanoHTTPDemo */,
 				CC50C09C2C4B1A1100482E4B /* NanoHTTPTests */,
+				CC50C0EF2C4BB43A00482E4B /* DemoServer */,
+				CC50C1042C4BB7FB00482E4B /* DemoServer iOS */,
 				CC50C0912C4B1A1100482E4B /* Products */,
+				CC50C0E42C4BB10500482E4B /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -68,6 +237,9 @@
 			children = (
 				CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */,
 				CC50C0982C4B1A1100482E4B /* NanoHTTPTests.xctest */,
+				CC50C0B12C4BA95500482E4B /* NanoHTTPDemo.framework */,
+				CC50C0EE2C4BB43A00482E4B /* DemoServer */,
+				CC50C1032C4BB7FB00482E4B /* DemoServer iOS.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -75,6 +247,20 @@
 		CC50C0922C4B1A1100482E4B /* NanoHTTP */ = {
 			isa = PBXGroup;
 			children = (
+				CC50C0C62C4BAA7B00482E4B /* NanoHTTPRequest.swift */,
+				CC50C0C82C4BAC1B00482E4B /* NanoHTTPResponse.swift */,
+				CC50C0CA2C4BAC7B00482E4B /* NanoHTTPRouter.swift */,
+				CC50C0CC2C4BACDF00482E4B /* NanoHTTPServer.swift */,
+				CC50C0CE2C4BAD2200482E4B /* NanoHTTPServerIO.swift */,
+				CC50C0D02C4BAD7A00482E4B /* NanoHTTPParser.swift */,
+				CC50C0D22C4BADB600482E4B /* NanoHTTPConnection.swift */,
+				CC50C0D42C4BADE800482E4B /* NanoSocket.swift */,
+				CC50C0D62C4BAE5400482E4B /* String+Extensions.swift */,
+				CC50C0D82C4BAE8F00482E4B /* String+File.swift */,
+				CC50C0DA2C4BAEDF00482E4B /* NanoFiles.swift */,
+				CC50C0DC2C4BAF2D00482E4B /* NanoWebSockets.swift */,
+				CC50C0DE2C4BAFFC00482E4B /* NanoProcess.swift */,
+				CC50C0E02C4BB02F00482E4B /* NanoScopes.swift */,
 				CC50C0932C4B1A1100482E4B /* NanoHTTP.h */,
 			);
 			name = NanoHTTP;
@@ -90,6 +276,53 @@
 			path = Tests/NanoHTTPTests;
 			sourceTree = "<group>";
 		};
+		CC50C0B22C4BA95500482E4B /* NanoHTTPDemo */ = {
+			isa = PBXGroup;
+			children = (
+				CC50C0E22C4BB0D500482E4B /* NanoHTTPDemo.swift */,
+				CC50C0B32C4BA95500482E4B /* NanoHTTPDemo.h */,
+			);
+			name = NanoHTTPDemo;
+			path = Sources/NanoHTTPDemo;
+			sourceTree = "<group>";
+		};
+		CC50C0E42C4BB10500482E4B /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		CC50C0EF2C4BB43A00482E4B /* DemoServer */ = {
+			isa = PBXGroup;
+			children = (
+				CC50C0F02C4BB43A00482E4B /* main.swift */,
+			);
+			name = DemoServer;
+			path = Sources/DemoServer;
+			sourceTree = "<group>";
+		};
+		CC50C1042C4BB7FB00482E4B /* DemoServer iOS */ = {
+			isa = PBXGroup;
+			children = (
+				CC50C1052C4BB7FB00482E4B /* DemoServerApp.swift */,
+				CC50C11A2C4BBE9500482E4B /* DemoServerContainer.swift */,
+				CC50C1072C4BB7FB00482E4B /* ContentView.swift */,
+				CC50C1092C4BB7FB00482E4B /* Assets.xcassets */,
+				CC50C10B2C4BB7FB00482E4B /* Preview Content */,
+			);
+			name = "DemoServer iOS";
+			path = "Sources/DemoServer iOS";
+			sourceTree = "<group>";
+		};
+		CC50C10B2C4BB7FB00482E4B /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				CC50C10C2C4BB7FB00482E4B /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -98,6 +331,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				CC50C09F2C4B1A1100482E4B /* NanoHTTP.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC50C0AC2C4BA95500482E4B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC50C0BF2C4BA95600482E4B /* NanoHTTPDemo.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -140,6 +381,66 @@
 			productReference = CC50C0982C4B1A1100482E4B /* NanoHTTPTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		CC50C0B02C4BA95500482E4B /* NanoHTTPDemo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CC50C0C02C4BA95600482E4B /* Build configuration list for PBXNativeTarget "NanoHTTPDemo" */;
+			buildPhases = (
+				CC50C0AC2C4BA95500482E4B /* Headers */,
+				CC50C0AD2C4BA95500482E4B /* Sources */,
+				CC50C0AE2C4BA95500482E4B /* Frameworks */,
+				CC50C0AF2C4BA95500482E4B /* Resources */,
+				CC50C0E92C4BB10500482E4B /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CC50C0E82C4BB10500482E4B /* PBXTargetDependency */,
+			);
+			name = NanoHTTPDemo;
+			productName = NanoHTTPDemo;
+			productReference = CC50C0B12C4BA95500482E4B /* NanoHTTPDemo.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		CC50C0ED2C4BB43A00482E4B /* DemoServer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CC50C0F22C4BB43A00482E4B /* Build configuration list for PBXNativeTarget "DemoServer" */;
+			buildPhases = (
+				CC50C0EA2C4BB43A00482E4B /* Sources */,
+				CC50C0EB2C4BB43A00482E4B /* Frameworks */,
+				CC50C0EC2C4BB43A00482E4B /* CopyFiles */,
+				CC50C0FD2C4BB47F00482E4B /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CC50C0F82C4BB47F00482E4B /* PBXTargetDependency */,
+				CC50C0FC2C4BB47F00482E4B /* PBXTargetDependency */,
+			);
+			name = DemoServer;
+			productName = "DemoServer-macOS";
+			productReference = CC50C0EE2C4BB43A00482E4B /* DemoServer */;
+			productType = "com.apple.product-type.tool";
+		};
+		CC50C1022C4BB7FB00482E4B /* DemoServer iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CC50C1102C4BB7FB00482E4B /* Build configuration list for PBXNativeTarget "DemoServer iOS" */;
+			buildPhases = (
+				CC50C0FF2C4BB7FB00482E4B /* Sources */,
+				CC50C1002C4BB7FB00482E4B /* Frameworks */,
+				CC50C1012C4BB7FB00482E4B /* Resources */,
+				CC50C1192C4BBC8A00482E4B /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CC50C1142C4BBC8A00482E4B /* PBXTargetDependency */,
+				CC50C1182C4BBC8A00482E4B /* PBXTargetDependency */,
+			);
+			name = "DemoServer iOS";
+			productName = "DemoServer-iOS";
+			productReference = CC50C1032C4BB7FB00482E4B /* DemoServer iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -152,8 +453,19 @@
 				TargetAttributes = {
 					CC50C08F2C4B1A1100482E4B = {
 						CreatedOnToolsVersion = 15.4;
+						LastSwiftMigration = 1540;
 					};
 					CC50C0972C4B1A1100482E4B = {
+						CreatedOnToolsVersion = 15.4;
+					};
+					CC50C0B02C4BA95500482E4B = {
+						CreatedOnToolsVersion = 15.4;
+						LastSwiftMigration = 1540;
+					};
+					CC50C0ED2C4BB43A00482E4B = {
+						CreatedOnToolsVersion = 15.4;
+					};
+					CC50C1022C4BB7FB00482E4B = {
 						CreatedOnToolsVersion = 15.4;
 					};
 				};
@@ -172,7 +484,10 @@
 			projectRoot = "";
 			targets = (
 				CC50C08F2C4B1A1100482E4B /* NanoHTTP */,
+				CC50C0B02C4BA95500482E4B /* NanoHTTPDemo */,
 				CC50C0972C4B1A1100482E4B /* NanoHTTPTests */,
+				CC50C0ED2C4BB43A00482E4B /* DemoServer */,
+				CC50C1022C4BB7FB00482E4B /* DemoServer iOS */,
 			);
 		};
 /* End PBXProject section */
@@ -192,6 +507,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CC50C0AF2C4BA95500482E4B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC50C1012C4BB7FB00482E4B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC50C10D2C4BB7FB00482E4B /* Preview Assets.xcassets in Resources */,
+				CC50C10A2C4BB7FB00482E4B /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -199,6 +530,20 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CC50C0E12C4BB02F00482E4B /* NanoScopes.swift in Sources */,
+				CC50C0D52C4BADE800482E4B /* NanoSocket.swift in Sources */,
+				CC50C0CF2C4BAD2200482E4B /* NanoHTTPServerIO.swift in Sources */,
+				CC50C0D32C4BADB600482E4B /* NanoHTTPConnection.swift in Sources */,
+				CC50C0DF2C4BAFFC00482E4B /* NanoProcess.swift in Sources */,
+				CC50C0C92C4BAC1B00482E4B /* NanoHTTPResponse.swift in Sources */,
+				CC50C0D92C4BAE8F00482E4B /* String+File.swift in Sources */,
+				CC50C0DD2C4BAF2D00482E4B /* NanoWebSockets.swift in Sources */,
+				CC50C0D72C4BAE5400482E4B /* String+Extensions.swift in Sources */,
+				CC50C0D12C4BAD7A00482E4B /* NanoHTTPParser.swift in Sources */,
+				CC50C0C72C4BAA7B00482E4B /* NanoHTTPRequest.swift in Sources */,
+				CC50C0CD2C4BACDF00482E4B /* NanoHTTPServer.swift in Sources */,
+				CC50C0CB2C4BAC7B00482E4B /* NanoHTTPRouter.swift in Sources */,
+				CC50C0DB2C4BAEDF00482E4B /* NanoFiles.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -210,6 +555,32 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CC50C0AD2C4BA95500482E4B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC50C0E32C4BB0D500482E4B /* NanoHTTPDemo.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC50C0EA2C4BB43A00482E4B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC50C0F12C4BB43A00482E4B /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC50C0FF2C4BB7FB00482E4B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC50C1082C4BB7FB00482E4B /* ContentView.swift in Sources */,
+				CC50C11B2C4BBE9500482E4B /* DemoServerContainer.swift in Sources */,
+				CC50C1062C4BB7FB00482E4B /* DemoServerApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -217,6 +588,31 @@
 			isa = PBXTargetDependency;
 			target = CC50C08F2C4B1A1100482E4B /* NanoHTTP */;
 			targetProxy = CC50C09A2C4B1A1100482E4B /* PBXContainerItemProxy */;
+		};
+		CC50C0E82C4BB10500482E4B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC50C08F2C4B1A1100482E4B /* NanoHTTP */;
+			targetProxy = CC50C0E72C4BB10500482E4B /* PBXContainerItemProxy */;
+		};
+		CC50C0F82C4BB47F00482E4B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC50C08F2C4B1A1100482E4B /* NanoHTTP */;
+			targetProxy = CC50C0F72C4BB47F00482E4B /* PBXContainerItemProxy */;
+		};
+		CC50C0FC2C4BB47F00482E4B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC50C0B02C4BA95500482E4B /* NanoHTTPDemo */;
+			targetProxy = CC50C0FB2C4BB47F00482E4B /* PBXContainerItemProxy */;
+		};
+		CC50C1142C4BBC8A00482E4B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC50C08F2C4B1A1100482E4B /* NanoHTTP */;
+			targetProxy = CC50C1132C4BBC8A00482E4B /* PBXContainerItemProxy */;
+		};
+		CC50C1182C4BBC8A00482E4B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC50C0B02C4BA95500482E4B /* NanoHTTPDemo */;
+			targetProxy = CC50C1172C4BBC8A00482E4B /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -352,6 +748,7 @@
 			buildSettings = {
 				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
 				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEFINES_MODULE = YES;
@@ -385,6 +782,7 @@
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_INSTALL_OBJC_HEADER = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3";
 			};
@@ -395,6 +793,7 @@
 			buildSettings = {
 				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
 				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEFINES_MODULE = YES;
@@ -437,12 +836,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = C72Z63N8M5;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
-				MACOSX_DEPLOYMENT_TARGET = 14.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTTPTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -458,12 +858,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = C72Z63N8M5;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
-				MACOSX_DEPLOYMENT_TARGET = 14.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTTPTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -472,6 +873,182 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		CC50C0C12C4BA95600482E4B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = C72Z63N8M5;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MARKETING_VERSION = 1.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTTPDemo;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INSTALL_OBJC_HEADER = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		CC50C0C22C4BA95600482E4B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = C72Z63N8M5;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MARKETING_VERSION = 1.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTTPDemo;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INSTALL_OBJC_HEADER = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		CC50C0F32C4BB43A00482E4B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = NO;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		CC50C0F42C4BB43A00482E4B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = NO;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		CC50C10E2C4BB7FB00482E4B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "Sources/DemoServer\\ iOS/Preview\\ Content";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "net.objecthub.DemoServer-iOS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		CC50C10F2C4BB7FB00482E4B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "Sources/DemoServer\\ iOS/Preview\\ Content";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "net.objecthub.DemoServer-iOS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
@@ -501,6 +1078,33 @@
 			buildConfigurations = (
 				CC50C0A62C4B1A1100482E4B /* Debug */,
 				CC50C0A72C4B1A1100482E4B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CC50C0C02C4BA95600482E4B /* Build configuration list for PBXNativeTarget "NanoHTTPDemo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CC50C0C12C4BA95600482E4B /* Debug */,
+				CC50C0C22C4BA95600482E4B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CC50C0F22C4BB43A00482E4B /* Build configuration list for PBXNativeTarget "DemoServer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CC50C0F32C4BB43A00482E4B /* Debug */,
+				CC50C0F42C4BB43A00482E4B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CC50C1102C4BB7FB00482E4B /* Build configuration list for PBXNativeTarget "DemoServer iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CC50C10E2C4BB7FB00482E4B /* Debug */,
+				CC50C10F2C4BB7FB00482E4B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

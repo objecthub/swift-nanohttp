@@ -14,5 +14,3 @@ FOUNDATION_EXPORT double NanoHTTPVersionNumber;
 FOUNDATION_EXPORT const unsigned char NanoHTTPVersionString[];
 
 // In this header, you should import all the public headers of your framework using statements like #import <NanoHTTP/PublicHeader.h>
-
-

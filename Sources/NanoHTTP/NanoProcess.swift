@@ -35,7 +35,7 @@
 
 import Foundation
 
-public class Process {
+public class NanoProcess {
   
   public static var pid: Int {
     return Int(getpid())
@@ -58,7 +58,7 @@ public class Process {
     if !signalsObserved {
       [SIGTERM, SIGHUP, SIGSTOP, SIGINT].forEach { item in
         signal(item) { signum in
-          Process.signalsWatchers.forEach { $0(signum) }
+          NanoProcess.signalsWatchers.forEach { $0(signum) }
         }
       }
       signalsObserved = true

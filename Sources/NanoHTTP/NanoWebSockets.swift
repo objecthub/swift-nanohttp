@@ -39,21 +39,18 @@ public func websocket(text: ((WebSocketSession, String) -> Void)? = nil,
                       binary: ((WebSocketSession, [UInt8]) -> Void)? = nil,
                       pong: ((WebSocketSession, [UInt8]) -> Void)? = nil,
                       connected: ((WebSocketSession) -> Void)? = nil,
-                      disconnected: ((WebSocketSession) -> Void)? = nil) -> HttpRequestHandler {
+                      disconnected: ((WebSocketSession) -> Void)? = nil) -> NanoHTTPRequestHandler {
   return { request in
     guard request.hasTokenForHeader("upgrade", token: "websocket") else {
-      return .badRequest(
-               .text("Invalid value of 'Upgrade' header: \(request.headers["upgrade"] ?? "unknown")"))
+      return .badRequest(.init(body: .text("Invalid value of 'Upgrade' header: \(request.headers["upgrade"] ?? "unknown")")))
     }
     guard request.hasTokenForHeader("connection", token: "upgrade") else {
-      return .badRequest(
-               .text("Invalid value of 'Connection' header: \(request.headers["connection"] ?? "unknown")"))
+      return .badRequest(.init(body: .text("Invalid value of 'Connection' header: \(request.headers["connection"] ?? "unknown")")))
     }
     guard let secWebSocketKey = request.headers["sec-websocket-key"] else {
-      return .badRequest(
-               .text("Invalid value of 'Sec-Websocket-Key' header: \(request.headers["sec-websocket-key"] ?? "unknown")"))
+      return .badRequest(.init(body: .text("Invalid value of 'Sec-Websocket-Key' header: \(request.headers["sec-websocket-key"] ?? "unknown")")))
     }
-    let protocolSessionClosure: ((Socket) -> Void) = { socket in
+    let protocolSessionClosure: ((NanoSocket) -> Void) = { socket in
       let session = WebSocketSession(socket)
       var fragmentedOpCode = WebSocketSession.OpCode.close
       var payload = [UInt8]() // Used for fragmented frames.
@@ -167,7 +164,7 @@ public func websocket(text: ((WebSocketSession, String) -> Void)? = nil,
       "Connection": "Upgrade",
       "Sec-WebSocket-Accept": secWebSocketAccept
     ]
-    return HttpResponse.switchProtocols(headers, protocolSessionClosure)
+    return NanoHTTPResponse.switchProtocols(headers, protocolSessionClosure)
   }
 }
 
@@ -202,9 +199,9 @@ public class WebSocketSession: Hashable, Equatable {
     public var payload = [UInt8]()
   }
   
-  public let socket: Socket
+  public let socket: NanoSocket
   
-  public init(_ socket: Socket) {
+  public init(_ socket: NanoSocket) {
     self.socket = socket
   }
   

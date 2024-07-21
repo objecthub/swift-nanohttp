@@ -33,18 +33,18 @@
 
 import Foundation
 
-public typealias HttpRequestHandler = (HttpRequest) -> HttpResponse
+public typealias NanoHTTPRequestHandler = (NanoHTTPRequest) -> NanoHTTPResponse
 
-public struct HttpConnection {
-  public weak var server: HttpServerIO?
-  public let parser: HttpParser
-  public let request: HttpRequest
-  public let handler: HttpRequestHandler
+public struct NanoHTTPConnection {
+  public weak var server: NanoHTTPServerIO?
+  public let parser: NanoHTTPParser
+  public let request: NanoHTTPRequest
+  public let handler: NanoHTTPRequestHandler
   
-  internal init?(server: HttpServerIO, socket: Socket) {
+  internal init?(server: NanoHTTPServerIO, socket: NanoSocket) {
     server.remember(socket: socket)
     self.server = server
-    self.parser = HttpParser(socket: socket)
+    self.parser = NanoHTTPParser(socket: socket)
     guard let request = try? self.parser.readHttpRequest() else {
       socket.close()
       server.forget(socket: socket)
@@ -58,20 +58,20 @@ public struct HttpConnection {
     self.handler = handler
   }
   
-  private init(current: HttpConnection,
-               request: HttpRequest,
-               handler: @escaping HttpRequestHandler) {
+  private init(current: NanoHTTPConnection,
+               request: NanoHTTPRequest,
+               handler: @escaping NanoHTTPRequestHandler) {
     self.server = current.server
     self.parser = current.parser
     self.request = request
     self.handler = handler
   }
   
-  public var socket: Socket {
+  public var socket: NanoSocket {
     return self.parser.socket
   }
   
-  public func send(_ response: HttpResponse) -> HttpConnection? {
+  public func send(_ response: NanoHTTPResponse) -> NanoHTTPConnection? {
     guard let server else {
       self.close()
       return nil
@@ -93,7 +93,7 @@ public struct HttpConnection {
       request.address = try? socket.peername()
       let (params, handler) = server.dispatch(request: request)
       request.params = params
-      return HttpConnection(current: self, request: request, handler: handler)
+      return NanoHTTPConnection(current: self, request: request, handler: handler)
     }
     self.close()
     return nil
@@ -104,7 +104,7 @@ public struct HttpConnection {
     self.server?.forget(socket: self.socket)
   }
   
-  private func respond(response: HttpResponse, keepAlive: Bool) throws -> Bool {
+  private func respond(response: NanoHTTPResponse, keepAlive: Bool) throws -> Bool {
     guard let server, server.operating else {
       return false
     }
@@ -132,7 +132,7 @@ public struct HttpConnection {
   }
   
   private struct InnerWriteContext: HttpResponseBodyWriter {
-    let socket: Socket
+    let socket: NanoSocket
     
     func write(_ file: String.File) throws {
       try socket.writeFile(file)

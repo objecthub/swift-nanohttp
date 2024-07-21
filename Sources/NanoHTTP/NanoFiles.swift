@@ -36,7 +36,7 @@
 
 import Foundation
 
-public func shareFile(_ path: String) -> HttpRequestHandler {
+public func shareFile(_ path: String) -> NanoHTTPRequestHandler {
   return { _ in
     if let file = try? path.openForReading() {
       let mimeType = path.mimeType()
@@ -55,7 +55,7 @@ public func shareFile(_ path: String) -> HttpRequestHandler {
 }
 
 public func shareFilesFromDirectory(_ directoryPath: String,
-                                    defaults: [String] = ["index.html", "default.html"]) -> HttpRequestHandler {
+                                    defaults: [String] = ["index.html", "default.html"]) -> NanoHTTPRequestHandler {
   return { request in
     guard let fileRelativePath = request.params.first else {
       return .notFound()
@@ -87,7 +87,7 @@ public func shareFilesFromDirectory(_ directoryPath: String,
   }
 }
 
-public func directoryBrowser(_ dir: String) -> HttpRequestHandler {
+public func directoryBrowser(_ dir: String) -> NanoHTTPRequestHandler {
   return { request in
     guard let (_, value) = request.params.first else {
       return .notFound()
@@ -126,7 +126,7 @@ public func directoryBrowser(_ dir: String) -> HttpRequestHandler {
         })
       }
     } catch {
-      return HttpResponse.internalServerError(.text("Internal Server Error"))
+      return NanoHTTPResponse.internalServerError(.init(body: .text("Internal Server Error")))
     }
   }
 }

@@ -36,12 +36,12 @@
 import Foundation
 
 
-public func scopes(_ scope: @escaping Closure) -> HttpRequestHandler {
+public func scopes(_ scope: @escaping Closure) -> NanoHTTPRequestHandler {
   return { _ in
-    scopesBuffer[Process.tid] = ""
+    scopesBuffer[NanoProcess.tid] = ""
     scope()
     return .raw(200, "OK", ["Content-Type": "text/html"], {
-      try? $0.write([UInt8](("<!DOCTYPE html>"  + (scopesBuffer[Process.tid] ?? "")).utf8))
+      try? $0.write([UInt8](("<!DOCTYPE html>"  + (scopesBuffer[NanoProcess.tid] ?? "")).utf8))
     })
   }
 }
@@ -625,15 +625,15 @@ private func evaluate(_ node: String, _ attrs: [String: String?] = [:], _ closur
   acceptCharset = nil
   inner = nil
   
-  scopesBuffer[Process.tid] = (scopesBuffer[Process.tid] ?? "") + "<" + node
+  scopesBuffer[NanoProcess.tid] = (scopesBuffer[NanoProcess.tid] ?? "") + "<" + node
   
     // Save the current output before the nested scope evalutation.
   
-  var output = scopesBuffer[Process.tid] ?? ""
+  var output = scopesBuffer[NanoProcess.tid] ?? ""
   
     // Clear the output buffer for the evalutation.
   
-  scopesBuffer[Process.tid] = ""
+  scopesBuffer[NanoProcess.tid] = ""
   
     // Evaluate the nested scope.
   
@@ -781,10 +781,10 @@ private func evaluate(_ node: String, _ attrs: [String: String?] = [:], _ closur
   }
   
   if let inner = inner {
-    scopesBuffer[Process.tid] = output + ">" + (inner) + "</" + node + ">"
+    scopesBuffer[NanoProcess.tid] = output + ">" + (inner) + "</" + node + ">"
   } else {
-    let current = scopesBuffer[Process.tid]  ?? ""
-    scopesBuffer[Process.tid] = output + ">" + current + "</" + node + ">"
+    let current = scopesBuffer[NanoProcess.tid]  ?? ""
+    scopesBuffer[NanoProcess.tid] = output + ">" + current + "</" + node + ">"
   }
   
     // Pop the attributes.

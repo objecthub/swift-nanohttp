@@ -36,7 +36,7 @@
 
 import Foundation
 
-public enum SocketError: Error {
+public enum NanoSocketError: Error {
   case socketCreationFailed(String)
   case socketSettingReUseAddrFailed(String)
   case bindFailed(String)
@@ -50,7 +50,7 @@ public enum SocketError: Error {
   case getSockNameFailed(String)
 }
 
-open class Socket: Hashable, Equatable {
+open class NanoSocket: Hashable, Equatable {
   let socketFileDescriptor: Int32
   private var shutdown = false
   
@@ -71,7 +71,7 @@ open class Socket: Hashable, Equatable {
       return
     }
     shutdown = true
-    Socket.close(self.socketFileDescriptor)
+    NanoSocket.close(self.socketFileDescriptor)
   }
   
   public func port() throws -> in_port_t {
@@ -79,7 +79,7 @@ open class Socket: Hashable, Equatable {
     return try withUnsafePointer(to: &addr) { pointer in
       var len = socklen_t(MemoryLayout<sockaddr_in>.size)
       if getsockname(socketFileDescriptor, UnsafeMutablePointer(OpaquePointer(pointer)), &len) != 0 {
-        throw SocketError.getSockNameFailed(Self.errnoDescription)
+        throw NanoSocketError.getSockNameFailed(Self.errnoDescription)
       }
       let sin_port = pointer.pointee.sin_port
       #if os(Linux)
@@ -95,7 +95,7 @@ open class Socket: Hashable, Equatable {
     return try withUnsafePointer(to: &addr) { pointer in
       var len = socklen_t(MemoryLayout<sockaddr_in>.size)
       if getsockname(socketFileDescriptor, UnsafeMutablePointer(OpaquePointer(pointer)), &len) != 0 {
-        throw SocketError.getSockNameFailed(Self.errnoDescription)
+        throw NanoSocketError.getSockNameFailed(Self.errnoDescription)
       }
       return Int32(pointer.pointee.sin_family) == AF_INET
     }
@@ -137,7 +137,7 @@ open class Socket: Hashable, Equatable {
       let result = write(self.socketFileDescriptor, pointer + sent, Int(length - sent))
       #endif
       if result <= 0 {
-        throw SocketError.writeFailed(Self.errnoDescription)
+        throw NanoSocketError.writeFailed(Self.errnoDescription)
       }
       sent += result
     }
@@ -157,7 +157,7 @@ open class Socket: Hashable, Equatable {
     let count = Darwin.read(self.socketFileDescriptor as Int32, &byte, 1)
     #endif
     guard count > 0 else {
-      throw SocketError.recvFailed(Self.errnoDescription)
+      throw NanoSocketError.recvFailed(Self.errnoDescription)
     }
     return byte
   }
@@ -186,14 +186,14 @@ open class Socket: Hashable, Equatable {
     guard let baseAddress = buffer.baseAddress else { return 0 }
     while offset < length {
       // Compute next read length in bytes. The bytes read is never more than kBufferLength at once.
-      let readLength = offset + Socket.kBufferLength < length ? Socket.kBufferLength : length - offset
+      let readLength = offset + NanoSocket.kBufferLength < length ? NanoSocket.kBufferLength : length - offset
       #if os(Linux)
       let bytesRead = Glibc.read(self.socketFileDescriptor as Int32, baseAddress + offset, readLength)
       #else
       let bytesRead = Darwin.read(self.socketFileDescriptor as Int32, baseAddress + offset, readLength)
       #endif
       guard bytesRead > 0 else {
-        throw SocketError.recvFailed(Self.errnoDescription)
+        throw NanoSocketError.recvFailed(Self.errnoDescription)
       }
       offset += bytesRead
     }
@@ -208,21 +208,21 @@ open class Socket: Hashable, Equatable {
     var index: UInt8 = 0
     repeat {
       index = try self.read()
-      if index > Socket.CR {
+      if index > NanoSocket.CR {
         characters.append(Character(UnicodeScalar(index)))
       }
-    } while index != Socket.NL
+    } while index != NanoSocket.NL
     return characters
   }
   
   public func peername() throws -> String {
     var addr = sockaddr(), len: socklen_t = socklen_t(MemoryLayout<sockaddr>.size)
     if getpeername(self.socketFileDescriptor, &addr, &len) != 0 {
-      throw SocketError.getPeerNameFailed(Self.errnoDescription)
+      throw NanoSocketError.getPeerNameFailed(Self.errnoDescription)
     }
     var hostBuffer = [CChar](repeating: 0, count: Int(NI_MAXHOST))
     if getnameinfo(&addr, len, &hostBuffer, socklen_t(hostBuffer.count), nil, 0, NI_NUMERICHOST) != 0 {
-      throw SocketError.getNameInfoFailed(Self.errnoDescription)
+      throw NanoSocketError.getNameInfoFailed(Self.errnoDescription)
     }
     return String(cString: hostBuffer)
   }
@@ -255,7 +255,7 @@ open class Socket: Hashable, Equatable {
     let result = sendfile(fileno(file.pointer), self.socketFileDescriptor, 0, &offset, &sf, 0)
     #endif
     if result == -1 {
-      throw SocketError.writeFailed("sendfile: " + Self.errnoDescription)
+      throw NanoSocketError.writeFailed("sendfile: " + Self.errnoDescription)
     }
   }
   
@@ -266,22 +266,22 @@ open class Socket: Hashable, Equatable {
   public class func tcpSocketForListen(_ port: in_port_t,
                                        _ forceIPv4: Bool = false,
                                        _ maxPendingConnection: Int32 = SOMAXCONN,
-                                       _ listenAddress: String? = nil) throws -> Socket {
+                                       _ listenAddress: String? = nil) throws -> NanoSocket {
     #if os(Linux)
     let socketFileDescriptor = socket(forceIPv4 ? AF_INET : AF_INET6, Int32(SOCK_STREAM.rawValue), 0)
     #else
     let socketFileDescriptor = socket(forceIPv4 ? AF_INET : AF_INET6, SOCK_STREAM, 0)
     #endif
     if socketFileDescriptor == -1 {
-      throw SocketError.socketCreationFailed(Self.errnoDescription)
+      throw NanoSocketError.socketCreationFailed(Self.errnoDescription)
     }
     var value: Int32 = 1
     if setsockopt(socketFileDescriptor, SOL_SOCKET, SO_REUSEADDR, &value, socklen_t(MemoryLayout<Int32>.size)) == -1 {
       let details = Self.errnoDescription
-      Socket.close(socketFileDescriptor)
-      throw SocketError.socketSettingReUseAddrFailed(details)
+      NanoSocket.close(socketFileDescriptor)
+      throw NanoSocketError.socketSettingReUseAddrFailed(details)
     }
-    Socket.setNoSigPipe(socketFileDescriptor)
+    NanoSocket.setNoSigPipe(socketFileDescriptor)
     var bindResult: Int32 = -1
     if forceIPv4 {
       #if os(Linux)
@@ -339,26 +339,26 @@ open class Socket: Hashable, Equatable {
     
     if bindResult == -1 {
       let details = Self.errnoDescription
-      Socket.close(socketFileDescriptor)
-      throw SocketError.bindFailed(details)
+      NanoSocket.close(socketFileDescriptor)
+      throw NanoSocketError.bindFailed(details)
     } else if listen(socketFileDescriptor, maxPendingConnection) == -1 {
       let details = Self.errnoDescription
-      Socket.close(socketFileDescriptor)
-      throw SocketError.listenFailed(details)
+      NanoSocket.close(socketFileDescriptor)
+      throw NanoSocketError.listenFailed(details)
     } else {
-      return Socket(socketFileDescriptor: socketFileDescriptor)
+      return NanoSocket(socketFileDescriptor: socketFileDescriptor)
     }
   }
   
-  public func acceptClientSocket() throws -> Socket {
+  public func acceptClientSocket() throws -> NanoSocket {
     var addr = sockaddr()
     var len: socklen_t = 0
     let clientSocket = accept(self.socketFileDescriptor, &addr, &len)
     if clientSocket == -1 {
-      throw SocketError.acceptFailed(Self.errnoDescription)
+      throw NanoSocketError.acceptFailed(Self.errnoDescription)
     }
-    Socket.setNoSigPipe(clientSocket)
-    return Socket(socketFileDescriptor: clientSocket)
+    NanoSocket.setNoSigPipe(clientSocket)
+    return NanoSocket(socketFileDescriptor: clientSocket)
   }
   
   #if os(iOS) || os(tvOS) || os (Linux)
@@ -399,7 +399,7 @@ open class Socket: Hashable, Equatable {
     return String(cString: strerror(errno))
   }
   
-  public static func == (socket1: Socket, socket2: Socket) -> Bool {
+  public static func == (socket1: NanoSocket, socket2: NanoSocket) -> Bool {
     return socket1.socketFileDescriptor == socket2.socketFileDescriptor
   }
 }

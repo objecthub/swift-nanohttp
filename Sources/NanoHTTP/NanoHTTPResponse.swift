@@ -38,7 +38,6 @@ import Foundation
 
 public enum SerializationError: Error {
   case invalidObject
-  case notSupported
 }
 
 public protocol HttpResponseBodyWriter {
@@ -48,74 +47,93 @@ public protocol HttpResponseBodyWriter {
   func write(_ data: Data) throws
 }
 
-public enum HttpResponseBody {
-  case json(Any)
-  case html(String)
-  case htmlBody(String)
-  case text(String)
-  case data(Data, contentType: String? = nil)
-  case custom(Any, (Any) throws -> String)
+public enum NanoHTTPResponse {
   
-  func content() -> (Int, ((HttpResponseBodyWriter) throws -> Void)?) {
-    do {
-      switch self {
-        case .json(let object):
-          guard JSONSerialization.isValidJSONObject(object) else {
-            throw SerializationError.invalidObject
-          }
-          let data = try JSONSerialization.data(withJSONObject: object)
-          return (data.count, {
-            try $0.write(data)
-          })
-        case .text(let body):
-          let data = [UInt8](body.utf8)
-          return (data.count, {
-            try $0.write(data)
-          })
-        case .html(let html):
-          let data = [UInt8](html.utf8)
-          return (data.count, {
-            try $0.write(data)
-          })
-        case .htmlBody(let body):
-          let serialized = "<html><meta charset=\"UTF-8\"><body>\(body)</body></html>"
-          let data = [UInt8](serialized.utf8)
-          return (data.count, {
-            try $0.write(data)
-          })
-        case .data(let data, _):
-          return (data.count, {
-            try $0.write(data)
-          })
-        case .custom(let object, let closure):
-          let serialized = try closure(object)
-          let data = [UInt8](serialized.utf8)
-          return (data.count, {
-            try $0.write(data)
-          })
-      }
-    } catch {
-      let data = [UInt8]("Serialization error: \(error)".utf8)
-      return (data.count, {
-        try $0.write(data)
-      })
+  public struct Content {
+    public var headers: [String : String]
+    public var body: Body
+    
+    public init(headers: [String : String] = [:], body: Body) {
+      self.headers = headers
+      self.body = body
     }
   }
-}
-
-public enum HttpResponse {
-  case switchProtocols([String: String], (Socket) -> Void)
-  case ok(HttpResponseBody, [String: String] = [:]), created, accepted
-  case movedPermanently(String)
-  case movedTemporarily(String)
-  case badRequest(HttpResponseBody?)
-  case unauthorized(HttpResponseBody?)
-  case forbidden(HttpResponseBody?)
-  case notFound(HttpResponseBody? = nil)
-  case notAcceptable(HttpResponseBody?)
-  case tooManyRequests(HttpResponseBody?)
-  case internalServerError(HttpResponseBody?)
-  case raw(Int, String, [String: String]?, ((HttpResponseBodyWriter) throws -> Void)?)
+  
+  public enum Body {
+    case json(Any)
+    case html(String)
+    case htmlBody(String)
+    case text(String)
+    case data(Data, contentType: String? = nil)
+    
+    public func contentType() -> String? {
+      switch self {
+        case .json:
+          return "application/json"
+        case .html, .htmlBody:
+          return "text/html"
+        case .text:
+          return "text/plain"
+        case .data(_, let contentType):
+          return contentType
+      }
+    }
+    
+    func content() -> (Int, ((HttpResponseBodyWriter) throws -> Void)?) {
+      do {
+        switch self {
+          case .json(let object):
+            guard JSONSerialization.isValidJSONObject(object) else {
+              throw SerializationError.invalidObject
+            }
+            let data = try JSONSerialization.data(withJSONObject: object)
+            return (data.count, {
+              try $0.write(data)
+            })
+          case .text(let body):
+            let data = [UInt8](body.utf8)
+            return (data.count, {
+              try $0.write(data)
+            })
+          case .html(let html):
+            let data = [UInt8](html.utf8)
+            return (data.count, {
+              try $0.write(data)
+            })
+          case .htmlBody(let body):
+            let serialized = "<html><meta charset=\"UTF-8\"><body>\(body)</body></html>"
+            let data = [UInt8](serialized.utf8)
+            return (data.count, {
+              try $0.write(data)
+            })
+          case .data(let data, _):
+            return (data.count, {
+              try $0.write(data)
+            })
+        }
+      } catch {
+        let data = [UInt8]("Serialization error: \(error)".utf8)
+        return (data.count, {
+          try $0.write(data)
+        })
+      }
+    }
+  }
+  
+  case created
+  case accepted
+  case ok(Content)
+  case switchProtocols([String : String], (NanoSocket) -> Void)
+  case movedPermanently(String, [String : String]? = nil)
+  case movedTemporarily(String, [String : String]? = nil)
+  case badRequest(Content?)
+  case unauthorized(Content?)
+  case forbidden(Content?)
+  case notFound(Content? = nil)
+  case notAcceptable(Content?)
+  case tooManyRequests(Content?)
+  case internalServerError(Content?)
+  case raw(Int, String, [String : String]?, ((HttpResponseBodyWriter) throws -> Void)?)
   
   public var statusCode: Int {
     switch self {
@@ -152,14 +170,14 @@ public enum HttpResponse {
   
   public var reasonPhrase: String {
     switch self {
-      case .switchProtocols:
-        return "Switching Protocols"
-      case .ok:
-        return "OK"
       case .created:
         return "Created"
       case .accepted:
         return "Accepted"
+      case .ok:
+        return "OK"
+      case .switchProtocols:
+        return "Switching Protocols"
       case .movedPermanently:
         return "Moved Permanently"
       case .movedTemporarily:
@@ -183,32 +201,44 @@ public enum HttpResponse {
     }
   }
   
-  public func headers() -> [String: String] {
-    var headers = ["Server" : "Swifter \(HttpServer.VERSION)"]
+  public func headers() -> [String : String] {
+    var headers = ["Server" : "Swifter \(NanoHTTPServer.VERSION)"]
     switch self {
+      case .ok(let content):
+        for (key, value) in content.headers {
+          headers.updateValue(value, forKey: key)
+        }
+        if let contentType = content.body.contentType() {
+          headers["Content-Type"] = contentType
+        }
+      case .badRequest(let content),
+           .unauthorized(let content),
+           .forbidden(let content),
+           .notFound(let content),
+           .tooManyRequests(let content),
+           .internalServerError(let content):
+        if let content {
+          for (key, value) in content.headers {
+            headers.updateValue(value, forKey: key)
+          }
+        }
       case .switchProtocols(let switchHeaders, _):
         for (key, value) in switchHeaders {
           headers[key] = value
         }
-      case .ok(let body, let customHeaders):
-        for (key, value) in customHeaders {
-          headers.updateValue(value, forKey: key)
+      case .movedPermanently(let location, let rawHeaders):
+        if let rawHeaders {
+          for (key, value) in rawHeaders {
+            headers[key] = value
+          }
         }
-        switch body {
-          case .json:
-            headers["Content-Type"] = "application/json"
-          case .html, .htmlBody:
-            headers["Content-Type"] = "text/html"
-          case .text:
-            headers["Content-Type"] = "text/plain"
-          case .data(_, let contentType):
-            headers["Content-Type"] = contentType
-          default:
-            break
-        }
-      case .movedPermanently(let location):
         headers["Location"] = location
-      case .movedTemporarily(let location):
+      case .movedTemporarily(let location, let rawHeaders):
+        if let rawHeaders {
+          for (key, value) in rawHeaders {
+            headers[key] = value
+          }
+        }
         headers["Location"] = location
       case .raw(_, _, let rawHeaders, _):
         if let rawHeaders {
@@ -224,15 +254,15 @@ public enum HttpResponse {
   
   func content() -> (length: Int, write: ((HttpResponseBodyWriter) throws -> Void)?) {
     switch self {
-      case .ok(let body, _):
-        return body.content()
-      case .badRequest(let body),
-           .unauthorized(let body),
-           .forbidden(let body),
-           .notFound(let body),
-           .tooManyRequests(let body),
-           .internalServerError(let body):
-        return body?.content() ?? (-1, nil)
+      case .ok(let content):
+        return content.body.content()
+      case .badRequest(let content),
+           .unauthorized(let content),
+           .forbidden(let content),
+           .notFound(let content),
+           .tooManyRequests(let content),
+           .internalServerError(let content):
+        return content?.body.content() ?? (-1, nil)
       case .raw(_, _, _, let writer):
         return (-1, writer)
       default:
@@ -240,7 +270,7 @@ public enum HttpResponse {
     }
   }
   
-  func socketSession() -> ((Socket) -> Void)? {
+  func socketSession() -> ((NanoSocket) -> Void)? {
     switch self {
       case .switchProtocols(_, let handler):
         return handler
@@ -259,7 +289,7 @@ public enum HttpResponse {
           print("Client requested not found: \(request.url)")
       }
   */
-  public static func == (inLeft: HttpResponse, inRight: HttpResponse) -> Bool {
+  public static func == (inLeft: NanoHTTPResponse, inRight: NanoHTTPResponse) -> Bool {
       return inLeft.statusCode == inRight.statusCode
   }
 }

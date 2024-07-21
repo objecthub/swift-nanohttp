@@ -37,22 +37,22 @@
 import Foundation
 import Dispatch
 
-public protocol HttpServerDelegate: AnyObject {
-  func connectionReceived(server: HttpServerIO, socket: Socket)
+public protocol NanoHTTPServerDelegate: AnyObject {
+  func connectionReceived(server: NanoHTTPServerIO, socket: NanoSocket)
 }
 
-open class HttpServerIO {
+open class NanoHTTPServerIO {
   
-  public enum HttpServerIOState: Int32 {
+  public enum State: Int32 {
     case starting
     case running
     case stopping
     case stopped
   }
   
-  public weak var delegate: HttpServerDelegate?
+  public weak var delegate: NanoHTTPServerDelegate?
   
-  private var socket = Socket(socketFileDescriptor: -1)
+  private var socket = NanoSocket(socketFileDescriptor: -1)
   
   /// String representation of the IPv4 address to receive requests from.
   /// It's only used when the server is started with `forceIPv4` option set to true.
@@ -65,15 +65,15 @@ open class HttpServerIO {
   public var listenAddressIPv6: String?
   
   /// Actively used sockets; mutations are synchronized
-  private var sockets = Set<Socket>()
+  private var sockets = Set<NanoSocket>()
   private let lock = NSLock()
   
-  private var stateValue: Int32 = HttpServerIOState.stopped.rawValue
+  private var stateValue: Int32 = State.stopped.rawValue
   
   /// The state of the server.
-  public private(set) var state: HttpServerIOState {
+  public private(set) var state: State {
     get {
-      return HttpServerIOState(rawValue: stateValue)!
+      return State(rawValue: stateValue)!
     }
     set(state) {
       #if !os(Linux)
@@ -122,7 +122,7 @@ open class HttpServerIO {
     self.stop()
     self.state = .starting
     let address = forceIPv4 ? listenAddressIPv4 : listenAddressIPv6
-    self.socket = try Socket.tcpSocketForListen(port, forceIPv4, SOMAXCONN, address)
+    self.socket = try NanoSocket.tcpSocketForListen(port, forceIPv4, SOMAXCONN, address)
     self.state = .running
     if let priority {
       DispatchQueue.global(qos: priority).async { [weak self] in
@@ -150,22 +150,22 @@ open class HttpServerIO {
         DispatchQueue.global(qos: priority).async { [weak self] in
           if let server = self,
              server.operating,
-             let connection = HttpConnection(server: server, socket: socket) {
+             let connection = NanoHTTPConnection(server: server, socket: socket) {
             server.handle(connection: connection)
           }
         }
-      } else if self.operating, let connection = HttpConnection(server: self, socket: socket) {
+      } else if self.operating, let connection = NanoHTTPConnection(server: self, socket: socket) {
         self.handle(connection: connection)
       }
     }
     self.stop()
   }
   
-  open func dispatch(request: HttpRequest) -> ([String: String], HttpRequestHandler) {
-    return ([:], { _ in HttpResponse.notFound(nil) })
+  open func dispatch(request: NanoHTTPRequest) -> ([String: String], NanoHTTPRequestHandler) {
+    return ([:], { _ in NanoHTTPResponse.notFound(nil) })
   }
   
-  open func handle(connection: HttpConnection) {
+  open func handle(connection: NanoHTTPConnection) {
     var connection = connection
     while let next = connection.send(connection.handler(connection.request)) {
       connection = next
@@ -176,13 +176,13 @@ open class HttpServerIO {
     print(str)
   }
   
-  public func remember(socket: Socket) {
+  public func remember(socket: NanoSocket) {
     self.lock.lock()
     self.sockets.insert(socket)
     self.lock.unlock()
   }
   
-  public func forget(socket: Socket) {
+  public func forget(socket: NanoSocket) {
     self.lock.lock()
     self.sockets.remove(socket)
     self.lock.unlock()

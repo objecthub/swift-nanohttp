@@ -36,34 +36,33 @@
 
 import Foundation
 
-enum HttpParserError: Error, Equatable {
+enum NanoHTTPParserError: Error, Equatable {
   case invalidStatusLine(String)
   case negativeContentLength
 }
 
-public struct HttpParser {
-  public let socket: Socket
+public struct NanoHTTPParser {
+  public let socket: NanoSocket
   
-  public func readHttpRequest() throws -> HttpRequest {
+  public func readHttpRequest() throws -> NanoHTTPRequest {
     let statusLine = try self.socket.readLine()
     let statusLineTokens = statusLine.components(separatedBy: " ")
     if statusLineTokens.count < 3 {
-      throw HttpParserError.invalidStatusLine(statusLine)
+      throw NanoHTTPParserError.invalidStatusLine(statusLine)
     }
-    let request = HttpRequest()
-    request.method = statusLineTokens[0]
-    let path = statusLineTokens[1].addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
-                 ?? statusLineTokens[1]
-    let urlComponents = URLComponents(string: path)
-    request.path = urlComponents?.path ?? ""
-    request.queryParams = urlComponents?.queryItems?.map { ($0.name, $0.value ?? "") } ?? []
-    request.headers = try readHeaders()
+    let urlComponents = URLComponents(string: statusLineTokens[1].addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+                                      ?? statusLineTokens[1])
+    let request = NanoHTTPRequest(
+                    method: statusLineTokens[0],
+                    path: urlComponents?.path ?? "",
+                    queryParams: urlComponents?.queryItems?.map { ($0.name, $0.value ?? "") } ?? [],
+                    headers: try readHeaders())
     if let contentLength = request.headers["content-length"],
        let contentLengthValue = Int(contentLength) {
       // Prevent a buffer overflow and runtime error trying to create an
       // `UnsafeMutableBufferPointer` with a negative length.
       guard contentLengthValue >= 0 else {
-        throw HttpParserError.negativeContentLength
+        throw NanoHTTPParserError.negativeContentLength
       }
       request.body = try readBody(size: contentLengthValue)
     }

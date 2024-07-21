@@ -36,13 +36,13 @@
 
 import Foundation
 
-open class HttpServer: HttpServerIO {
+open class NanoHTTPServer: NanoHTTPServerIO {
   
   public struct MethodRoute {
     public let method: String
-    public let router: HttpRouter
+    public let router: NanoHTTPRouter
     
-    public subscript(path: String...) -> HttpRequestHandler? {
+    public subscript(path: String...) -> NanoHTTPRequestHandler? {
       get {
         return nil
       }
@@ -58,7 +58,7 @@ open class HttpServer: HttpServerIO {
     #if os(Linux)
     return "1.5.0"
     #else
-    let bundle = Bundle(for: HttpServer.self)
+    let bundle = Bundle(for: NanoHTTPServer.self)
     guard let version = bundle.infoDictionary?["CFBundleShortVersionString"] as? String else {
       return "Unspecified"
     }
@@ -66,15 +66,15 @@ open class HttpServer: HttpServerIO {
     #endif
   }()
   
-  private let router = HttpRouter()
+  private let router = NanoHTTPRouter()
   public var delete: MethodRoute
   public var patch: MethodRoute
   public var head: MethodRoute
   public var post: MethodRoute
   public var get: MethodRoute
   public var put: MethodRoute
-  public var notFoundHandler: HttpRequestHandler? = nil
-  public var middleware: [(HttpRequest) -> HttpResponse?] = []
+  public var notFoundHandler: NanoHTTPRequestHandler? = nil
+  public var middleware: [(NanoHTTPRequest) -> NanoHTTPResponse?] = []
   
   public override init() {
     self.delete = MethodRoute(method: "DELETE", router: self.router)
@@ -89,7 +89,7 @@ open class HttpServer: HttpServerIO {
     return self.router.routes()
   }
   
-  public subscript(path: String) -> HttpRequestHandler? {
+  public subscript(path: String) -> NanoHTTPRequestHandler? {
     get {
       return nil
     }
@@ -98,11 +98,11 @@ open class HttpServer: HttpServerIO {
     }
   }
   
-  public func use(_ prefix: String, router: HttpRouter) throws {
+  public func use(_ prefix: String, router: NanoHTTPRouter) throws {
     try self.router.merge(router, withPrefix: prefix)
   }
   
-  override open func dispatch(request: HttpRequest) -> ([String: String], HttpRequestHandler) {
+  override open func dispatch(request: NanoHTTPRequest) -> ([String: String], NanoHTTPRequestHandler) {
     for layer in middleware {
       if let response = layer(request) {
         return ([:], { _ in response })

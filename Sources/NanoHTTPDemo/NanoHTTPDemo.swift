@@ -8,8 +8,8 @@
 import Foundation
 import NanoHTTP
 
-public func demoServer(server: HttpServer? = nil, directory publicDir: String) -> HttpServer {
-  let server = server ?? HttpServer()
+public func demoServer(server: NanoHTTPServer? = nil, directory publicDir: String) -> NanoHTTPServer {
+  let server = server ?? NanoHTTPServer()
   server.log("directory = \(publicDir)")
   
   server["/public/:path"] = shareFilesFromDirectory(publicDir)
@@ -31,7 +31,8 @@ public func demoServer(server: HttpServer? = nil, directory publicDir: String) -
   }
   
   server["/magic"] = {
-    return .ok(.htmlBody("You asked for " + $0.path), ["XXX-Custom-Header": "value"])
+    return .ok(.init(headers: ["XXX-Custom-Header" : "value"],
+                     body: .htmlBody("You asked for " + $0.path)))
   }
   
   server["/test/:param1/:param2"] = { request in
@@ -92,7 +93,7 @@ public func demoServer(server: HttpServer? = nil, directory publicDir: String) -
       guard let name = multipart.name, let fileName = multipart.fileName else { continue }
       response += "Name: \(name) File name: \(fileName) Size: \(multipart.body.count)<br>"
     }
-    return .ok(.htmlBody(response), ["XXX-Custom-Header": "value"])
+    return .ok(.init(headers: ["XXX-Custom-Header" : "value"], body: .htmlBody(response)))
   }
   
   server.get["/login"] = scopes {
@@ -127,8 +128,8 @@ public func demoServer(server: HttpServer? = nil, directory publicDir: String) -
   
   server.post["/login"] = { request in
     let formFields = request.parseUrlencodedForm()
-    return .ok(.htmlBody(formFields.map({ "\($0.0) = \($0.1)" }).joined(separator: "<br>")),
-               ["XXX-Custom-Header": "value"])
+    return .ok(.init(headers: ["XXX-Custom-Header": "value"],
+                     body: .htmlBody(formFields.map({ "\($0.0) = \($0.1)" }).joined(separator: "<br>"))))
   }
   
   server["/demo"] = scopes {
@@ -147,14 +148,14 @@ public func demoServer(server: HttpServer? = nil, directory publicDir: String) -
   }
   
   server["/open"] = { _ in
-    return .ok(.htmlBody("Open connections: \(server.openConnections)"), [:])
+    return .ok(.init(body: .htmlBody("Open connections: \(server.openConnections)")))
   }
   
   server["/close"] = { _ in
     DispatchQueue.global().asyncAfter(deadline: .now().advanced(by: .seconds(2))) {
       server.closeAndforgetAllConnections()
     }
-    return .ok(.htmlBody("Open connections: \(server.openConnections)"), [:])
+    return .ok(.init(body: .htmlBody("Open connections: \(server.openConnections)")))
   }
   
   server["/redirect/permanently"] = { _ in
@@ -168,11 +169,11 @@ public func demoServer(server: HttpServer? = nil, directory publicDir: String) -
   server["/long"] = { _ in
     var longResponse = ""
     for index in 0..<1000 { longResponse += "(\(index)),->" }
-    return .ok(.htmlBody(longResponse), ["XXX-Custom-Header": "value"])
+    return .ok(.init(headers: ["XXX-Custom-Header": "value"], body: .htmlBody(longResponse)))
   }
   
   server["/wildcard/*/test/*/:param"] = { request in
-    return .ok(.htmlBody(request.path), ["XXX-Custom-Header": "value"])
+    return .ok(.init(headers: ["XXX-Custom-Header": "value"], body: .htmlBody(request.path)))
   }
   
   server["/stream"] = { _ in

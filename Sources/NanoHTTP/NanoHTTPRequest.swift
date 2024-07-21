@@ -36,16 +36,27 @@
 
 import Foundation
 
-public class HttpRequest {
-  public var method: String = ""
-  public var address: String? = ""
-  public var path: String = ""
-  public var queryParams: [(String, String)] = []
-  public var headers: [String: String] = [:]
-  public var body: [UInt8] = []
-  public var params: [String: String] = [:]
+public class NanoHTTPRequest {
+  public var method: String
+  public var path: String
+  public var queryParams: [(String, String)]
+  public var headers: [String : String]
+  public var body: [UInt8]
+  public var address: String? = nil
+  public var params: [String : String] = [:]
+  public var custom: [String : Any] = [:]
   
-  public init() {}
+  public init(method: String,
+              path: String,
+              queryParams: [(String, String)] = [],
+              headers: [String : String] = [:],
+              body: [UInt8] = []) {
+    self.method = method
+    self.path = path
+    self.queryParams = queryParams
+    self.headers = headers
+    self.body = body
+  }
   
   public var supportsKeepAlive: Bool {
     if let value = self.headers["connection"] {
@@ -179,10 +190,10 @@ public class HttpRequest {
   private func nextUTF8MultiPartLine(_ generator: inout IndexingIterator<[UInt8]>) -> String? {
     var temp = [UInt8]()
     while let value = generator.next() {
-      if value > HttpRequest.CR {
+      if value > NanoHTTPRequest.CR {
         temp.append(value)
       }
-      if value == HttpRequest.NL {
+      if value == NanoHTTPRequest.NL {
         break
       }
     }
@@ -202,9 +213,9 @@ public class HttpRequest {
       body.append(x)
       if matchOffset == boundaryArray.count {
         body.removeSubrange(body.count-matchOffset ..< body.count)
-        if body.last == HttpRequest.NL {
+        if body.last == NanoHTTPRequest.NL {
           body.removeLast()
-          if body.last == HttpRequest.CR {
+          if body.last == NanoHTTPRequest.CR {
             body.removeLast()
           }
         }

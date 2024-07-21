@@ -33,7 +33,7 @@
 
 import Foundation
 
-open class HttpRouter {
+open class NanoHTTPRouter {
   
   fileprivate class Segment: CustomDebugStringConvertible {
     /// The children segments that form the route
@@ -42,7 +42,7 @@ open class HttpRouter {
     var pathVariableChildren: [String? : Segment] = [:]
     
     /// The closure to handle the route
-    var handler: HttpRequestHandler?
+    var handler: NanoHTTPRequestHandler?
     
     func copy() -> Segment {
       let result = Segment()
@@ -106,7 +106,7 @@ open class HttpRouter {
       self.handler = other.handler ?? self.handler
     }
     
-    func match(path: [String], index: Int) -> ([String : String], HttpRequestHandler)? {
+    func match(path: [String], index: Int) -> ([String : String], NanoHTTPRequestHandler)? {
       // All the path has been matched already: if there is a handler, return it, otherwise fail
       guard index < path.count else {
         // If this segment has a handler, return it
@@ -187,7 +187,7 @@ open class HttpRouter {
     return routes
   }
   
-  open func register(_ method: String?, path: String, handler: HttpRequestHandler?) {
+  open func register(_ method: String?, path: String, handler: NanoHTTPRequestHandler?) {
     let selectors = self.selectors(from: path)
     self.lock.lock()
     defer {
@@ -196,7 +196,7 @@ open class HttpRouter {
     self.root.next(for: method).insert(selectors: selectors).handler = handler
   }
   
-  open func merge(_ router: HttpRouter, withPrefix prefix: String) throws {
+  open func merge(_ router: NanoHTTPRouter, withPrefix prefix: String) throws {
     let selectors = self.selectors(from: prefix)
     self.lock.lock()
     defer {
@@ -207,7 +207,7 @@ open class HttpRouter {
     }
   }
   
-  open func route(_ method: String, path: String) -> ([String: String], HttpRequestHandler)? {
+  open func route(_ method: String, path: String) -> ([String: String], NanoHTTPRequestHandler)? {
     self.lock.lock()
     defer {
       self.lock.unlock()
@@ -222,12 +222,12 @@ open class HttpRouter {
   }
 }
 
-extension Dictionary where Value == HttpRouter.Segment {
+extension Dictionary where Value == NanoHTTPRouter.Segment {
   mutating func next(for key: Key) -> Value {
     if let result = self[key] {
       return result
     } else {
-      let result = HttpRouter.Segment()
+      let result = NanoHTTPRouter.Segment()
       self[key] = result
       return result
     }

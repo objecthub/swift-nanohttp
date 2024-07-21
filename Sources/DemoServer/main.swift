@@ -14,11 +14,10 @@ import NanoHTTPDemo
 do {
   let path = try FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path ??
              String.File.currentWorkingDirectory()
-  print("directory = \(path)")
   let server = demoServer(directory: path)
   server["/testAfterBaseRoute"] = { request in
     print("Received request: \(request)")
-    return .ok(.htmlBody("ok !"))
+    return .ok(.init(body: .htmlBody("ok !")))
   }
   try? server.start(9080, forceIPv4: true)
   print("Server has started (port = \(try server.port())). Try to connect now...")

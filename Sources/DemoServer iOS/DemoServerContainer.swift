@@ -11,7 +11,7 @@ import NanoHTTPDemo
 
 final class DemoServerContainer: ObservableObject {
   
-  final class iOSHttpServer: HttpServer {
+  final class iOSHttpServer: NanoHTTPServer {
     weak var container: DemoServerContainer? = nil
     public override func log(_ str: String) {
       if let container {
@@ -22,7 +22,7 @@ final class DemoServerContainer: ObservableObject {
     }
   }
   
-  let server: HttpServer
+  let server: NanoHTTPServer
   @Published var output = ""
   
   init() {

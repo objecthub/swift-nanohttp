@@ -8,15 +8,12 @@
 import Foundation
 import NanoHTTP
 
-public func demoServer(server: NanoHTTPServer? = nil, directory publicDir: String) -> NanoHTTPServer {
-  let server = server ?? NanoHTTPServer()
+public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
+                       directory publicDir: String) -> NanoHTTPServer {
   server.log("directory = \(publicDir)")
-  
   server["/public/:path"] = shareFilesFromDirectory(publicDir)
-  
   server["/files/:path"] = directoryBrowser(publicDir)
-  
-  server["/"] = scopes {
+  server["/"] = htmlHandler {
     html {
       body {
         ul(server.routes) { service in
@@ -29,14 +26,12 @@ public func demoServer(server: NanoHTTPServer? = nil, directory publicDir: Strin
       }
     }
   }
-  
   server["/magic"] = {
     return .ok(.init(headers: ["XXX-Custom-Header" : "value"],
                      body: .htmlBody("You asked for " + $0.path)))
   }
-  
   server["/test/:param1/:param2"] = { request in
-    scopes {
+    htmlHandler {
       html {
         body {
           h3 { inner = "Address: \(request.address ?? "unknown")" }
@@ -67,8 +62,7 @@ public func demoServer(server: NanoHTTPServer? = nil, directory publicDir: Strin
       }
     }(request)
   }
-  
-  server.get["/upload"] = scopes {
+  server.get["/upload"] = htmlHandler {
     html {
       body {
         form {
@@ -86,7 +80,6 @@ public func demoServer(server: NanoHTTPServer? = nil, directory publicDir: Strin
       }
     }
   }
-  
   server.post["/upload"] = { request in
     var response = ""
     for multipart in request.parseMultiPartFormData() {
@@ -95,8 +88,7 @@ public func demoServer(server: NanoHTTPServer? = nil, directory publicDir: Strin
     }
     return .ok(.init(headers: ["XXX-Custom-Header" : "value"], body: .htmlBody(response)))
   }
-  
-  server.get["/login"] = scopes {
+  server.get["/login"] = htmlHandler {
     html {
       head {
         script { src = "http://cdn.staticfile.org/jquery/2.1.4/jquery.min.js" }
@@ -125,14 +117,12 @@ public func demoServer(server: NanoHTTPServer? = nil, directory publicDir: Strin
       }
     }
   }
-  
   server.post["/login"] = { request in
     let formFields = request.parseUrlencodedForm()
     return .ok(.init(headers: ["XXX-Custom-Header": "value"],
                      body: .htmlBody(formFields.map({ "\($0.0) = \($0.1)" }).joined(separator: "<br>"))))
   }
-  
-  server["/demo"] = scopes {
+  server["/demo"] = htmlHandler {
     html {
       body {
         center {
@@ -142,40 +132,32 @@ public func demoServer(server: NanoHTTPServer? = nil, directory publicDir: Strin
       }
     }
   }
-  
   server["/raw"] = { _ in
     return .raw(200, "OK", ["XXX-Custom-Header": "value"], { try $0.write([UInt8]("test".utf8)) })
   }
-  
   server["/open"] = { _ in
     return .ok(.init(body: .htmlBody("Open connections: \(server.openConnections)")))
   }
-  
   server["/close"] = { _ in
     DispatchQueue.global().asyncAfter(deadline: .now().advanced(by: .seconds(2))) {
       server.closeAndforgetAllConnections()
     }
     return .ok(.init(body: .htmlBody("Open connections: \(server.openConnections)")))
   }
-  
   server["/redirect/permanently"] = { _ in
     return .movedPermanently("http://www.google.com")
   }
-  
   server["/redirect/temporarily"] = { _ in
     return .movedTemporarily("http://www.google.com")
   }
-  
   server["/long"] = { _ in
     var longResponse = ""
     for index in 0..<1000 { longResponse += "(\(index)),->" }
     return .ok(.init(headers: ["XXX-Custom-Header": "value"], body: .htmlBody(longResponse)))
   }
-  
   server["/wildcard/*/test/*/:param"] = { request in
     return .ok(.init(headers: ["XXX-Custom-Header": "value"], body: .htmlBody(request.path)))
   }
-  
   server["/stream"] = { _ in
     return .raw(200, "OK", nil, { writer in
       for index in 0...100 {
@@ -183,7 +165,6 @@ public func demoServer(server: NanoHTTPServer? = nil, directory publicDir: Strin
       }
     })
   }
-  
   server["/websocket-echo"] = websocket(
     text: { (session, text) in session.writeText(text) },
     binary: { (session, binary) in session.writeBinary(binary) },
@@ -191,15 +172,12 @@ public func demoServer(server: NanoHTTPServer? = nil, directory publicDir: Strin
     connected: { _ in /* New client connected */ },
     disconnected: { _ in /* Client disconnected */ }
   )
-  
   server.notFoundHandler = { _ in
     return .movedPermanently("https://github.com/404")
   }
-  
   server.middleware.append { request in
     server.log("Middleware: \(request.address ?? "unknown address") -> \(request.method) \(request.path)")
     return nil
   }
-  
   return server
 }

@@ -36,7 +36,7 @@
 import Foundation
 
 
-public func scopes(_ scope: @escaping Closure) -> NanoHTTPRequestHandler {
+public func htmlHandler(_ scope: @escaping Closure) -> NanoHTTPRequestHandler {
   return { _ in
     scopesBuffer[NanoProcess.tid] = ""
     scope()

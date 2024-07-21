@@ -100,7 +100,7 @@ public func directoryBrowser(_ dir: String) -> NanoHTTPRequestHandler {
       if try filePath.directory() {
         var files = try filePath.files()
         files.sort(by: {$0.lowercased() < $1.lowercased()})
-        return scopes {
+        return htmlHandler {
           html {
             body {
               table(files) { file in

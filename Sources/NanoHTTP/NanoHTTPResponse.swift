@@ -57,6 +57,14 @@ public enum NanoHTTPResponse {
       self.headers = headers
       self.body = body
     }
+    
+    public static func body(_ body: Body) -> Content {
+      return .init(body: body)
+    }
+    
+    public static func content(headers: [String : String] = [:], body: Body) -> Content {
+      return .init(headers: headers, body: body)
+    }
   }
   
   public enum Body {

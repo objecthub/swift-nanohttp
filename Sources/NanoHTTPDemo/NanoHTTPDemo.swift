@@ -11,8 +11,8 @@ import NanoHTTP
 public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
                        directory publicDir: String) -> NanoHTTPServer {
   server.log("directory = \(publicDir)")
-  server["/public/:path"] = shareFilesFromDirectory(publicDir)
-  server["/files/:path"] = directoryBrowser(publicDir)
+  server["/public/::path"] = share(directory: publicDir)
+  server["/files/::path"] = browse(directory: publicDir)
   server["/"] = htmlHandler {
     html {
       body {
@@ -83,7 +83,10 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
   server.post["/upload"] = { request in
     var response = ""
     for multipart in request.parseMultiPartFormData() {
-      guard let name = multipart.name, let fileName = multipart.fileName else { continue }
+      guard let name = multipart.name,
+            let fileName = multipart.fileName else {
+        continue
+      }
       response += "Name: \(name) File name: \(fileName) Size: \(multipart.body.count)<br>"
     }
     return .ok(.init(headers: ["XXX-Custom-Header" : "value"], body: .htmlBody(response)))

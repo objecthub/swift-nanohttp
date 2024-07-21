@@ -36,7 +36,7 @@
 
 import Foundation
 
-public func shareFile(_ path: String) -> NanoHTTPRequestHandler {
+public func share(file path: String) -> NanoHTTPRequestHandler {
   return { _ in
     if let file = try? path.openForReading() {
       let mimeType = path.mimeType()
@@ -54,15 +54,16 @@ public func shareFile(_ path: String) -> NanoHTTPRequestHandler {
   }
 }
 
-public func shareFilesFromDirectory(_ directoryPath: String,
-                                    defaults: [String] = ["index.html", "default.html"]) -> NanoHTTPRequestHandler {
+public func share(directory path: String,
+                  defaults: [String] = ["index.html", "default.html"]) -> NanoHTTPRequestHandler {
   return { request in
-    guard let fileRelativePath = request.params.first else {
-      return .notFound()
+    guard let (_, value) = request.params.first,
+          let fileRelativePath = value.removingPercentEncoding else {
+      return NanoHTTPResponse.internalServerError(.body(.text("Internal Server Error")))
     }
-    if fileRelativePath.value.isEmpty {
-      for path in defaults {
-        if let file = try? (directoryPath + String.pathSeparator + path).openForReading() {
+    if fileRelativePath.isEmpty {
+      for d in defaults {
+        if let file = try? (path + String.pathSeparator + d).openForReading() {
           return .raw(200, "OK", [:], { writer in
             try? writer.write(file)
             file.close()
@@ -70,9 +71,9 @@ public func shareFilesFromDirectory(_ directoryPath: String,
         }
       }
     }
-    let filePath = directoryPath + String.pathSeparator + fileRelativePath.value
+    let filePath = path + String.pathSeparator + fileRelativePath
     if let file = try? filePath.openForReading() {
-      let mimeType = fileRelativePath.value.mimeType()
+      let mimeType = fileRelativePath.mimeType()
       var responseHeader: [String: String] = ["Content-Type": mimeType]
       if let attr = try? FileManager.default.attributesOfItem(atPath: filePath),
          let fileSize = attr[FileAttributeKey.size] as? UInt64 {
@@ -83,42 +84,37 @@ public func shareFilesFromDirectory(_ directoryPath: String,
         file.close()
       })
     }
-    return .notFound()
+    return .notFound(.body(.text("Unknown file/directory")))
   }
 }
 
-public func directoryBrowser(_ dir: String) -> NanoHTTPRequestHandler {
+public func browse(directory dir: String) -> NanoHTTPRequestHandler {
   return { request in
-    guard let (_, value) = request.params.first else {
-      return .notFound()
+    guard let (_, value) = request.params.first,
+          let path = value.removingPercentEncoding else {
+      return NanoHTTPResponse.internalServerError(.body(.text("Internal Server Error")))
     }
-    let filePath = dir + String.pathSeparator + value
+    var base = request.path
+    if base.last != "/" {
+      base.append("/")
+    }
+    let filePath = dir + String.pathSeparator + path
     do {
       guard try filePath.exists() else {
-        return .notFound()
+        return .notFound(.body(.text("Unknown file/directory")))
       }
       if try filePath.directory() {
         var files = try filePath.files()
         files.sort(by: {$0.lowercased() < $1.lowercased()})
-        return htmlHandler {
-          html {
-            body {
-              table(files) { file in
-                tr {
-                  td {
-                    a {
-                      href = request.path + "%2F" + file
-                      inner = file
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }(request)
+        var res = ""
+        for f in files {
+          let path = base + (f.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? f)
+          res += "<li><a href=\"\(path)\">\(f)</a></li>"
+        }
+        return .ok(.body(.htmlBody("<ul style=\"list-style: none;\">\(res)</ul>")))
       } else {
         guard let file = try? filePath.openForReading() else {
-          return .notFound()
+          return .notFound(.body(.text("Unable to open file")))
         }
         return .raw(200, "OK", [:], { writer in
           try? writer.write(file)
@@ -126,7 +122,7 @@ public func directoryBrowser(_ dir: String) -> NanoHTTPRequestHandler {
         })
       }
     } catch {
-      return NanoHTTPResponse.internalServerError(.init(body: .text("Internal Server Error")))
+      return NanoHTTPResponse.internalServerError(.body(.text("Internal Server Error")))
     }
   }
 }

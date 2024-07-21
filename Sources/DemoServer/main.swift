@@ -6,15 +6,14 @@
 //
 
 import Foundation
-
-import Foundation
 import Dispatch
+import NanoHTTP
 import NanoHTTPDemo
 
 do {
   let path = try FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path ??
              String.File.currentWorkingDirectory()
-  let server = demoServer(directory: path)
+  let server: NanoHTTPServer = .demo(directory: path)
   server["/testAfterBaseRoute"] = { request in
     print("Received request: \(request)")
     return .ok(.init(body: .htmlBody("ok !")))

@@ -8,6 +8,13 @@
 import Foundation
 import NanoHTTP
 
+extension NanoHTTPServer {
+  public static func demo(server: NanoHTTPServer = NanoHTTPServer(),
+                          directory publicDir: String) -> NanoHTTPServer {
+    return demoServer(server: server, directory: publicDir)
+  }
+}
+
 public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
                        directory publicDir: String) -> NanoHTTPServer {
   server.log("directory = \(publicDir)")

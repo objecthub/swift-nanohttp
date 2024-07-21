@@ -15,7 +15,9 @@ final class DemoServerContainer: ObservableObject {
     weak var container: DemoServerContainer? = nil
     public override func log(_ str: String) {
       if let container {
-        container.output += str + "\n"
+        DispatchQueue.main.async {
+          container.output += str + "\n"
+        }
       } else {
         print(str)
       }
@@ -29,12 +31,11 @@ final class DemoServerContainer: ObservableObject {
     let server = iOSHttpServer()
     self.server = server
     server.container = self
-    _ = demoServer(server: server,
-                   directory:
-                    FileManager.default.urls(for: .downloadsDirectory,
-                                             in: .userDomainMask).first?.path ??
-                    (try? String.File.currentWorkingDirectory()) ??
-                    "/")
+    _ = NanoHTTPServer.demo(server: server,
+                            directory: FileManager.default.urls(for: .downloadsDirectory,
+                                                                in: .userDomainMask).first?.path ??
+                                       (try? String.File.currentWorkingDirectory()) ??
+                                       "/")
     do {
       try? server.start(9080, forceIPv4: true)
       print("Server has started (port = \(try server.port())). Try to connect now...")

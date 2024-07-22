@@ -4,7 +4,7 @@
 //
 //  Created by Matthias Zenger on 22/07/2024.
 //  Based on `HttpResponseBodyWriter` of framework `Swifter` by Damian Kołakowski.
-//  
+//
 //  Copyright © 2014-2016 Damian Kołakowski. All rights reserved.
 //  Copyright © 2024 Matthias Zenger. All rights reserved.
 //

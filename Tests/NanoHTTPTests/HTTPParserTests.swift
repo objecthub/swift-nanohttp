@@ -185,7 +185,7 @@ class SwifterTestsHttpParser: XCTestCase {
     XCTAssertEqual(resp?.queryParams.filter({ $0.0 == "link"}).first?.1, "https://www.youtube.com/watch?v=D2cUBG4PnOA")
     XCTAssertEqual(resp?.method, "GET", "Parser should extract HTTP method name from the status line.")
     XCTAssertEqual(resp?.path, "/open", "Parser should extract HTTP path value from the status line.")
-    XCTAssertEqual(resp?.headers["content-length"], "10", "Parser should extract Content-Length header value.")
+    XCTAssertEqual(resp?.header("content-length"), "10", "Parser should extract Content-Length header value.")
     
     parser = NanoHTTPParser(socket: TestSocket("POST / HTTP/1.0\nContent-Length: 10\n\n1234567890"))
     resp = try? parser.readHttpRequest()
@@ -193,12 +193,12 @@ class SwifterTestsHttpParser: XCTestCase {
     
     parser = NanoHTTPParser(socket: TestSocket("GET / HTTP/1.0\nHeader1: 1:1:34\nHeader2: 12345\nContent-Length: 0\n\n"))
     resp = try? parser.readHttpRequest()
-    XCTAssertEqual(resp?.headers["header1"], "1:1:34", "Parser should properly extract header name and value in case the value has ':' character.")
+    XCTAssertEqual(resp?.header("header1"), "1:1:34", "Parser should properly extract header name and value in case the value has ':' character.")
     
     parser = NanoHTTPParser(socket: TestSocket("GET / HTTP/1.0\nHeader1: 1\nHeader2: 2\nContent-Length: 0\n\n"))
     resp = try? parser.readHttpRequest()
-    XCTAssertEqual(resp?.headers["header1"], "1", "Parser should extract multiple headers from the request.")
-    XCTAssertEqual(resp?.headers["header2"], "2", "Parser should extract multiple headers from the request.")
+    XCTAssertEqual(resp?.header("header1"), "1", "Parser should extract multiple headers from the request.")
+    XCTAssertEqual(resp?.header("header2"), "2", "Parser should extract multiple headers from the request.")
     
     parser = NanoHTTPParser(socket: TestSocket("GET /some/path?subscript_query[]=1&subscript_query[]=2 HTTP/1.0\nContent-Length: 10\n\n1234567890"))
     resp = try? parser.readHttpRequest()
@@ -210,6 +210,6 @@ class SwifterTestsHttpParser: XCTestCase {
     XCTAssertEqual(queryPairs.last?.1, "2")
     XCTAssertEqual(resp?.method, "GET", "Parser should extract HTTP method name from the status line.")
     XCTAssertEqual(resp?.path, "/some/path", "Parser should extract HTTP path value from the status line.")
-    XCTAssertEqual(resp?.headers["content-length"], "10", "Parser should extract Content-Length header value.")
+    XCTAssertEqual(resp?.header("content-length"), "10", "Parser should extract Content-Length header value.")
   }
 }

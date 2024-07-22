@@ -37,15 +37,32 @@
 import Foundation
 
 public class NanoHTTPRequest {
+  
+  /// The HTTP method
   public var method: String
+  
+  /// The request path
   public var path: String
+  
+  /// Sequence of query parameters
   public var queryParams: [(String, String)]
-  public var headers: [String : String]
-  public var body: [UInt8]
-  public var address: String? = nil
+  
+  /// Variables extracted by the router while matching the path with registered handlers
   public var params: [String : String] = [:]
+  
+  /// HTTP request headers (keys are case insensitive)
+  private var headers: [String : String] = [:]
+  
+  /// HTTP request body
+  public var body: [UInt8]
+  
+  /// Client (IP) address
+  public var address: String? = nil
+  
+  /// Custom dictionary for middleware handlers to communicate/pass information
   public var custom: [String : Any] = [:]
   
+  /// Initializer
   public init(method: String,
               path: String,
               queryParams: [(String, String)] = [],
@@ -54,19 +71,47 @@ public class NanoHTTPRequest {
     self.method = method
     self.path = path
     self.queryParams = queryParams
-    self.headers = headers
+    self.headers = [:]
     self.body = body
+    for (key, value) in headers {
+      self.headers[key.lowercased()] = value
+    }
   }
   
   public var supportsKeepAlive: Bool {
     if let value = self.headers["connection"] {
-      return value.trimmingCharacters(in: .whitespaces) == "keep-alive"
+      return value.trimmingCharacters(in: .whitespaces).lowercased() == "keep-alive"
     }
     return false
   }
   
+  public func header(_ headerName: String) -> String? {
+    guard let headerValue = self.headers[headerName.lowercased()] else {
+      return nil
+    }
+    return headerValue
+  }
+  
+  public func setHeader(_ headerName: String, to headerValue: String) {
+    self.headers[headerName.lowercased()] = headerValue
+  }
+  
+  public func includeHeaders(_ headers: [String : String]) {
+    for (key, value) in headers {
+      self.setHeader(key, to: value)
+    }
+  }
+  
+  public func removeHeader(_ headerName: String) {
+    self.headers.removeValue(forKey: headerName.lowercased())
+  }
+  
+  public var availableHeaders: [String] {
+    return [String](self.headers.keys)
+  }
+  
   public func hasTokenForHeader(_ headerName: String, token: String) -> Bool {
-    guard let headerValue = self.headers[headerName] else {
+    guard let headerValue = self.header(headerName) else {
       return false
     }
     return headerValue.components(separatedBy: ",")
@@ -101,7 +146,7 @@ public class NanoHTTPRequest {
   }
   
   public struct MultiPart {
-    public let headers: [String: String]
+    public let headers: [String : String]
     public let body: [UInt8]
     
     public var name: String? {

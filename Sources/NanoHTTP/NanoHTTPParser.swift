@@ -57,7 +57,7 @@ public struct NanoHTTPParser {
                     path: urlComponents?.path ?? "",
                     queryParams: urlComponents?.queryItems?.map { ($0.name, $0.value ?? "") } ?? [],
                     headers: try readHeaders())
-    if let contentLength = request.headers["content-length"],
+    if let contentLength = request.header("content-length"),
        let contentLengthValue = Int(contentLength) {
       // Prevent a buffer overflow and runtime error trying to create an
       // `UnsafeMutableBufferPointer` with a negative length.

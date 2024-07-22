@@ -50,16 +50,26 @@ public enum NanoSocketError: Error {
   case getSockNameFailed(String)
 }
 
-open class NanoSocket: Hashable, Equatable {
+open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
+  
+  // Constants
+  static let kBufferLength = 1024
+  private static let CR: UInt8 = 13
+  private static let NL: UInt8 = 10
+  
+  /// The socket file descriptor
   let socketFileDescriptor: Int32
+  
+  /// Is set to `true` once the socket was closed
   private var shutdown = false
   
+  /// Initializer
   public init(socketFileDescriptor: Int32) {
     self.socketFileDescriptor = socketFileDescriptor
   }
   
   deinit {
-    close()
+    self.close()
   }
   
   public func hash(into hasher: inout Hasher) {
@@ -70,7 +80,7 @@ open class NanoSocket: Hashable, Equatable {
     if shutdown {
       return
     }
-    shutdown = true
+    self.shutdown = true
     NanoSocket.close(self.socketFileDescriptor)
   }
   
@@ -102,21 +112,21 @@ open class NanoSocket: Hashable, Equatable {
   }
   
   public func writeUTF8(_ string: String) throws {
-    try writeUInt8(ArraySlice(string.utf8))
+    try self.writeUInt8(ArraySlice(string.utf8))
   }
   
   public func writeUInt8(_ data: [UInt8]) throws {
-    try writeUInt8(ArraySlice(data))
+    try self.writeUInt8(ArraySlice(data))
   }
   
   public func writeUInt8(_ data: ArraySlice<UInt8>) throws {
     try data.withUnsafeBufferPointer {
-      try writeBuffer($0.baseAddress!, length: data.count)
+      try self.writeBuffer($0.baseAddress!, length: data.count)
     }
   }
   
   public func writeData(_ data: NSData) throws {
-    try writeBuffer(data.bytes, length: data.length)
+    try self.writeBuffer(data.bytes, length: data.length)
   }
   
   public func writeData(_ data: Data) throws {
@@ -134,7 +144,7 @@ open class NanoSocket: Hashable, Equatable {
       #if os(Linux)
       let result = send(self.socketFileDescriptor, pointer + sent, Int(length - sent), Int32(MSG_NOSIGNAL))
       #else
-      let result = write(self.socketFileDescriptor, pointer + sent, Int(length - sent))
+      let result = Darwin.write(self.socketFileDescriptor, pointer + sent, Int(length - sent))
       #endif
       if result <= 0 {
         throw NanoSocketError.writeFailed(Self.errnoDescription)
@@ -173,14 +183,12 @@ open class NanoSocket: Hashable, Equatable {
     }
   }
   
-  static let kBufferLength = 1024
-  
-    /// Read up to `length` bytes from this socket into an existing buffer
-    ///
-    /// - Parameter into: The buffer to read into (must be at least length bytes in size)
-    /// - Parameter length: The maximum bytes to read
-    /// - Returns: The number of bytes read
-    /// - Throws: SocketError.recvFailed if unable to read bytes from the socket
+  /// Read up to `length` bytes from this socket into an existing buffer
+  ///
+  /// - Parameter into: The buffer to read into (must be at least length bytes in size)
+  /// - Parameter length: The maximum bytes to read
+  /// - Returns: The number of bytes read
+  /// - Throws: SocketError.recvFailed if unable to read bytes from the socket
   func read(into buffer: inout UnsafeMutableBufferPointer<UInt8>, length: Int) throws -> Int {
     var offset = 0
     guard let baseAddress = buffer.baseAddress else { return 0 }
@@ -199,9 +207,6 @@ open class NanoSocket: Hashable, Equatable {
     }
     return offset
   }
-  
-  private static let CR: UInt8 = 13
-  private static let NL: UInt8 = 10
   
   public func readLine() throws -> String {
     var characters: String = ""
@@ -300,9 +305,9 @@ open class NanoSocket: Hashable, Equatable {
       #endif
       if let address = listenAddress {
         if address.withCString({ cstring in inet_pton(AF_INET, cstring, &addr.sin_addr) }) == 1 {
-            // print("\(address) is converted to \(addr.sin_addr).")
+          // print("\(address) is converted to \(addr.sin_addr).")
         } else {
-            // print("\(address) is not converted.")
+          // print("\(address) is not converted.")
         }
       }
       bindResult = withUnsafePointer(to: &addr) {
@@ -359,6 +364,18 @@ open class NanoSocket: Hashable, Equatable {
     }
     NanoSocket.setNoSigPipe(clientSocket)
     return NanoSocket(socketFileDescriptor: clientSocket)
+  }
+  
+  public func write(_ file: String.File) throws {
+    try self.writeFile(file)
+  }
+  
+  public func write(_ data: ArraySlice<UInt8>) throws {
+    try self.writeUInt8(data)
+  }
+  
+  public func write(_ data: Data) throws {
+    try self.writeData(data)
   }
   
   #if os(iOS) || os(tvOS) || os (Linux)

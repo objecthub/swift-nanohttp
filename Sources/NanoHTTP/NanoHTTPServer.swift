@@ -54,18 +54,6 @@ open class NanoHTTPServer: NanoHTTPServerIO {
     }
   }
   
-  public static let VERSION: String = {
-    #if os(Linux)
-    return "1.5.0"
-    #else
-    let bundle = Bundle(for: NanoHTTPServer.self)
-    guard let version = bundle.infoDictionary?["CFBundleShortVersionString"] as? String else {
-      return "Unspecified"
-    }
-    return version
-    #endif
-  }()
-  
   private let router = NanoHTTPRouter()
   public var delete: MethodRoute
   public var patch: MethodRoute

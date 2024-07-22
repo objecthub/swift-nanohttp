@@ -78,9 +78,8 @@ public struct NanoHTTPConnection {
     }
     var keepConnection = request.supportsKeepAlive
     do {
-      if server.operating {
-        keepConnection = try self.respond(response: response, keepAlive: keepConnection)
-      }
+      keepConnection = try server.operating &&
+                         self.respond(response: response, keepAlive: keepConnection)
     } catch {
       server.log("Failed to send response: \(error)")
     }
@@ -113,41 +112,20 @@ public struct NanoHTTPConnection {
     var responseHeader = String()
     responseHeader.append("HTTP/1.1 \(response.statusCode) \(response.reasonPhrase)\r\n")
     let (length, write) = response.body.content()
-    if length >= 0 {
+    if let length, length >= 0 {
       responseHeader.append("Content-Length: \(length)\r\n")
-    }
-    if keepAlive && length != -1 {
-      responseHeader.append("Connection: keep-alive\r\n")
+      if keepAlive {
+        responseHeader.append("Connection: keep-alive\r\n")
+      }
     }
     for (name, value) in response.allHeaders() {
       responseHeader.append("\(name): \(value)\r\n")
     }
     responseHeader.append("\r\n")
     try self.socket.writeUTF8(responseHeader)
-    if let writeClosure = write {
-      let context = InnerWriteContext(socket: socket)
-      try writeClosure(context)
+    if let write {
+      try write(self.socket)
     }
-    return keepAlive && length != -1
-  }
-  
-  private struct InnerWriteContext: HttpResponseBodyWriter {
-    let socket: NanoSocket
-    
-    func write(_ file: String.File) throws {
-      try socket.writeFile(file)
-    }
-    
-    func write(_ data: [UInt8]) throws {
-      try write(ArraySlice(data))
-    }
-    
-    func write(_ data: ArraySlice<UInt8>) throws {
-      try socket.writeUInt8(data)
-    }
-    
-    func write(_ data: Data) throws {
-      try socket.writeData(data)
-    }
+    return keepAlive && length != nil
   }
 }

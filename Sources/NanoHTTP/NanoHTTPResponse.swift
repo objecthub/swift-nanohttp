@@ -36,17 +36,6 @@
 
 import Foundation
 
-public enum SerializationError: Error {
-  case invalidObject
-}
-
-public protocol HttpResponseBodyWriter {
-  func write(_ file: String.File) throws
-  func write(_ data: [UInt8]) throws
-  func write(_ data: ArraySlice<UInt8>) throws
-  func write(_ data: Data) throws
-}
-
 public struct NanoHTTPResponse {
   
   public enum Body: ExpressibleByStringLiteral {
@@ -55,7 +44,7 @@ public struct NanoHTTPResponse {
     case html(String)
     case json(Any)
     case data(Data, contentType: String? = nil)
-    case custom((HttpResponseBodyWriter) throws -> Void, contentType: String? = nil)
+    case custom((NanoHTTPResponseBodyWriter) throws -> Void, contentType: String? = nil)
     case socket((NanoSocket) -> Void)
     
     public init(stringLiteral value: String) {
@@ -85,11 +74,11 @@ public struct NanoHTTPResponse {
       }
     }
     
-    func content() -> (Int, ((HttpResponseBodyWriter) throws -> Void)?) {
+    func content() -> (Int?, ((NanoHTTPResponseBodyWriter) throws -> Void)?) {
       do {
         switch self {
           case .empty:
-            return (-1, nil)
+            return (0, nil)
           case .text(let body):
             let data = [UInt8](body.utf8)
             return (data.count, { try $0.write(data) })
@@ -98,16 +87,16 @@ public struct NanoHTTPResponse {
             return (data.count, { try $0.write(data) })
           case .json(let object):
             guard JSONSerialization.isValidJSONObject(object) else {
-              throw SerializationError.invalidObject
+              throw ResponseError.invalidObject
             }
             let data = try JSONSerialization.data(withJSONObject: object)
             return (data.count, { try $0.write(data) })
           case .data(let data, _):
             return (data.count, { try $0.write(data) })
           case .custom(let content, _):
-            return (-1, content)
+            return (nil, content)
           case .socket(_):
-            return (-1, nil)
+            return (nil, nil)
         }
       } catch {
         let data = [UInt8]("Serialization error: \(error)".utf8)
@@ -116,10 +105,20 @@ public struct NanoHTTPResponse {
     }
   }
   
+  public enum ResponseError: Error {
+    case invalidObject
+  }
+  
+  /// The HTTP status code
   public var statusCode: Int
+  
+  /// HTTP headers
   public var headers: [String : String]
+  
+  /// HTTP body
   public var body: Body
   
+  /// Initializer
   public init(statusCode: Int, headers: [String : String] = [:], body: Body = .empty) {
     self.statusCode = statusCode
     self.headers = headers
@@ -214,8 +213,9 @@ public struct NanoHTTPResponse {
   public static func custom(_ statusCode: Int,
                             headers: [String : String] = [:],
                             contentType: String? = nil,
-                            writer: @escaping (HttpResponseBodyWriter) throws -> Void) -> NanoHTTPResponse {
-    return NanoHTTPResponse(statusCode: statusCode, headers: headers,
+                            writer: @escaping (NanoHTTPResponseBodyWriter) throws -> Void) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: statusCode,
+                            headers: headers,
                             body: .custom(writer, contentType: contentType))
   }
   
@@ -225,7 +225,6 @@ public struct NanoHTTPResponse {
   
   public func allHeaders() -> [String : String] {
     var headers = self.headers
-    headers["Server"] = "Swifter \(NanoHTTPServer.VERSION)"
     if let contentType = self.body.contentType() {
       headers["Content-Type"] = contentType
     }

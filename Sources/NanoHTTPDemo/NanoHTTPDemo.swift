@@ -51,10 +51,10 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
             }
           }
           h3 { inner = "Headers:" }
-          table(request.headers) { header in
+          table(request.availableHeaders) { header in
             tr {
-              td { inner = header.0 }
-              td { inner = header.1 }
+              td { inner = header }
+              td { inner = request.header(header) }
             }
           }
           h3 { inner = "Route params:" }

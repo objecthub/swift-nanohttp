@@ -1,11 +1,12 @@
 //
-//  IOSafetyTests.swift
-//  NanoHTTPTests
+//  NanoHTTPResponseBodyWriter.swift
+//  NanoHTTP
 //
 //  Created by Matthias Zenger on 22/07/2024.
-//  Based on `IOSafetyTests` of framework `Swifter` by Brian Gerstle and Damian Kołakowski.
-//
-//  Copyright © 2016 Damian Kołakowski. All rights reserved.
+//  Based on `HttpResponseBodyWriter` of framework `Swifter` by Damian Kołakowski.
+//  
+//  Copyright © 2014-2016 Damian Kołakowski. All rights reserved.
+//  Copyright © 2024 Matthias Zenger. All rights reserved.
 //
 //  Redistribution and use in source and binary forms, with or without
 //  modification, are permitted provided that the following conditions are met:
@@ -33,53 +34,16 @@
 //  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-import XCTest
-#if os(Linux)
-import FoundationNetworking
-#endif
-@testable import NanoHTTP
+import Foundation
 
-class IOSafetyTests: XCTestCase {
-  var server: NanoHTTPServer? = nil
-  var urlSession: URLSession? = nil
-  
-  override func setUp() {
-    super.setUp()
-    self.server = NanoHTTPServer.pingServer()
-    self.urlSession = URLSession(configuration: .default)
-  }
-  
-  override func tearDown() {
-    guard let server else {
-      return
-    }
-    if server.operating {
-      server.stop()
-    }
-    self.urlSession = nil
-    self.server = nil
-    super.tearDown()
-  }
-  
-  func testStopWithActiveConnections() {
-    (0...100).forEach { cpt in
-      let server = NanoHTTPServer.pingServer()
-      do {
-        try server.start()
-        XCTAssertFalse(urlSession?.retryPing() ?? true)
-        (0...100).forEach { _ in
-          DispatchQueue.global(qos: DispatchQoS.default.qosClass).sync {
-            urlSession?.pingTask { _, _, _ in }.resume()
-          }
-        }
-        server.stop()
-      } catch let error {
-        if let socketError = error as? NanoSocketError, case .bindFailed(_) = socketError {
-          // ignore
-        } else {
-          XCTFail("\(cpt): \(error)")
-        }
-      }
-    }
+public protocol NanoHTTPResponseBodyWriter {
+  func write(_ file: String.File) throws
+  func write(_ data: ArraySlice<UInt8>) throws
+  func write(_ data: Data) throws
+}
+
+extension NanoHTTPResponseBodyWriter {
+  public func write(_ data: [UInt8]) throws {
+    try self.write(ArraySlice(data))
   }
 }

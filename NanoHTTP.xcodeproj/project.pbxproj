@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CC19D6FE2C4EAE8900761AF3 /* NanoHTTPResponseBodyWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC19D6FD2C4EAE8900761AF3 /* NanoHTTPResponseBodyWriter.swift */; };
 		CC50C0992C4B1A1100482E4B /* NanoHTTP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; };
 		CC50C09F2C4B1A1100482E4B /* NanoHTTP.h in Headers */ = {isa = PBXBuildFile; fileRef = CC50C0932C4B1A1100482E4B /* NanoHTTP.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CC50C0BF2C4BA95600482E4B /* NanoHTTPDemo.h in Headers */ = {isa = PBXBuildFile; fileRef = CC50C0B32C4BA95500482E4B /* NanoHTTPDemo.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -144,6 +145,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		CC19D6FD2C4EAE8900761AF3 /* NanoHTTPResponseBodyWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPResponseBodyWriter.swift; sourceTree = "<group>"; };
 		CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = NanoHTTP.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CC50C0932C4B1A1100482E4B /* NanoHTTP.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NanoHTTP.h; sourceTree = "<group>"; };
 		CC50C0982C4B1A1100482E4B /* NanoHTTPTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NanoHTTPTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -263,6 +265,7 @@
 			children = (
 				CC50C0C62C4BAA7B00482E4B /* NanoHTTPRequest.swift */,
 				CC50C0C82C4BAC1B00482E4B /* NanoHTTPResponse.swift */,
+				CC19D6FD2C4EAE8900761AF3 /* NanoHTTPResponseBodyWriter.swift */,
 				CC50C0CA2C4BAC7B00482E4B /* NanoHTTPRouter.swift */,
 				CC50C0CC2C4BACDF00482E4B /* NanoHTTPServer.swift */,
 				CC50C0CE2C4BAD2200482E4B /* NanoHTTPServerIO.swift */,
@@ -555,6 +558,7 @@
 				CC50C0D52C4BADE800482E4B /* NanoSocket.swift in Sources */,
 				CC50C0CF2C4BAD2200482E4B /* NanoHTTPServerIO.swift in Sources */,
 				CC50C0D32C4BADB600482E4B /* NanoHTTPConnection.swift in Sources */,
+				CC19D6FE2C4EAE8900761AF3 /* NanoHTTPResponseBodyWriter.swift in Sources */,
 				CC50C0DF2C4BAFFC00482E4B /* NanoProcess.swift in Sources */,
 				CC50C0C92C4BAC1B00482E4B /* NanoHTTPResponse.swift in Sources */,
 				CC50C0D92C4BAE8F00482E4B /* String+File.swift in Sources */,

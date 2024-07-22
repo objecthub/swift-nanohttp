@@ -112,23 +112,23 @@ public struct NanoHTTPConnection {
     // We can't promise that but make sure we invoke "write" only once for response header section.
     var responseHeader = String()
     responseHeader.append("HTTP/1.1 \(response.statusCode) \(response.reasonPhrase)\r\n")
-    let content = response.content()
-    if content.length >= 0 {
-      responseHeader.append("Content-Length: \(content.length)\r\n")
+    let (length, write) = response.body.content()
+    if length >= 0 {
+      responseHeader.append("Content-Length: \(length)\r\n")
     }
-    if keepAlive && content.length != -1 {
+    if keepAlive && length != -1 {
       responseHeader.append("Connection: keep-alive\r\n")
     }
-    for (name, value) in response.headers() {
+    for (name, value) in response.allHeaders() {
       responseHeader.append("\(name): \(value)\r\n")
     }
     responseHeader.append("\r\n")
     try self.socket.writeUTF8(responseHeader)
-    if let writeClosure = content.write {
+    if let writeClosure = write {
       let context = InnerWriteContext(socket: socket)
       try writeClosure(context)
     }
-    return keepAlive && content.length != -1
+    return keepAlive && length != -1
   }
   
   private struct InnerWriteContext: HttpResponseBodyWriter {

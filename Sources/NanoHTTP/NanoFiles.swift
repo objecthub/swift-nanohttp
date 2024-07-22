@@ -40,15 +40,15 @@ public func share(file path: String) -> NanoHTTPRequestHandler {
   return { _ in
     if let file = try? path.openForReading() {
       let mimeType = path.mimeType()
-      var responseHeader: [String: String] = ["Content-Type": mimeType]
+      var responseHeader: [String: String] = [:]
       if let attr = try? FileManager.default.attributesOfItem(atPath: path),
          let fileSize = attr[FileAttributeKey.size] as? UInt64 {
         responseHeader["Content-Length"] = String(fileSize)
       }
-      return .raw(200, "OK", responseHeader, { writer in
+      return .custom(200, headers: responseHeader, contentType: mimeType) { writer in
         try? writer.write(file)
         file.close()
-      })
+      }
     }
     return .notFound()
   }
@@ -59,32 +59,32 @@ public func share(directory path: String,
   return { request in
     guard let (_, value) = request.params.first,
           let fileRelativePath = value.removingPercentEncoding else {
-      return NanoHTTPResponse.internalServerError(.body(.text("Internal Server Error")))
+      return NanoHTTPResponse.internalServerError("Internal Server Error")
     }
     if fileRelativePath.isEmpty {
       for d in defaults {
         if let file = try? (path + String.pathSeparator + d).openForReading() {
-          return .raw(200, "OK", [:], { writer in
+          return .custom(200) { writer in
             try? writer.write(file)
             file.close()
-          })
+          }
         }
       }
     }
     let filePath = path + String.pathSeparator + fileRelativePath
     if let file = try? filePath.openForReading() {
       let mimeType = fileRelativePath.mimeType()
-      var responseHeader: [String: String] = ["Content-Type": mimeType]
+      var responseHeader: [String: String] = [:]
       if let attr = try? FileManager.default.attributesOfItem(atPath: filePath),
          let fileSize = attr[FileAttributeKey.size] as? UInt64 {
         responseHeader["Content-Length"] = String(fileSize)
       }
-      return .raw(200, "OK", responseHeader, { writer in
+      return .custom(200, headers: responseHeader, contentType: mimeType) { writer in
         try? writer.write(file)
         file.close()
-      })
+      }
     }
-    return .notFound(.body(.text("Unknown file/directory")))
+    return .notFound("Unknown file/directory")
   }
 }
 
@@ -92,7 +92,7 @@ public func browse(directory dir: String) -> NanoHTTPRequestHandler {
   return { request in
     guard let (_, value) = request.params.first,
           let path = value.removingPercentEncoding else {
-      return NanoHTTPResponse.internalServerError(.body(.text("Internal Server Error")))
+      return NanoHTTPResponse.internalServerError("Internal Server Error")
     }
     var base = request.path
     if base.last != "/" {
@@ -101,7 +101,7 @@ public func browse(directory dir: String) -> NanoHTTPRequestHandler {
     let filePath = dir + String.pathSeparator + path
     do {
       guard try filePath.exists() else {
-        return .notFound(.body(.text("Unknown file/directory")))
+        return .notFound("Unknown file/directory")
       }
       if try filePath.directory() {
         var files = try filePath.files()
@@ -111,18 +111,18 @@ public func browse(directory dir: String) -> NanoHTTPRequestHandler {
           let path = base + (f.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? f)
           res += "<li><a href=\"\(path)\">\(f)</a></li>"
         }
-        return .ok(.body(.htmlBody("<ul style=\"list-style: none;\">\(res)</ul>")))
+        return .ok(.htmlBody("<ul style=\"list-style: none;\">\(res)</ul>"))
       } else {
         guard let file = try? filePath.openForReading() else {
-          return .notFound(.body(.text("Unable to open file")))
+          return .notFound("Unable to open file")
         }
-        return .raw(200, "OK", [:], { writer in
+        return .custom(200) { writer in
           try? writer.write(file)
           file.close()
-        })
+        }
       }
     } catch {
-      return NanoHTTPResponse.internalServerError(.body(.text("Internal Server Error")))
+      return NanoHTTPResponse.internalServerError("Internal Server Error")
     }
   }
 }

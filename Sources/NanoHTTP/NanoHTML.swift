@@ -40,9 +40,9 @@ public func htmlHandler(_ scope: @escaping NanoHTMLClosure) -> NanoHTTPRequestHa
   return { _ in
     scopesBuffer[NanoProcess.tid] = ""
     scope()
-    return .raw(200, "OK", ["Content-Type": "text/html"], {
+    return .custom(200, contentType: "text/html") {
       try? $0.write([UInt8](("<!DOCTYPE html>"  + (scopesBuffer[NanoProcess.tid] ?? "")).utf8))
-    })
+    }
   }
 }
 

@@ -47,257 +47,197 @@ public protocol HttpResponseBodyWriter {
   func write(_ data: Data) throws
 }
 
-public enum NanoHTTPResponse {
+public struct NanoHTTPResponse {
   
-  public struct Content {
-    public var headers: [String : String]
-    public var body: Body
-    
-    public init(headers: [String : String] = [:], body: Body) {
-      self.headers = headers
-      self.body = body
-    }
-    
-    public static func body(_ body: Body) -> Content {
-      return .init(body: body)
-    }
-    
-    public static func content(headers: [String : String] = [:], body: Body) -> Content {
-      return .init(headers: headers, body: body)
-    }
-  }
-  
-  public enum Body {
-    case json(Any)
-    case html(String)
-    case htmlBody(String)
+  public enum Body: ExpressibleByStringLiteral {
+    case empty
     case text(String)
+    case html(String)
+    case json(Any)
     case data(Data, contentType: String? = nil)
+    case custom((HttpResponseBodyWriter) throws -> Void, contentType: String? = nil)
+    case socket((NanoSocket) -> Void)
+    
+    public init(stringLiteral value: String) {
+      self = .text(value)
+    }
+    
+    public static func htmlBody(_ content: String) -> Body {
+      return .html("<html><meta charset=\"UTF-8\"><body>\(content)</body></html>")
+    }
     
     public func contentType() -> String? {
       switch self {
-        case .json:
-          return "application/json"
-        case .html, .htmlBody:
-          return "text/html"
-        case .text:
+        case .empty:
+          return nil
+        case .text(_):
           return "text/plain"
+        case .html(_):
+          return "text/html"
+        case .json(_):
+          return "application/json"
         case .data(_, let contentType):
+          return contentType ?? "application/octet-stream"
+        case .custom(_, let contentType):
           return contentType
+        case .socket(_):
+          return nil
       }
     }
     
     func content() -> (Int, ((HttpResponseBodyWriter) throws -> Void)?) {
       do {
         switch self {
+          case .empty:
+            return (-1, nil)
+          case .text(let body):
+            let data = [UInt8](body.utf8)
+            return (data.count, { try $0.write(data) })
+          case .html(let html):
+            let data = [UInt8](html.utf8)
+            return (data.count, { try $0.write(data) })
           case .json(let object):
             guard JSONSerialization.isValidJSONObject(object) else {
               throw SerializationError.invalidObject
             }
             let data = try JSONSerialization.data(withJSONObject: object)
-            return (data.count, {
-              try $0.write(data)
-            })
-          case .text(let body):
-            let data = [UInt8](body.utf8)
-            return (data.count, {
-              try $0.write(data)
-            })
-          case .html(let html):
-            let data = [UInt8](html.utf8)
-            return (data.count, {
-              try $0.write(data)
-            })
-          case .htmlBody(let body):
-            let serialized = "<html><meta charset=\"UTF-8\"><body>\(body)</body></html>"
-            let data = [UInt8](serialized.utf8)
-            return (data.count, {
-              try $0.write(data)
-            })
+            return (data.count, { try $0.write(data) })
           case .data(let data, _):
-            return (data.count, {
-              try $0.write(data)
-            })
+            return (data.count, { try $0.write(data) })
+          case .custom(let content, _):
+            return (-1, content)
+          case .socket(_):
+            return (-1, nil)
         }
       } catch {
         let data = [UInt8]("Serialization error: \(error)".utf8)
-        return (data.count, {
-          try $0.write(data)
-        })
+        return (data.count, { try $0.write(data) })
       }
     }
   }
   
-  case created
-  case accepted
-  case ok(Content)
-  case switchProtocols([String : String], (NanoSocket) -> Void)
-  case movedPermanently(String, [String : String]? = nil)
-  case movedTemporarily(String, [String : String]? = nil)
-  case badRequest(Content?)
-  case unauthorized(Content?)
-  case forbidden(Content?)
-  case notFound(Content? = nil)
-  case notAcceptable(Content?)
-  case tooManyRequests(Content?)
-  case internalServerError(Content?)
-  case raw(Int, String, [String : String]?, ((HttpResponseBodyWriter) throws -> Void)?)
+  public var statusCode: Int
+  public var headers: [String : String]
+  public var body: Body
   
-  public var statusCode: Int {
-    switch self {
-      case .switchProtocols:
-        return 101
-      case .ok:
-        return 200
-      case .created:
-        return 201
-      case .accepted:
-        return 202
-      case .movedPermanently:
-        return 301
-      case .movedTemporarily:
-        return 307
-      case .badRequest:
-        return 400
-      case .unauthorized:
-        return 401
-      case .forbidden:
-        return 403
-      case .notFound:
-        return 404
-      case .notAcceptable:
-        return 406
-      case .tooManyRequests:
-        return 429
-      case .internalServerError:
-        return 500
-      case .raw(let code, _, _, _):
-        return code
-    }
+  public init(statusCode: Int, headers: [String : String] = [:], body: Body = .empty) {
+    self.statusCode = statusCode
+    self.headers = headers
+    self.body = body
+  }
+  
+  public static func ok(headers: [String : String] = [:], _ body: Body) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 200, headers: headers, body: body)
+  }
+  
+  public static func created() -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 201)
+  }
+  
+  public static func accepted() -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 202)
+  }
+  
+  public static func switchProtocols(_ headers: [String : String],
+                                     _ socketSession: @escaping (NanoSocket) -> Void) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 101, headers: headers, body: .socket(socketSession))
+  }
+  
+  public static func movedPermanently(_ location: String,
+                                      _ headers: [String : String] = [:]) -> NanoHTTPResponse {
+    var headers = headers
+    headers["Location"] = location
+    return NanoHTTPResponse(statusCode: 301, headers: headers)
+  }
+  
+  public static func movedTemporarily(_ location: String,
+                                      _ headers: [String : String] = [:]) -> NanoHTTPResponse {
+    var headers = headers
+    headers["Location"] = location
+    return NanoHTTPResponse(statusCode: 307, headers: headers)
+  }
+  
+  public static func badRequest(headers: [String : String] = [:],
+                                _ body: Body = .empty) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 400, headers: headers, body: body)
+  }
+  
+  public static func unauthorized(headers: [String : String] = [:],
+                                  _ body: Body = .empty) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 401, headers: headers, body: body)
+  }
+  
+  public static func forbidden(headers: [String : String] = [:],
+                               _ body: Body = .empty) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 403, headers: headers, body: body)
+  }
+  
+  public static func notFound(headers: [String : String] = [:],
+                              _ body: Body = .empty) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 404, headers: headers, body: body)
+  }
+  
+  public static func methodNotAllowed(headers: [String : String] = [:],
+                                      _ body: Body = .empty) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 405, headers: headers, body: body)
+  }
+  public static func notAcceptable(headers: [String : String] = [:],
+                                   _ body: Body = .empty) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 406, headers: headers, body: body)
+  }
+  
+  public static func conflict(headers: [String : String] = [:],
+                              _ body: Body = .empty) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 409, headers: headers, body: body)
+  }
+  
+  public static func unsupportedMediaType(headers: [String : String] = [:],
+                                          _ body: Body = .empty) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 415, headers: headers, body: body)
+  }
+  
+  public static func tooManyRequests(headers: [String : String] = [:],
+                                     _ body: Body = .empty) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 429, headers: headers, body: body)
+  }
+  
+  public static func internalServerError(headers: [String : String] = [:],
+                                         _ body: Body = .empty) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 500, headers: headers, body: body)
+  }
+  
+  public static func notImplemented(headers: [String : String] = [:],
+                                    _ body: Body = .empty) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 501, headers: headers, body: body)
+  }
+  
+  public static func custom(_ statusCode: Int,
+                            headers: [String : String] = [:],
+                            contentType: String? = nil,
+                            writer: @escaping (HttpResponseBodyWriter) throws -> Void) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: statusCode, headers: headers,
+                            body: .custom(writer, contentType: contentType))
   }
   
   public var reasonPhrase: String {
-    switch self {
-      case .created:
-        return "Created"
-      case .accepted:
-        return "Accepted"
-      case .ok:
-        return "OK"
-      case .switchProtocols:
-        return "Switching Protocols"
-      case .movedPermanently:
-        return "Moved Permanently"
-      case .movedTemporarily:
-        return "Moved Temporarily"
-      case .badRequest:
-        return "Bad Request"
-      case .unauthorized:
-        return "Unauthorized"
-      case .forbidden:
-        return "Forbidden"
-      case .notFound:
-        return "Not Found"
-      case .notAcceptable:
-        return "Not Acceptable"
-      case .tooManyRequests:
-        return "Too Many Requests"
-      case .internalServerError:
-        return "Internal Server Error"
-      case .raw(_, let phrase, _, _):
-        return phrase
-    }
+    return HTTPURLResponse.localizedString(forStatusCode: self.statusCode)
   }
   
-  public func headers() -> [String : String] {
-    var headers = ["Server" : "Swifter \(NanoHTTPServer.VERSION)"]
-    switch self {
-      case .ok(let content):
-        for (key, value) in content.headers {
-          headers.updateValue(value, forKey: key)
-        }
-        if let contentType = content.body.contentType() {
-          headers["Content-Type"] = contentType
-        }
-      case .badRequest(let content),
-           .unauthorized(let content),
-           .forbidden(let content),
-           .notFound(let content),
-           .tooManyRequests(let content),
-           .internalServerError(let content):
-        if let content {
-          for (key, value) in content.headers {
-            headers.updateValue(value, forKey: key)
-          }
-        }
-      case .switchProtocols(let switchHeaders, _):
-        for (key, value) in switchHeaders {
-          headers[key] = value
-        }
-      case .movedPermanently(let location, let rawHeaders):
-        if let rawHeaders {
-          for (key, value) in rawHeaders {
-            headers[key] = value
-          }
-        }
-        headers["Location"] = location
-      case .movedTemporarily(let location, let rawHeaders):
-        if let rawHeaders {
-          for (key, value) in rawHeaders {
-            headers[key] = value
-          }
-        }
-        headers["Location"] = location
-      case .raw(_, _, let rawHeaders, _):
-        if let rawHeaders {
-          for (key, value) in rawHeaders {
-            headers.updateValue(value, forKey: key)
-          }
-        }
-      default:
-        break
+  public func allHeaders() -> [String : String] {
+    var headers = self.headers
+    headers["Server"] = "Swifter \(NanoHTTPServer.VERSION)"
+    if let contentType = self.body.contentType() {
+      headers["Content-Type"] = contentType
     }
     return headers
   }
   
-  func content() -> (length: Int, write: ((HttpResponseBodyWriter) throws -> Void)?) {
-    switch self {
-      case .ok(let content):
-        return content.body.content()
-      case .badRequest(let content),
-           .unauthorized(let content),
-           .forbidden(let content),
-           .notFound(let content),
-           .tooManyRequests(let content),
-           .internalServerError(let content):
-        return content?.body.content() ?? (-1, nil)
-      case .raw(_, _, _, let writer):
-        return (-1, writer)
-      default:
-        return (-1, nil)
-    }
-  }
-  
   func socketSession() -> ((NanoSocket) -> Void)? {
-    switch self {
-      case .switchProtocols(_, let handler):
+    switch self.body {
+      case .socket(let handler):
         return handler
       default:
         return nil
     }
-  }
-  
-  /**
-    Makes it possible to compare handler responses with '==', but
-    ignores any associated values. This should generally be what
-    you want. E.g.:
-
-      let resp = handler(updatedRequest)
-          if resp == .NotFound {
-          print("Client requested not found: \(request.url)")
-      }
-  */
-  public static func == (inLeft: NanoHTTPResponse, inRight: NanoHTTPResponse) -> Bool {
-      return inLeft.statusCode == inRight.statusCode
   }
 }

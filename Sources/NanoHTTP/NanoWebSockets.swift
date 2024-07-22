@@ -42,13 +42,13 @@ public func websocket(text: ((WebSocketSession, String) -> Void)? = nil,
                       disconnected: ((WebSocketSession) -> Void)? = nil) -> NanoHTTPRequestHandler {
   return { request in
     guard request.hasTokenForHeader("upgrade", token: "websocket") else {
-      return .badRequest(.init(body: .text("Invalid value of 'Upgrade' header: \(request.headers["upgrade"] ?? "unknown")")))
+      return .badRequest(.text("Invalid value of 'Upgrade' header: \(request.headers["upgrade"] ?? "unknown")"))
     }
     guard request.hasTokenForHeader("connection", token: "upgrade") else {
-      return .badRequest(.init(body: .text("Invalid value of 'Connection' header: \(request.headers["connection"] ?? "unknown")")))
+      return .badRequest(.text("Invalid value of 'Connection' header: \(request.headers["connection"] ?? "unknown")"))
     }
     guard let secWebSocketKey = request.headers["sec-websocket-key"] else {
-      return .badRequest(.init(body: .text("Invalid value of 'Sec-Websocket-Key' header: \(request.headers["sec-websocket-key"] ?? "unknown")")))
+      return .badRequest(.text("Invalid value of 'Sec-Websocket-Key' header: \(request.headers["sec-websocket-key"] ?? "unknown")"))
     }
     let protocolSessionClosure: ((NanoSocket) -> Void) = { socket in
       let session = WebSocketSession(socket)

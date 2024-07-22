@@ -16,7 +16,7 @@ do {
   let server: NanoHTTPServer = .demo(directory: path)
   server["/testAfterBaseRoute"] = { request in
     print("Received request: \(request)")
-    return .ok(.init(body: .htmlBody("ok !")))
+    return .ok(.htmlBody("ok !"))
   }
   try? server.start(9080, forceIPv4: true)
   print("Server has started (port = \(try server.port())). Try to connect now...")

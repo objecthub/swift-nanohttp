@@ -162,7 +162,7 @@ open class NanoHTTPServerIO {
   }
   
   open func dispatch(request: NanoHTTPRequest) -> ([String: String], NanoHTTPRequestHandler) {
-    return ([:], { _ in NanoHTTPResponse.notFound(nil) })
+    return ([:], { _ in NanoHTTPResponse.notFound() })
   }
   
   open func handle(connection: NanoHTTPConnection) {

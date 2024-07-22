@@ -34,8 +34,7 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
     }
   }
   server["/magic"] = {
-    return .ok(.init(headers: ["XXX-Custom-Header" : "value"],
-                     body: .htmlBody("You asked for " + $0.path)))
+    return .ok(headers: ["XXX-Custom-Header" : "value"], .htmlBody("You asked for " + $0.path))
   }
   server["/test/:param1/:param2"] = { request in
     htmlHandler {
@@ -96,7 +95,7 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
       }
       response += "Name: \(name) File name: \(fileName) Size: \(multipart.body.count)<br>"
     }
-    return .ok(.init(headers: ["XXX-Custom-Header" : "value"], body: .htmlBody(response)))
+    return .ok(headers: ["XXX-Custom-Header" : "value"], .htmlBody(response))
   }
   server.get["/login"] = htmlHandler {
     html {
@@ -129,8 +128,8 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
   }
   server.post["/login"] = { request in
     let formFields = request.parseUrlencodedForm()
-    return .ok(.init(headers: ["XXX-Custom-Header": "value"],
-                     body: .htmlBody(formFields.map({ "\($0.0) = \($0.1)" }).joined(separator: "<br>"))))
+    return .ok(headers: ["XXX-Custom-Header": "value"],
+               .htmlBody(formFields.map({ "\($0.0) = \($0.1)" }).joined(separator: "<br>")))
   }
   server["/demo"] = htmlHandler {
     html {
@@ -142,17 +141,19 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
       }
     }
   }
-  server["/raw"] = { _ in
-    return .raw(200, "OK", ["XXX-Custom-Header": "value"], { try $0.write([UInt8]("test".utf8)) })
+  server["/custom"] = { _ in
+    return .custom(200, headers: ["XXX-Custom-Header": "value"]) {
+      try $0.write([UInt8]("test".utf8))
+    }
   }
   server["/open"] = { _ in
-    return .ok(.init(body: .htmlBody("Open connections: \(server.openConnections)")))
+    return .ok(.htmlBody("Open connections: \(server.openConnections)"))
   }
   server["/close"] = { _ in
     DispatchQueue.global().asyncAfter(deadline: .now().advanced(by: .seconds(2))) {
       server.closeAndforgetAllConnections()
     }
-    return .ok(.init(body: .htmlBody("Open connections: \(server.openConnections)")))
+    return .ok(.htmlBody("Open connections: \(server.openConnections)"))
   }
   server["/redirect/permanently"] = { _ in
     return .movedPermanently("http://www.google.com")
@@ -163,17 +164,17 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
   server["/long"] = { _ in
     var longResponse = ""
     for index in 0..<1000 { longResponse += "(\(index)),->" }
-    return .ok(.init(headers: ["XXX-Custom-Header": "value"], body: .htmlBody(longResponse)))
+    return .ok(headers: ["XXX-Custom-Header": "value"], .htmlBody(longResponse))
   }
   server["/wildcard/*/test/*/:param"] = { request in
-    return .ok(.init(headers: ["XXX-Custom-Header": "value"], body: .htmlBody(request.path)))
+    return .ok(headers: ["XXX-Custom-Header": "value"], .htmlBody(request.path))
   }
   server["/stream"] = { _ in
-    return .raw(200, "OK", nil, { writer in
+    return .custom(200) { writer in
       for index in 0...100 {
         try writer.write([UInt8]("[chunk \(index)]".utf8))
       }
-    })
+    }
   }
   server["/websocket-echo"] = websocket(
     text: { (session, text) in session.writeText(text) },

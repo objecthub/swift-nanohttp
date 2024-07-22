@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		CC50C0992C4B1A1100482E4B /* NanoHTTP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; };
-		CC50C09E2C4B1A1100482E4B /* NanoHTTPTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C09D2C4B1A1100482E4B /* NanoHTTPTests.swift */; };
 		CC50C09F2C4B1A1100482E4B /* NanoHTTP.h in Headers */ = {isa = PBXBuildFile; fileRef = CC50C0932C4B1A1100482E4B /* NanoHTTP.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CC50C0BF2C4BA95600482E4B /* NanoHTTPDemo.h in Headers */ = {isa = PBXBuildFile; fileRef = CC50C0B32C4BA95500482E4B /* NanoHTTPDemo.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CC50C0C72C4BAA7B00482E4B /* NanoHTTPRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0C62C4BAA7B00482E4B /* NanoHTTPRequest.swift */; };
@@ -42,6 +41,14 @@
 		CC50C1152C4BBC8A00482E4B /* NanoHTTPDemo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0B12C4BA95500482E4B /* NanoHTTPDemo.framework */; };
 		CC50C1162C4BBC8A00482E4B /* NanoHTTPDemo.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0B12C4BA95500482E4B /* NanoHTTPDemo.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CC50C11B2C4BBE9500482E4B /* DemoServerContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C11A2C4BBE9500482E4B /* DemoServerContainer.swift */; };
+		CC80DA822C4E73A700FCFF2E /* ServerThreadingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC80DA812C4E73A700FCFF2E /* ServerThreadingTests.swift */; };
+		CC80DA842C4E744300FCFF2E /* PingServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC80DA832C4E744300FCFF2E /* PingServer.swift */; };
+		CC80DA862C4E74F900FCFF2E /* HTTPParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC80DA852C4E74F900FCFF2E /* HTTPParserTests.swift */; };
+		CC80DA882C4E775F00FCFF2E /* HTTPRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC80DA872C4E775F00FCFF2E /* HTTPRouterTests.swift */; };
+		CC80DA8A2C4E790C00FCFF2E /* MimeTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC80DA892C4E790C00FCFF2E /* MimeTypeTests.swift */; };
+		CC80DA8C2C4E797800FCFF2E /* IOSafetyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC80DA8B2C4E797800FCFF2E /* IOSafetyTests.swift */; };
+		CC80DA8E2C4E7A1000FCFF2E /* StringExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC80DA8D2C4E7A1000FCFF2E /* StringExtensionsTests.swift */; };
+		CC80DA902C4E851000FCFF2E /* WebSocketTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC80DA8F2C4E851000FCFF2E /* WebSocketTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -140,7 +147,6 @@
 		CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = NanoHTTP.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CC50C0932C4B1A1100482E4B /* NanoHTTP.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NanoHTTP.h; sourceTree = "<group>"; };
 		CC50C0982C4B1A1100482E4B /* NanoHTTPTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NanoHTTPTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		CC50C09D2C4B1A1100482E4B /* NanoHTTPTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPTests.swift; sourceTree = "<group>"; };
 		CC50C0A82C4B1B5100482E4B /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		CC50C0A92C4B1B5F00482E4B /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		CC50C0AA2C4B1C9300482E4B /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
@@ -169,6 +175,14 @@
 		CC50C1092C4BB7FB00482E4B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		CC50C10C2C4BB7FB00482E4B /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		CC50C11A2C4BBE9500482E4B /* DemoServerContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoServerContainer.swift; sourceTree = "<group>"; };
+		CC80DA812C4E73A700FCFF2E /* ServerThreadingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerThreadingTests.swift; sourceTree = "<group>"; };
+		CC80DA832C4E744300FCFF2E /* PingServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PingServer.swift; sourceTree = "<group>"; };
+		CC80DA852C4E74F900FCFF2E /* HTTPParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPParserTests.swift; sourceTree = "<group>"; };
+		CC80DA872C4E775F00FCFF2E /* HTTPRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPRouterTests.swift; sourceTree = "<group>"; };
+		CC80DA892C4E790C00FCFF2E /* MimeTypeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeTypeTests.swift; sourceTree = "<group>"; };
+		CC80DA8B2C4E797800FCFF2E /* IOSafetyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSafetyTests.swift; sourceTree = "<group>"; };
+		CC80DA8D2C4E7A1000FCFF2E /* StringExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringExtensionsTests.swift; sourceTree = "<group>"; };
+		CC80DA8F2C4E851000FCFF2E /* WebSocketTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -270,7 +284,14 @@
 		CC50C09C2C4B1A1100482E4B /* NanoHTTPTests */ = {
 			isa = PBXGroup;
 			children = (
-				CC50C09D2C4B1A1100482E4B /* NanoHTTPTests.swift */,
+				CC80DA832C4E744300FCFF2E /* PingServer.swift */,
+				CC80DA812C4E73A700FCFF2E /* ServerThreadingTests.swift */,
+				CC80DA852C4E74F900FCFF2E /* HTTPParserTests.swift */,
+				CC80DA872C4E775F00FCFF2E /* HTTPRouterTests.swift */,
+				CC80DA8B2C4E797800FCFF2E /* IOSafetyTests.swift */,
+				CC80DA8F2C4E851000FCFF2E /* WebSocketTests.swift */,
+				CC80DA892C4E790C00FCFF2E /* MimeTypeTests.swift */,
+				CC80DA8D2C4E7A1000FCFF2E /* StringExtensionsTests.swift */,
 			);
 			name = NanoHTTPTests;
 			path = Tests/NanoHTTPTests;
@@ -551,7 +572,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CC50C09E2C4B1A1100482E4B /* NanoHTTPTests.swift in Sources */,
+				CC80DA8E2C4E7A1000FCFF2E /* StringExtensionsTests.swift in Sources */,
+				CC80DA862C4E74F900FCFF2E /* HTTPParserTests.swift in Sources */,
+				CC80DA8A2C4E790C00FCFF2E /* MimeTypeTests.swift in Sources */,
+				CC80DA8C2C4E797800FCFF2E /* IOSafetyTests.swift in Sources */,
+				CC80DA822C4E73A700FCFF2E /* ServerThreadingTests.swift in Sources */,
+				CC80DA882C4E775F00FCFF2E /* HTTPRouterTests.swift in Sources */,
+				CC80DA902C4E851000FCFF2E /* WebSocketTests.swift in Sources */,
+				CC80DA842C4E744300FCFF2E /* PingServer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

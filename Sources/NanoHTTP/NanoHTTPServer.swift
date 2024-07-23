@@ -82,12 +82,14 @@ open class NanoHTTPServer: NanoHTTPServerIO {
     return self.router.routes()
   }
   
-  public subscript(path: String) -> NanoHTTPRequestHandler? {
+  public subscript(path: String...) -> NanoHTTPRequestHandler? {
     get {
       return nil
     }
     set {
-      self.router.register(nil, path: path, handler: newValue)
+      for p in path {
+        self.router.register(nil, path: p, handler: newValue)
+      }
     }
   }
   

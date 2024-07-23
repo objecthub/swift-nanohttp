@@ -36,7 +36,7 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
   server["/magic"] = {
     return .ok(headers: ["XXX-Custom-Header" : "value"], .htmlBody("You asked for " + $0.path))
   }
-  server["/test/:param1/:param2"] = { request in
+  server["/test/:param1/:param2", "/pathTest/::param/end"] = { request in
     htmlHandler {
       html {
         body {

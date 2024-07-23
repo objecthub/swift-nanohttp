@@ -33,12 +33,25 @@
 
 import Foundation
 
+///
+/// Class `NanoHTTPSegmentRouter` implements the `NanoHTTPRouter` protocol. Routing is based
+/// on path segments that are matched in sequence. There are two differnt types of placeholders
+/// that can be used: _variables_ (with `*` being an anonymous variable) and _path variables_
+/// (with `**` being an anonymous path variable). A variable matches one full path segment
+/// and its value is being url-decoded. A path variable matches a (potentially empty) sequence
+/// of path segments and its value is not being url-decoded.
+///
 open class NanoHTTPSegmentRouter: NanoHTTPRouter {
   
+  /// Represents a single segment of a path
   fileprivate class Segment: CustomDebugStringConvertible {
-    /// The children segments that form the route
+    /// The fixed child segments that form the route
     var pathChildren: [String : Segment] = [:]
+    
+    /// The variable child segments that form the route
     var variableChildren: [String? : Segment] = [:]
+    
+    /// Path variables potentially replacing sequences of segments
     var pathVariableChildren: [String? : Segment] = [:]
     
     /// The closure to handle the route
@@ -68,10 +81,18 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
         result.append(contentsOf: child.routes(prefix: prefix + "/" + key))
       }
       for (key, child) in self.variableChildren {
-        result.append(contentsOf: child.routes(prefix: prefix + "/" + (key ?? "*")))
+        if let key {
+          result.append(contentsOf: child.routes(prefix: prefix + "/:" + key))
+        } else {
+          result.append(contentsOf: child.routes(prefix: prefix + "/*"))
+        }
       }
       for (key, child) in self.pathVariableChildren {
-        result.append(contentsOf: child.routes(prefix: prefix + "/" + (key ?? "**")))
+        if let key {
+          result.append(contentsOf: child.routes(prefix: prefix + "/::" + key))
+        } else {
+          result.append(contentsOf: child.routes(prefix: prefix + "/**"))
+        }
       }
       return result
     }
@@ -147,9 +168,9 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
           return result
         }
       }
-      // Look at all variable children of the current segment
+      // Look at all path variable children of the current segment
       for (variable, next) in self.pathVariableChildren {
-        for i in index+1...path.count {
+        for i in index...path.count {
           if var result = next.match(path: path, index: i) {
             if let variable {
               result.0[variable] = path[index..<i].joined(separator: "/")

@@ -98,7 +98,7 @@ class SwifterTestsNanoHTTPRouter: XCTestCase {
     XCTAssertNil(router.route("GET", path: "/"))
     XCTAssertNil(router.route("GET", path: "/a"))
     XCTAssertNotNil(router.route("GET", path: "/a/b/c/d/e/f/g"))
-    XCTAssertNil(router.route("GET", path: "/a/e/f/g"))
+    XCTAssertNotNil(router.route("GET", path: "/a/e/f/g"))
   }
   
   func testNanoHTTPRouterMultiplePathSegmentWildcardTail() {

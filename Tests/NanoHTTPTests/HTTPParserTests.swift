@@ -43,36 +43,40 @@ class SwifterTestsHttpParser: XCTestCase {
   /// data into the regular Socket flow.
   class TestSocket: NanoSocket {
     init(_ content: String) {
-        /// Create an array to hold the read and write sockets that pipe creates
+      /// Create an array to hold the read and write sockets that pipe creates
       var fds = [Int32](repeating: 0, count: 2)
       fds.withUnsafeMutableBufferPointer { ptr in
         let received = pipe(ptr.baseAddress!)
         guard received >= 0 else { fatalError("Pipe error!") }
       }
       
-        // Extract the read and write handles into friendly variables
+      // Extract the read and write handles into friendly variables
       let fdRead = fds[0]
       let fdWrite = fds[1]
       
-        // Set non-blocking I/O on both sockets. This is required!
+      // Set non-blocking I/O on both sockets. This is required!
       _ = fcntl(fdWrite, F_SETFL, O_NONBLOCK)
       _ = fcntl(fdRead, F_SETFL, O_NONBLOCK)
       
-        // Push the content bytes into the write socket.
+      // Push the content bytes into the write socket.
       content.withCString { stringPointer in
-          // Count will be either >=0 to indicate bytes written, or -1
-          // if the bytes will be written later (non-blocking).
-        let count = write(fdWrite, stringPointer, content.lengthOfBytes(using: .utf8) + 1)
+        // Count will be either >=0 to indicate bytes written, or -1
+        // if the bytes will be written later (non-blocking).
+        #if os(Linux)
+        let count = Glibc.write(fdWrite, stringPointer, content.lengthOfBytes(using: .utf8) + 1)
+        #else
+        let count = Darwin.write(fdWrite, stringPointer, content.lengthOfBytes(using: .utf8) + 1)
+        #endif
         guard count != -1 || errno == EAGAIN else { fatalError("Write error!") }
       }
       
-        // Close the write socket immediately. The OS will add an EOF byte
-        // and the read socket will remain open.
-#if os(Linux)
+      // Close the write socket immediately. The OS will add an EOF byte
+      // and the read socket will remain open.
+      #if os(Linux)
       Glibc.close(fdWrite)
-#else
+      #else
       Darwin.close(fdWrite) // the super instance will close fdRead in deinit!
-#endif
+      #endif
       
       super.init(socketFileDescriptor: fdRead)
     }

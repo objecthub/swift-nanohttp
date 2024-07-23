@@ -8,12 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		CC19D6FE2C4EAE8900761AF3 /* NanoHTTPResponseBodyWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC19D6FD2C4EAE8900761AF3 /* NanoHTTPResponseBodyWriter.swift */; };
+		CC19D7072C4FA71900761AF3 /* NanoHTTPRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC19D7062C4FA71900761AF3 /* NanoHTTPRouter.swift */; };
 		CC50C0992C4B1A1100482E4B /* NanoHTTP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; };
 		CC50C09F2C4B1A1100482E4B /* NanoHTTP.h in Headers */ = {isa = PBXBuildFile; fileRef = CC50C0932C4B1A1100482E4B /* NanoHTTP.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CC50C0BF2C4BA95600482E4B /* NanoHTTPDemo.h in Headers */ = {isa = PBXBuildFile; fileRef = CC50C0B32C4BA95500482E4B /* NanoHTTPDemo.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CC50C0C72C4BAA7B00482E4B /* NanoHTTPRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0C62C4BAA7B00482E4B /* NanoHTTPRequest.swift */; };
 		CC50C0C92C4BAC1B00482E4B /* NanoHTTPResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0C82C4BAC1B00482E4B /* NanoHTTPResponse.swift */; };
-		CC50C0CB2C4BAC7B00482E4B /* NanoHTTPRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0CA2C4BAC7B00482E4B /* NanoHTTPRouter.swift */; };
+		CC50C0CB2C4BAC7B00482E4B /* NanoHTTPSegmentRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0CA2C4BAC7B00482E4B /* NanoHTTPSegmentRouter.swift */; };
 		CC50C0CD2C4BACDF00482E4B /* NanoHTTPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0CC2C4BACDF00482E4B /* NanoHTTPServer.swift */; };
 		CC50C0CF2C4BAD2200482E4B /* NanoHTTPServerIO.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0CE2C4BAD2200482E4B /* NanoHTTPServerIO.swift */; };
 		CC50C0D12C4BAD7A00482E4B /* NanoHTTPParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0D02C4BAD7A00482E4B /* NanoHTTPParser.swift */; };
@@ -147,6 +148,7 @@
 /* Begin PBXFileReference section */
 		CC19D6FD2C4EAE8900761AF3 /* NanoHTTPResponseBodyWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPResponseBodyWriter.swift; sourceTree = "<group>"; };
 		CC19D6FF2C4EFC4700761AF3 /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Package.swift; sourceTree = "<group>"; };
+		CC19D7062C4FA71900761AF3 /* NanoHTTPRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPRouter.swift; sourceTree = "<group>"; };
 		CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = NanoHTTP.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CC50C0932C4B1A1100482E4B /* NanoHTTP.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NanoHTTP.h; sourceTree = "<group>"; };
 		CC50C0982C4B1A1100482E4B /* NanoHTTPTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NanoHTTPTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -157,7 +159,7 @@
 		CC50C0B32C4BA95500482E4B /* NanoHTTPDemo.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NanoHTTPDemo.h; sourceTree = "<group>"; };
 		CC50C0C62C4BAA7B00482E4B /* NanoHTTPRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPRequest.swift; sourceTree = "<group>"; };
 		CC50C0C82C4BAC1B00482E4B /* NanoHTTPResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPResponse.swift; sourceTree = "<group>"; };
-		CC50C0CA2C4BAC7B00482E4B /* NanoHTTPRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPRouter.swift; sourceTree = "<group>"; };
+		CC50C0CA2C4BAC7B00482E4B /* NanoHTTPSegmentRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPSegmentRouter.swift; sourceTree = "<group>"; };
 		CC50C0CC2C4BACDF00482E4B /* NanoHTTPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPServer.swift; sourceTree = "<group>"; };
 		CC50C0CE2C4BAD2200482E4B /* NanoHTTPServerIO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPServerIO.swift; sourceTree = "<group>"; };
 		CC50C0D02C4BAD7A00482E4B /* NanoHTTPParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPParser.swift; sourceTree = "<group>"; };
@@ -265,15 +267,16 @@
 		CC50C0922C4B1A1100482E4B /* NanoHTTP */ = {
 			isa = PBXGroup;
 			children = (
+				CC50C0D42C4BADE800482E4B /* NanoSocket.swift */,
 				CC50C0C62C4BAA7B00482E4B /* NanoHTTPRequest.swift */,
 				CC50C0C82C4BAC1B00482E4B /* NanoHTTPResponse.swift */,
 				CC19D6FD2C4EAE8900761AF3 /* NanoHTTPResponseBodyWriter.swift */,
-				CC50C0CA2C4BAC7B00482E4B /* NanoHTTPRouter.swift */,
-				CC50C0CC2C4BACDF00482E4B /* NanoHTTPServer.swift */,
-				CC50C0CE2C4BAD2200482E4B /* NanoHTTPServerIO.swift */,
+				CC19D7062C4FA71900761AF3 /* NanoHTTPRouter.swift */,
+				CC50C0CA2C4BAC7B00482E4B /* NanoHTTPSegmentRouter.swift */,
 				CC50C0D02C4BAD7A00482E4B /* NanoHTTPParser.swift */,
 				CC50C0D22C4BADB600482E4B /* NanoHTTPConnection.swift */,
-				CC50C0D42C4BADE800482E4B /* NanoSocket.swift */,
+				CC50C0CE2C4BAD2200482E4B /* NanoHTTPServerIO.swift */,
+				CC50C0CC2C4BACDF00482E4B /* NanoHTTPServer.swift */,
 				CC50C0D62C4BAE5400482E4B /* String+Extensions.swift */,
 				CC50C0D82C4BAE8F00482E4B /* String+File.swift */,
 				CC50C0DA2C4BAEDF00482E4B /* NanoFiles.swift */,
@@ -568,8 +571,9 @@
 				CC50C0D72C4BAE5400482E4B /* String+Extensions.swift in Sources */,
 				CC50C0D12C4BAD7A00482E4B /* NanoHTTPParser.swift in Sources */,
 				CC50C0C72C4BAA7B00482E4B /* NanoHTTPRequest.swift in Sources */,
+				CC19D7072C4FA71900761AF3 /* NanoHTTPRouter.swift in Sources */,
 				CC50C0CD2C4BACDF00482E4B /* NanoHTTPServer.swift in Sources */,
-				CC50C0CB2C4BAC7B00482E4B /* NanoHTTPRouter.swift in Sources */,
+				CC50C0CB2C4BAC7B00482E4B /* NanoHTTPSegmentRouter.swift in Sources */,
 				CC50C0DB2C4BAEDF00482E4B /* NanoFiles.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

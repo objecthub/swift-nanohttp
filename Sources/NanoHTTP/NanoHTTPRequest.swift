@@ -36,7 +36,7 @@
 
 import Foundation
 
-public class NanoHTTPRequest {
+public final class NanoHTTPRequest: Hashable {
   
   /// The HTTP method
   public var method: String
@@ -76,6 +76,14 @@ public class NanoHTTPRequest {
     for (key, value) in headers {
       self.headers[key.lowercased()] = value
     }
+  }
+  
+  public final var identity: UInt {
+    return UInt(bitPattern: ObjectIdentifier(self))
+  }
+  
+  public final func hash(into hasher: inout Hasher) {
+    hasher.combine(ObjectIdentifier(self))
   }
   
   public var supportsKeepAlive: Bool {
@@ -268,5 +276,9 @@ public class NanoHTTPRequest {
       }
     }
     return nil
+  }
+  
+  public static func ==(lhs: NanoHTTPRequest, rhs: NanoHTTPRequest) -> Bool {
+    return lhs === rhs
   }
 }

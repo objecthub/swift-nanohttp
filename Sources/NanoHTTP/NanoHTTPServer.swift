@@ -48,13 +48,13 @@ open class NanoHTTPServer: NanoHTTPServerIO {
       }
       set {
         for p in path {
-          router.register(method, path: p, handler: newValue)
+          self.router.register(self.method, path: p, handler: newValue)
         }
       }
     }
   }
   
-  private let router = NanoHTTPRouter()
+  public let router: NanoHTTPRouter
   public var delete: MethodRoute
   public var patch: MethodRoute
   public var head: MethodRoute
@@ -64,7 +64,12 @@ open class NanoHTTPServer: NanoHTTPServerIO {
   public var notFoundHandler: NanoHTTPRequestHandler? = nil
   public var middleware: [(NanoHTTPRequest) -> NanoHTTPResponse?] = []
   
+  open class func initialRouter() -> NanoHTTPRouter {
+    return NanoHTTPSegmentRouter()
+  }
+  
   public override init() {
+    self.router = Swift.type(of: self).initialRouter()
     self.delete = MethodRoute(method: "DELETE", router: self.router)
     self.patch = MethodRoute(method: "PATCH", router: self.router)
     self.head = MethodRoute(method: "HEAD", router: self.router)
@@ -86,7 +91,7 @@ open class NanoHTTPServer: NanoHTTPServerIO {
     }
   }
   
-  public func use(_ prefix: String, router: NanoHTTPRouter) throws {
+  public func use(_ prefix: String, router: NanoHTTPSegmentRouter) throws {
     try self.router.merge(router, withPrefix: prefix)
   }
   

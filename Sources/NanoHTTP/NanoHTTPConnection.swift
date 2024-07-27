@@ -71,7 +71,8 @@ public struct NanoHTTPConnection {
     return self.parser.socket
   }
   
-  public func send(_ response: NanoHTTPResponse) -> NanoHTTPConnection? {
+  public func send(_ response: NanoHTTPResponse,
+                   dontKeepAlive: Bool = false) -> NanoHTTPConnection? {
     guard let server else {
       self.close()
       return nil
@@ -79,7 +80,8 @@ public struct NanoHTTPConnection {
     var keepConnection = request.supportsKeepAlive
     do {
       keepConnection = try server.operating &&
-                         self.respond(response: response, keepAlive: keepConnection)
+                         self.respond(response: response,
+                                      keepAlive: keepConnection && !dontKeepAlive && server.operating)
     } catch {
       server.log("Failed to send response: \(error)")
     }
@@ -87,7 +89,8 @@ public struct NanoHTTPConnection {
       server.delegate?.connectionReceived(server: server, socket: socket)
       session(socket)
     }
-    if keepConnection, server.operating, let request = try? parser.readHttpRequest() {
+    if keepConnection && !dontKeepAlive && server.operating,
+       let request = try? parser.readHttpRequest() {
       let request = request
       request.address = try? socket.peername()
       let (params, handler) = server.dispatch(request: request)

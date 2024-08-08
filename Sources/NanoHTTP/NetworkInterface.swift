@@ -33,28 +33,38 @@
 
 import Foundation
 
-public struct NetworkInterface {
+public struct NetworkInterface: Hashable {
   public let name: String
+  public let ipv4: Bool
   public let ip: String
   public let netmask: String
   
-  private init(name: String, ip: String, netmask: String) {
+  private init(name: String, ipv4: Bool, ip: String, netmask: String) {
     self.name = name
+    self.ipv4 = ipv4
     self.ip = ip
     self.netmask = netmask
   }
   
   public static var localIP: String? {
-    let interfaces = NetworkInterface.enumerate()
-    var dict: [String : String] = [:]
-    for intf in interfaces {
-      dict[intf.name] = intf.ip
-    }
-    return dict["en0"] ?? dict["en1"] ?? dict["en2"] ?? interfaces.first?.ip
+    return Self.localIP(ipv4: true) ?? Self.localIP(ipv4: false)
   }
   
-  public static func enumerate() -> [NetworkInterface] {
-    var interfaces: [NetworkInterface] = []
+  public static func localIP(ipv4: Bool = true) -> String? {
+    let interfaces = NetworkInterface.available()
+    var dict: [String : String] = [:]
+    var res: String? = nil
+    for intf in interfaces {
+      if intf.ipv4 == ipv4 {
+        res = intf.ip
+        dict[intf.name] = intf.ip
+      }
+    }
+    return dict["en0"] ?? dict["en1"] ?? dict["en2"] ?? res
+  }
+  
+  public static func available() -> Set<NetworkInterface> {
+    var interfaces: Set<NetworkInterface> = []
     // Get list of all interfaces on the local machine.
     var ifaddr : UnsafeMutablePointer<ifaddrs>? = nil
     if getifaddrs(&ifaddr) == 0 {
@@ -64,7 +74,7 @@ public struct NetworkInterface {
         let flags = Int32(ptr!.pointee.ifa_flags)
         var addr = ptr!.pointee.ifa_addr.pointee
         // Check for running IPv4, IPv6 interfaces. Skip the loopback interface.
-        if (flags & (IFF_UP|IFF_RUNNING|IFF_LOOPBACK)) == (IFF_UP|IFF_RUNNING) {
+        if (flags & (IFF_UP | IFF_RUNNING | IFF_LOOPBACK)) == (IFF_UP | IFF_RUNNING) {
           if addr.sa_family == UInt8(AF_INET) || addr.sa_family == UInt8(AF_INET6) {
             var mask = ptr!.pointee.ifa_netmask.pointee
             // Convert interface address to a human readable string.
@@ -88,8 +98,11 @@ public struct NetworkInterface {
                               socklen_t(0),
                               NI_NUMERICHOST) == 0) {
                 let netmaskIP = String(cString: netmask)
-                let info = NetworkInterface(name: ifname, ip: address, netmask: netmaskIP)
-                interfaces.append(info)
+                let info = NetworkInterface(name: ifname,
+                                            ipv4: addr.sa_family == UInt8(AF_INET),
+                                            ip: address,
+                                            netmask: netmaskIP)
+                interfaces.insert(info)
               }
             }
           }

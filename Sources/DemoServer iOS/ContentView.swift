@@ -42,19 +42,13 @@ struct ContentView: View {
             self.container.server.stop()
             DispatchQueue.main.async {
               self.state = "Stopped"
-              self.container.output += "Server stopped\n"
             }
           }
         } else {
           Button("Start server") {
-            do {
-              try? self.container.server.start(9080, forceIPv4: true)
-              self.container.server.log("Server has started (port = \(try self.container.server.port())). Try to connect now...")
-              DispatchQueue.main.async {
-                self.state = "Running"
-              }
-            } catch {
-              self.container.server.log("Server start error: \(error)")
+            try? self.container.server.start(9080, forceIPv4: true)
+            DispatchQueue.main.async {
+              self.state = "Running"
             }
           }
         }

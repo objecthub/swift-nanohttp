@@ -400,7 +400,7 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
           #if os(Linux)
           return send(target, start, len, Int32(MSG_NOSIGNAL))
           #else
-          return write(target, start, len)
+          return Darwin.write(target, start, len)
           #endif
         }
         guard writeResult > 0 else {

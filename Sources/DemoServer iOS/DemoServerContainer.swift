@@ -22,6 +22,24 @@ final class DemoServerContainer: ObservableObject {
         print(str)
       }
     }
+    public override func stop() {
+      if self.operating {
+        super.stop()
+        self.log("Server stopped")
+      } else {
+        super.stop()
+      }
+    }
+    public override func listen(priority: DispatchQoS.QoSClass?) {
+      do {
+        let port = try self.port()
+        self.log("Server has started (port = \(port))")
+        if let ip = NetworkInterface.localIP {
+          self.log("Try to connect now at http://\(ip):\(port)")
+        }
+      } catch {}
+      super.listen(priority: priority)
+    }
   }
   
   let server: NanoHTTPServer
@@ -36,11 +54,6 @@ final class DemoServerContainer: ObservableObject {
                                                                 in: .userDomainMask).first?.path ??
                                        (try? String.File.currentWorkingDirectory()) ??
                                        "/")
-    do {
-      try? server.start(9080, forceIPv4: true)
-      print("Server has started (port = \(try server.port())). Try to connect now...")
-    } catch {
-      print("Server start error: \(error)")
-    }
+    try? server.start(9080, forceIPv4: true)
   }
 }

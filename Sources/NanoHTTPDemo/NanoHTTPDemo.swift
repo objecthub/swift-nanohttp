@@ -150,7 +150,7 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
     return .ok(.htmlBody("Open connections: \(server.openConnections)"))
   }
   server["/close"] = { _ in
-    DispatchQueue.global().asyncAfter(deadline: .now().advanced(by: .seconds(2))) {
+    DispatchQueue.global().asyncAfter(deadline: .now().advanced(by: .seconds(1))) {
       server.closeAndforgetAllConnections()
     }
     return .ok(.htmlBody("Open connections: \(server.openConnections)"))

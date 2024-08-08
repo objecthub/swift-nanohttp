@@ -51,6 +51,7 @@
 		CC80DA8C2C4E797800FCFF2E /* IOSafetyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC80DA8B2C4E797800FCFF2E /* IOSafetyTests.swift */; };
 		CC80DA8E2C4E7A1000FCFF2E /* StringExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC80DA8D2C4E7A1000FCFF2E /* StringExtensionsTests.swift */; };
 		CC80DA902C4E851000FCFF2E /* WebSocketTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC80DA8F2C4E851000FCFF2E /* WebSocketTests.swift */; };
+		CCB752112C64335300E7C1B0 /* NetworkInterface.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCB752102C64335300E7C1B0 /* NetworkInterface.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -188,6 +189,7 @@
 		CC80DA8B2C4E797800FCFF2E /* IOSafetyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSafetyTests.swift; sourceTree = "<group>"; };
 		CC80DA8D2C4E7A1000FCFF2E /* StringExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringExtensionsTests.swift; sourceTree = "<group>"; };
 		CC80DA8F2C4E851000FCFF2E /* WebSocketTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketTests.swift; sourceTree = "<group>"; };
+		CCB752102C64335300E7C1B0 /* NetworkInterface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkInterface.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -283,6 +285,7 @@
 				CC50C0DC2C4BAF2D00482E4B /* NanoWebSockets.swift */,
 				CC50C0DE2C4BAFFC00482E4B /* NanoProcess.swift */,
 				CC50C0E02C4BB02F00482E4B /* NanoHTML.swift */,
+				CCB752102C64335300E7C1B0 /* NetworkInterface.swift */,
 				CC50C0932C4B1A1100482E4B /* NanoHTTP.h */,
 			);
 			name = NanoHTTP;
@@ -565,6 +568,7 @@
 				CC50C0D32C4BADB600482E4B /* NanoHTTPConnection.swift in Sources */,
 				CC19D6FE2C4EAE8900761AF3 /* NanoHTTPResponseBodyWriter.swift in Sources */,
 				CC50C0DF2C4BAFFC00482E4B /* NanoProcess.swift in Sources */,
+				CCB752112C64335300E7C1B0 /* NetworkInterface.swift in Sources */,
 				CC50C0C92C4BAC1B00482E4B /* NanoHTTPResponse.swift in Sources */,
 				CC50C0D92C4BAE8F00482E4B /* String+File.swift in Sources */,
 				CC50C0DD2C4BAF2D00482E4B /* NanoWebSockets.swift in Sources */,
@@ -1035,7 +1039,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "Sources/DemoServer\\ iOS/Preview\\ Content";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = C72Z63N8M5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -1066,7 +1070,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "Sources/DemoServer\\ iOS/Preview\\ Content";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = C72Z63N8M5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

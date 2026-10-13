@@ -38,12 +38,18 @@ import Foundation
 import NanoHTTP
 
 extension NanoHTTPServer {
+  /// Adds the demo routes to a server, see ``demoServer(server:directory:)``.
   public static func demo(server: NanoHTTPServer = NanoHTTPServer(),
                           directory publicDir: String) -> NanoHTTPServer {
     return demoServer(server: server, directory: publicDir)
   }
 }
 
+/// Adds routes that demonstrate the framework to `server`: an index of the routes, routes that echo the
+/// request, a form and an upload, redirects, a streamed response, a WebSocket echo, and `directory`
+/// served read-only at `/public/...` (files) and `/files/...` (a browsable listing). Everything in
+/// `directory` is readable by anybody who can reach the server; use a directory without secrets.
+/// This is a demonstration, not a template for production code.
 public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
                        directory publicDir: String) -> NanoHTTPServer {
   server.log("directory = \(publicDir)")

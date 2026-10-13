@@ -36,33 +36,49 @@
 
 import Foundation
 
+/// An HTTP request: method, path, query, headers and body, plus the address of the client and the
+/// variables of the route that matched. The server creates one for every request and hands it to
+/// middleware and handlers. A request is a reference type, compared and hashed by identity.
+///
+/// ```swift
+/// let server = NanoHTTPServer()
+/// server.post["/users/:id"] = { request in
+///   let id = request.params["id"] ?? ""
+///   let agent = request.header("User-Agent") ?? "unknown"
+///   return .ok(.text("user \(id), \(request.body.count) bytes from \(agent)"))
+/// }
+/// ```
 public final class NanoHTTPRequest: Hashable {
   
-  /// The HTTP method
+  /// The HTTP method in the form the client sent it, normally in upper case (`"GET"`, `"POST"`).
   public var method: String
   
-  /// The request path
+  /// The path of the request as the client sent it: **still percent-encoded** (`/a%20b`), without the query.
+  /// The router decodes the segments it matches; decode the path yourself (`removingPercentEncoding`)
+  /// if you use it for something else.
   public var path: String
   
-  /// Sequence of query parameters
+  /// The query parameters in the order of the request, repeated names included. Names and values are
+  /// **not decoded**: `?q=a%20b` gives `("q", "a%20b")` (decode with `removingPercentEncoding`; a `+` stays a `+`).
   public var queryParams: [(String, String)]
   
-  /// Variables extracted by the router while matching the path with registered handlers
+  /// The variables of the route that matched (`/users/:id` gives `["id": "42"]`); empty if the route has none.
   public var params: [String : String] = [:]
   
   /// HTTP request headers (keys are case insensitive)
   private var headers: [String : String] = [:]
   
-  /// HTTP request body
+  /// The body of the request, as many bytes as `Content-Length` announced (and the server's limit allowed); empty otherwise.
   public var body: [UInt8]
   
-  /// Client (IP) address
+  /// The IP address of the client (`"192.168.1.20"`, `"::1"`), if it could be determined.
   public var address: String? = nil
   
-  /// Custom dictionary for middleware handlers to communicate/pass information
+  /// Free space for the application, for example for middleware to hand information to handlers.
   public var custom: [String : Any] = [:]
   
-  /// Initializer
+  /// Creates a request, for example to call a handler directly in a test. The names of `headers` are
+  /// case-insensitive.
   public init(method: String,
               path: String,
               queryParams: [(String, String)] = [],
@@ -78,14 +94,19 @@ public final class NanoHTTPRequest: Hashable {
     }
   }
   
+  /// A number that identifies this request object while it exists.
   public final var identity: UInt {
     return UInt(bitPattern: ObjectIdentifier(self))
   }
   
+  /// Requests are hashed by identity.
   public final func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(self))
   }
   
+  /// Whether the client asked for the connection to be kept open after the response: only if the request
+  /// has the header `Connection: keep-alive`. (Without it the server closes the connection after the
+  /// response, although HTTP/1.1 connections are persistent by default.)
   public var supportsKeepAlive: Bool {
     if let value = self.headers["connection"] {
       return value.trimmingCharacters(in: .whitespaces).lowercased() == "keep-alive"
@@ -93,6 +114,8 @@ public final class NanoHTTPRequest: Hashable {
     return false
   }
   
+  /// The value of a header, or `nil`. The name is case-insensitive. If the client sent a header several
+  /// times, the values are joined with `, `.
   public func header(_ headerName: String) -> String? {
     guard let headerValue = self.headers[headerName.lowercased()] else {
       return nil
@@ -100,24 +123,31 @@ public final class NanoHTTPRequest: Hashable {
     return headerValue
   }
   
+  /// Sets a header, replacing an existing one of the same (case-insensitive) name.
   public func setHeader(_ headerName: String, to headerValue: String) {
     self.headers[headerName.lowercased()] = headerValue
   }
   
+  /// Sets all the given headers; see ``setHeader(_:to:)``.
   public func includeHeaders(_ headers: [String : String]) {
     for (key, value) in headers {
       self.setHeader(key, to: value)
     }
   }
   
+  /// Removes a header; the name is case-insensitive.
   public func removeHeader(_ headerName: String) {
     self.headers.removeValue(forKey: headerName.lowercased())
   }
   
+  /// The names of the headers of the request, in lower case, in no particular order.
   public var availableHeaders: [String] {
     return [String](self.headers.keys)
   }
   
+  /// Whether the value of a header that is a comma-separated list (`Connection: keep-alive, Upgrade`)
+  /// contains `token`. The list items are compared case-insensitively, so `token` has to be given in
+  /// lower case.
   public func hasTokenForHeader(_ headerName: String, token: String) -> Bool {
     guard let headerValue = self.header(headerName) else {
       return false
@@ -156,14 +186,20 @@ public final class NanoHTTPRequest: Hashable {
     }
   }
   
+  /// One part of a `multipart/form-data` body (an uploaded file or a form field): its headers and its
+  /// content. See ``NanoHTTPRequest/parseMultiPartFormData()``.
   public struct MultiPart {
+    /// The headers of the part, with names in lower case.
     public let headers: [String : String]
+    /// The content of the part.
     public let body: [UInt8]
     
+    /// The name of the form field (`name="..."` of `Content-Disposition`), without quotes.
     public var name: String? {
       return valueFor("content-disposition", parameter: "name")?.unquote()
     }
     
+    /// The file name of an upload (`filename="..."` of `Content-Disposition`), without quotes; `nil` for ordinary fields.
     public var fileName: String? {
       return valueFor("content-disposition", parameter: "filename")?.unquote()
     }
@@ -187,6 +223,12 @@ public final class NanoHTTPRequest: Hashable {
     }
   }
   
+  /// The parts of a `multipart/form-data` body (a form with file uploads), in order. Returns an empty
+  /// array if the request has another content type or the body is malformed. The whole body is in
+  /// memory, see ``NanoHTTPParser/Limits/maxBodyBytes``.
+  ///
+  /// Limitations: names and file names that contain `;`, `=` or `:`, and quoted boundaries, are not
+  /// parsed correctly.
   public func parseMultiPartFormData() -> [MultiPart] {
     guard let contentTypeHeader = headers["content-type"] else {
       return []
@@ -281,6 +323,7 @@ public final class NanoHTTPRequest: Hashable {
     return nil
   }
   
+  /// Requests are equal if they are the same object.
   public static func ==(lhs: NanoHTTPRequest, rhs: NanoHTTPRequest) -> Bool {
     return lhs === rhs
   }

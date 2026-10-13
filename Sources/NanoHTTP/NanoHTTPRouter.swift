@@ -33,14 +33,27 @@
 
 import Foundation
 
+/// Maps methods and paths to handlers. ``NanoHTTPServer`` uses a ``NanoHTTPSegmentRouter`` unless
+/// `initialRouter()` is overridden. A router has to be safe to use from several threads: routes are
+/// looked up on the threads of the connections, and may be registered while the server is running.
 public protocol NanoHTTPRouter {
+  /// Registers `handler` for requests with `method` (`nil`: every method) to `path`. A `nil` handler
+  /// removes a registration. A registration for a specific method wins over one for every method.
   func register(_ method: String?, path: String, handler: NanoHTTPRequestHandler?)
+  /// Adds the routes of `router` below `prefix`. Throws `NanoHTTPRouterError.incompatibleRouterForMerge`
+  /// if the router does not know how to merge routers of the type of `router`.
   func merge(_ router: NanoHTTPRouter, withPrefix prefix: String) throws
+  /// The handler for a request and the variables its route defined (`request.params`), or `nil` if
+  /// no route matches. `path` is the path of the request as the client sent it (percent-encoded).
   func route(_ method: String, path: String) -> ([String: String], NanoHTTPRequestHandler)?
+  /// The registered route patterns; the methods are not part of them.
   func routes() -> [String]
 }
 
+/// Errors of routers.
 public enum NanoHTTPRouterError: Error {
+  /// Routers could not be merged.
   case unableToMerge
+  /// The router does not support merging with a router of this type.
   case incompatibleRouterForMerge
 }

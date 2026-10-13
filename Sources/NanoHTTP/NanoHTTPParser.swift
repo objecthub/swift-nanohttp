@@ -74,6 +74,7 @@ public struct NanoHTTPParser {
     /// held in memory, so keep this as small as the application allows.
     public var maxBodyBytes: Int
     
+    /// Creates limits; the defaults are the limits of a new server.
     public init(maxLineLength: Int = 8 * 1024,
                 maxHeaderBytes: Int = 64 * 1024,
                 maxBodyBytes: Int = 64 * 1024 * 1024) {
@@ -83,6 +84,7 @@ public struct NanoHTTPParser {
     }
   }
   
+  /// The socket the requests are read from.
   public let socket: NanoSocket
   
   /// The bounds this parser enforces.

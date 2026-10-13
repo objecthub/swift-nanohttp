@@ -37,17 +37,39 @@
 import Foundation
 import Dispatch
 
+/// Is told about the connections of a ``NanoHTTPServerIO``.
 public protocol NanoHTTPServerDelegate: AnyObject {
+  /// Called on the thread of a connection when the connection has received its first request, and
+  /// once more when the connection is switched to another protocol (a WebSocket session starts).
+  /// It is not called for the later requests of a connection that is kept alive.
   func connectionReceived(server: NanoHTTPServerIO, socket: NanoSocket)
 }
 
+/// The part of a server that deals with sockets and threads: it listens at a port, accepts
+/// connections, reads the requests of each connection on a thread of its own, hands them to
+/// ``dispatch(request:)`` and writes the responses. ``NanoHTTPServer`` builds routing on top of it;
+/// subclass this class to use the server without routing.
+///
+/// The lifecycle is ``start(_:forceIPv4:priority:handlerPriority:)`` and ``stop()``. Both can be
+/// called from any thread, and a server can be started again after it was stopped.
+///
+/// A connection serves one request at a time. Requests of different connections are served
+/// concurrently, so code that handles requests must be thread-safe.
+///
+/// Requests are limited in size (see ``limits``), and requests that exceed a limit or cannot be
+/// parsed are answered by the server itself with `400`, `413`, `414` or `431`.
 open class NanoHTTPServerIO {
   
+  /// The states of a server.
   public enum State: Int32 {
     case starting
     case running
     case stopping
     case stopped
+  }
+  
+  /// Creates a server that is not running.
+  public init() {
   }
   
   public weak var delegate: NanoHTTPServerDelegate?
@@ -275,10 +297,20 @@ open class NanoHTTPServerIO {
     }
   }
   
+  /// Chooses the handler for a request and returns it with the variables that the request's route
+  /// defined (see `NanoHTTPRequest.params`). The implementation of this class answers every request
+  /// with `404 Not Found`; ``NanoHTTPServer`` overrides it to route.
+  ///
+  /// Called on the thread of the connection.
   open func dispatch(request: NanoHTTPRequest) -> ([String: String], NanoHTTPRequestHandler) {
     return ([:], { _ in NanoHTTPResponse.notFound() })
   }
   
+  /// Serves a connection: calls the handler of its first request, sends the response and, as long as
+  /// the connection is kept alive, does the same for the following requests. Returns when the
+  /// connection has ended. Runs on the thread of the connection.
+  ///
+  /// Override to wrap the handling (to measure the time of requests, for example) and call `super`.
   open func handle(connection: NanoHTTPConnection) {
     var connection = connection
     while let next = connection.send(connection.handler(connection.request)) {
@@ -286,16 +318,23 @@ open class NanoHTTPServerIO {
     }
   }
   
+  /// Logs a message. The server reports problems that nobody else can see: a response that could not
+  /// be written, a pause in accepting connections, a response header that was dropped. The implementation
+  /// prints to the console; override to log elsewhere. May be called from any thread.
   open func log(_ str: String) {
     print(str)
   }
   
+  /// Registers an open connection so that ``stop()`` and ``closeAndforgetAllConnections()`` can close
+  /// it. Connections that the server creates are registered automatically; this is for subclasses that
+  /// do their own connection handling.
   public func remember(socket: NanoSocket) {
     self.lock.lock()
     self.sockets.insert(socket)
     self.lock.unlock()
   }
   
+  /// Unregisters a connection that has ended; see ``remember(socket:)``.
   public func forget(socket: NanoSocket) {
     self.lock.lock()
     self.sockets.remove(socket)

@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file. The format is b
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.0.2] - 2026-10-13
 
 ### Added
 - Test harness: servers on ephemeral loopback ports, a raw-socket HTTP/WebSocket client,
@@ -22,9 +22,22 @@ All notable changes to this project are documented in this file. The format is b
   `browse(directory:followSymlinks:)` (default `false`): serve symbolic links even if they lead out of
   the shared directory. Links that stay inside the directory are always followed.
 
+- Documentation: a DocC catalog (`Sources/NanoHTTP/NanoHTTP.docc`) with thirteen articles (getting started, routing,
+  handlers and responses, reading requests, serving files, WebSockets, middleware and extending, threading and
+  lifecycle, security and limits, the HTML builder, iOS, testing, how a request is served) and documentation comments
+  for the public API, including the guarantees the code relies on (threading, percent-encoding of `path` and
+  `queryParams`, what the server closes and when). The catalog is part of the Xcode project; `.spi.yml` publishes it
+  on the Swift Package Index.
+- `Scripts/check_doc_examples.py` compiles every Swift example of the README, the articles and the documentation
+  comments against the library, and `Scripts/check_docs.py` builds the documentation and fails on warnings
+  (unresolved links, missing symbols). Both run in CI.
+- `SECURITY.md` (how to report a vulnerability, what is in scope) and `CONTRIBUTING.md`.
+
 ### Changed
 - Existing tests no longer use fixed ports (8080, 9081), no longer ignore bind failures, and the
   flaky `testShouldHandleTheSameRequestConcurrently` waits for all of its requests.
+- README rewritten: what the framework is for and not for, a quick start, installation, security notes and a
+  warning that the demo server shares the Downloads folder with the network.
 - README: removed the Linux claim (the package never built there; it uses CryptoKit and
   UniformTypeIdentifiers), listed tvOS (declared in `Package.swift`), corrected the license badge
   (BSD 3-Clause, not Apache).
@@ -80,7 +93,9 @@ All notable changes to this project are documented in this file. The format is b
 - `String.htmlEscaped`: escapes `& < > " '` for use as the text or an attribute value of an HTML element.
 
 ### Fixed
-- `share(file:) and `share(directory:defaults:followSymlinks:)` sent the length of a symbolic link
+- `NanoHTTPSegmentRouter()` and `NanoHTTPServerIO()` can be created from other modules (their implicit
+  initializers were internal, although the classes are `open`).
+- `share(file:)` and `share(directory:defaults:followSymlinks:)` sent the length of a symbolic link
   (the length of its target path) as `Content-Length` instead of the size of the file it points to.
   Linked files longer than that were truncated, shorter ones left clients waiting.
 
@@ -154,6 +169,6 @@ First release (replaces the former `0.1 (2024-07-19)` entry, which was never tag
   they are reachable.
 - Swift Package Manager support; demo server for macOS (command line) and iOS (SwiftUI app).
 
-[Unreleased]: https://github.com/objecthub/swift-nanohttp/compare/1.0.1...HEAD
+[1.0.2]: https://github.com/objecthub/swift-nanohttp/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/objecthub/swift-nanohttp/compare/1.0...1.0.1
 [1.0]: https://github.com/objecthub/swift-nanohttp/releases/tag/1.0

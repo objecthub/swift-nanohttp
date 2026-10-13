@@ -252,37 +252,59 @@ public func websocket(text: ((WebSocketSession, String) -> Void)? = nil,
 /// no-op that logs an error.
 public class WebSocketSession: Hashable, Equatable {
   
+  /// Violations of the WebSocket protocol that end a connection.
   public enum WsError: Error {
+    /// A frame has an operation code that does not exist.
     case unknownOpCode(String)
+    /// A frame of the client was not masked, as the protocol demands.
     case unMaskedFrame(String)
+    /// Another violation of the protocol.
     case protocolError(String)
+    /// A text message is not valid UTF-8.
     case invalidUTF8(String)
     /// A frame or a message is larger than the limit (close code 1009).
     case messageTooBig(String)
   }
   
+  /// The operation codes of frames.
   public enum OpCode: UInt8 {
+    /// A continuation of a message that is sent in several frames.
     case `continue` = 0x00
+    /// The connection is closed.
     case close = 0x08
+    /// A ping: the peer answers with a pong that has the same payload.
     case ping = 0x09
+    /// The answer to a ping.
     case pong = 0x0A
+    /// A text message (UTF-8).
     case text = 0x01
+    /// A binary message.
     case binary = 0x02
   }
   
+  /// Not an error: how the processing of a connection is told that the client closed it.
   public enum Control: Error {
+    /// The client closed the connection.
     case close
   }
   
+  /// A frame as it was read from the connection.
   public class Frame {
+    /// The kind of the frame.
     public var opcode = OpCode.close
+    /// Whether this frame is the last one of its message.
     public var fin = false
+    /// A reserved bit; frames with a reserved bit are refused.
     public var rsv1: UInt8 = 0
+    /// A reserved bit; frames with a reserved bit are refused.
     public var rsv2: UInt8 = 0
+    /// A reserved bit; frames with a reserved bit are refused.
     public var rsv3: UInt8 = 0
+    /// The content of the frame, unmasked.
     public var payload = [UInt8]()
   }
   
+  /// The socket of the connection.
   public let socket: NanoSocket
   
   /// Serializes writing frames: a frame consists of several parts, and the writes of two threads
@@ -293,6 +315,7 @@ public class WebSocketSession: Hashable, Equatable {
   /// rejected with `WsError.protocolError` before any of its payload is read.
   public var maxPayloadSize = 16 * 1024 * 1024
   
+  /// Creates a session for an established connection. Sessions are normally created by ``websocket(text:binary:pong:connected:disconnected:maxMessageSize:)``.
   public init(_ socket: NanoSocket) {
     self.socket = socket
   }
@@ -302,14 +325,17 @@ public class WebSocketSession: Hashable, Equatable {
     socket.close()
   }
   
+  /// Sends a text message in one frame.
   public func writeText(_ text: String) {
     self.writeFrame(ArraySlice(text.utf8), OpCode.text)
   }
   
+  /// Sends a binary message in one frame.
   public func writeBinary(_ binary: [UInt8]) {
     self.writeBinary(ArraySlice(binary))
   }
   
+  /// Sends a binary message in one frame.
   public func writeBinary(_ binary: ArraySlice<UInt8>) {
     self.writeFrame(binary, OpCode.binary)
   }
@@ -351,13 +377,21 @@ public class WebSocketSession: Hashable, Equatable {
   
   /// Status codes of close frames (https://tools.ietf.org/html/rfc6455#section-7.4.1).
   public enum CloseCode {
+    /// The purpose of the connection has been fulfilled.
     public static let normal: UInt16 = 1000
+    /// The endpoint goes away (the server shuts down).
     public static let goingAway: UInt16 = 1001
+    /// The peer violated the protocol.
     public static let protocolError: UInt16 = 1002
+    /// The endpoint cannot handle the kind of data it received.
     public static let unsupportedData: UInt16 = 1003
+    /// A message is inconsistent with its type (text that is not UTF-8).
     public static let invalidPayload: UInt16 = 1007
+    /// A message violates a policy of the endpoint.
     public static let policyViolation: UInt16 = 1008
+    /// A message is too large to process.
     public static let messageTooBig: UInt16 = 1009
+    /// The server met an unexpected condition.
     public static let internalError: UInt16 = 1011
   }
   
@@ -393,6 +427,10 @@ public class WebSocketSession: Hashable, Equatable {
     return encodedBytes
   }
   
+  /// Reads the next frame: a masked frame of the client with a payload of at most ``maxPayloadSize`` bytes
+  /// (control frames: 125). Blocks until the frame is complete.
+  ///
+  /// - Throws: ``WsError`` for violations of the protocol, `NanoSocketError` if the connection ends.
   public func readFrame() throws -> Frame {
     let frm = Frame()
     let fst = try socket.read()
@@ -462,10 +500,12 @@ public class WebSocketSession: Hashable, Equatable {
     return frm
   }
   
+  /// Sessions are hashed by their socket, so that they can be kept in a `Set`.
   public func hash(into hasher: inout Hasher) {
     hasher.combine(socket)
   }
   
+  /// Sessions are equal if they have the same socket.
   public static func == (wss1: WebSocketSession, wss2: WebSocketSession) -> Bool {
       return wss1.socket == wss2.socket
   }

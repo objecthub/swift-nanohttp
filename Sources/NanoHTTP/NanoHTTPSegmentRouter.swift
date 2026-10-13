@@ -196,6 +196,12 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
   private var root: [String? : Segment] = [:]
   private let lock = NSLock()
   
+  /// Creates a router without routes.
+  public init() {
+  }
+  
+  /// The registered route patterns, written like the paths they were registered with (`/users/:id`,
+  /// `/files/::path`, `/a/*/b/**`). The order is not defined.
   open func routes() -> [String] {
     self.lock.lock()
     defer {
@@ -208,6 +214,9 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
     return routes
   }
   
+  /// Registers a handler for `path`. `method` is the HTTP method in upper case, or `nil` for all
+  /// methods. `path` is a sequence of segments separated by `/`; empty segments are ignored, and
+  /// everything after a `?` is ignored. A `nil` handler removes the registration.
   open func register(_ method: String?, path: String, handler: NanoHTTPRequestHandler?) {
     let selectors = self.selectors(from: path)
     self.lock.lock()
@@ -217,6 +226,11 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
     self.root.next(for: method).insert(selectors: selectors).handler = handler
   }
   
+  /// Copies the routes of another segment router below `prefix` (`/api/v1`). The routes of `router`
+  /// that already exist at the same path are replaced.
+  ///
+  /// - Throws: `NanoHTTPRouterError.incompatibleRouterForMerge` if `router` is not a
+  ///     ``NanoHTTPSegmentRouter``.
   open func merge(_ router: NanoHTTPRouter, withPrefix prefix: String) throws {
     guard let router = router as? NanoHTTPSegmentRouter else {
       throw NanoHTTPRouterError.incompatibleRouterForMerge
@@ -231,6 +245,10 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
     }
   }
   
+  /// Finds the handler for a request. Fixed segments win over variables, and the search backtracks:
+  /// `/a/b/c` and `/a/:x/d` both match `/a/b/d`. A route for `method` is tried before a route for all
+  /// methods. Segments are percent-decoded before they are compared or bound to a variable, except for
+  /// the values of path variables (`::name`, `**`), which are kept as they are.
   open func route(_ method: String, path: String) -> ([String: String], NanoHTTPRequestHandler)? {
     self.lock.lock()
     defer {

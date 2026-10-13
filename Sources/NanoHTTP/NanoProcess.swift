@@ -35,12 +35,15 @@
 
 import Foundation
 
+/// Information about the process, and a way to react to termination signals.
 public class NanoProcess {
   
+  /// The process identifier.
   public static var pid: Int {
     return Int(getpid())
   }
   
+  /// The identifier of the calling thread.
   public static var tid: UInt64 {
     #if os(Linux)
     return UInt64(pthread_self())
@@ -54,6 +57,11 @@ public class NanoProcess {
   private static var signalsWatchers = [(Int32) -> Void]()
   private static var signalsObserved = false
   
+  /// Registers `callback` to be called with the number of the signal when the process receives
+  /// `SIGTERM`, `SIGHUP` or `SIGINT` (Ctrl-C). All registered callbacks are called, in the order of registration.
+  ///
+  /// The callbacks run inside the signal handler. Do very little there: set a flag, write a byte to a pipe,
+  /// call `exit`. Do not allocate memory, take locks or call into frameworks.
   public static func watchSignals(_ callback: @escaping (Int32) -> Void) {
     if !signalsObserved {
       [SIGTERM, SIGHUP, SIGSTOP, SIGINT].forEach { item in

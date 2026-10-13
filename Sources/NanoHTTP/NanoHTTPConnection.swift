@@ -33,12 +33,22 @@
 
 import Foundation
 
+/// A function that answers a request. It runs on the thread of the connection that sent the request,
+/// one request at a time per connection, and many handlers run at the same time for different
+/// connections. A handler may block (a slow handler delays only its own connection) but must protect
+/// state that it shares with other handlers.
 public typealias NanoHTTPRequestHandler = (NanoHTTPRequest) -> NanoHTTPResponse
 
+/// A request that has been read from a connection, together with the handler that will answer it.
+/// ``NanoHTTPServerIO/handle(connection:)`` drives the connection with it: `send(_:)` writes the
+/// response and returns the connection for the next request, or `nil` when the connection has ended.
 public struct NanoHTTPConnection {
   public weak var server: NanoHTTPServerIO?
+  /// The parser that reads the requests of this connection.
   public let parser: NanoHTTPParser
+  /// The request to answer.
   public let request: NanoHTTPRequest
+  /// The handler chosen for `request`.
   public let handler: NanoHTTPRequestHandler
   
   internal init?(server: NanoHTTPServerIO, socket: NanoSocket) {
@@ -79,10 +89,20 @@ public struct NanoHTTPConnection {
     self.handler = handler
   }
   
+  /// The socket of the connection.
   public var socket: NanoSocket {
     return self.parser.socket
   }
   
+  /// Writes `response`, then waits for the next request of the connection.
+  ///
+  /// The connection stays open if the client asked for it with `Connection: keep-alive`, the response
+  /// has a known length, and the server is still running; `dontKeepAlive` forces it to close. A response
+  /// whose body is a socket session (``NanoHTTPResponse/switchProtocols(_:_:)``, WebSocket) runs the
+  /// session first and ends the connection afterwards.
+  ///
+  /// - Returns: The connection with the next request, or `nil` if the connection has ended (it is
+  ///     closed then). A request that cannot be read is answered with `400`, `413`, `414` or `431`.
   public func send(_ response: NanoHTTPResponse,
                    dontKeepAlive: Bool = false) -> NanoHTTPConnection? {
     guard let server else {
@@ -139,6 +159,7 @@ public struct NanoHTTPConnection {
     socket.closeAfterDraining()
   }
   
+  /// Closes the connection and removes it from the server.
   public func close() {
     self.socket.close()
     self.server?.forget(socket: self.socket)

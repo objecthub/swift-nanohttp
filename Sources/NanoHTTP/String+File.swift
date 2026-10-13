@@ -38,6 +38,7 @@ import Foundation
 
 extension String {
   
+  /// Errors of file operations.
   public enum FileError: Error {
     case error(Int32)
   }
@@ -49,6 +50,7 @@ extension String {
     let pointer: UnsafeMutablePointer<FILE>
     private var closed = false
     
+    /// Wraps a `FILE` pointer, which the instance owns from now on and closes.
     public init(_ pointer: UnsafeMutablePointer<FILE>) {
       self.pointer = pointer
     }
@@ -66,10 +68,12 @@ extension String {
       }
     }
     
+    /// Moves to a position, counted in bytes from the start. Returns whether it worked.
     public func seek(_ offset: Int) -> Bool {
       return (fseek(pointer, offset, SEEK_SET) == 0)
     }
     
+    /// Reads up to `data.count` bytes into `data` and returns how many were read; fewer means the end of the file.
     public func read(_ data: inout [UInt8]) throws -> Int {
       if data.count <= 0 {
         return data.count
@@ -86,6 +90,7 @@ extension String {
       }
     }
     
+    /// Writes bytes.
     public func write(_ data: [UInt8]) throws {
       if data.count <= 0 {
         return
@@ -97,6 +102,7 @@ extension String {
       }
     }
     
+    /// The current working directory of the process.
     public static func currentWorkingDirectory() throws -> String {
       guard let path = getcwd(nil, 0) else {
         throw FileError.error(errno)
@@ -105,20 +111,25 @@ extension String {
     }
   }
   
+  /// The separator of the components of a path. (A global setting; the default is right for all supported systems.)
   public static var pathSeparator = "/"
   
+  /// Opens the file at this path for writing; an existing file is emptied, a missing one is created.
   public func openNewForWriting() throws -> File {
     return try openFileForMode(self, "wb")
   }
   
+  /// Opens the file at this path for reading. Throws if it does not exist or cannot be read.
   public func openForReading() throws -> File {
     return try openFileForMode(self, "rb")
   }
   
+  /// Opens an existing file at this path for reading and writing, without emptying it.
   public func openForWritingAndReading() throws -> File {
     return try openFileForMode(self, "r+b")
   }
   
+  /// Opens `path` like `fopen` does with `mode` (`"rb"`, `"wb"`, `"r+b"`).
   public func openFileForMode(_ path: String, _ mode: String) throws -> File {
     guard let file = path.withCString({
             pathPointer in mode.withCString { fopen(pathPointer, $0) }
@@ -128,6 +139,7 @@ extension String {
     return File(file)
   }
   
+  /// Whether something exists at this path (a link is followed). Throws for errors other than "does not exist".
   public func exists() throws -> Bool {
     return try self.withStat {
       if $0 != nil {
@@ -137,6 +149,7 @@ extension String {
     }
   }
   
+  /// Whether this path is a directory (a link is followed).
   public func directory() throws -> Bool {
     return try self.withStat {
       if let stat = $0 {
@@ -146,6 +159,7 @@ extension String {
     }
   }
   
+  /// The names of the entries of the directory at this path, including `.` and `..`, in no particular order.
   public func files() throws -> [String] {
     guard let dir = self.withCString({ opendir($0) }) else {
       throw FileError.error(errno)

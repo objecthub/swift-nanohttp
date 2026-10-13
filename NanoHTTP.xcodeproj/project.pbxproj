@@ -23,6 +23,7 @@
 		CC50C0D72C4BAE5400482E4B /* String+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0D62C4BAE5400482E4B /* String+Extensions.swift */; };
 		CC50C0D92C4BAE8F00482E4B /* String+File.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0D82C4BAE8F00482E4B /* String+File.swift */; };
 		CC50C0DB2C4BAEDF00482E4B /* NanoFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0DA2C4BAEDF00482E4B /* NanoFiles.swift */; };
+		CC1D0C0A2D000002000D0002 /* NanoHTTP.docc in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0A2D000001000D0001 /* NanoHTTP.docc */; };
 		CC50C0DD2C4BAF2D00482E4B /* NanoWebSockets.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0DC2C4BAF2D00482E4B /* NanoWebSockets.swift */; };
 		CC50C0DF2C4BAFFC00482E4B /* NanoProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0DE2C4BAFFC00482E4B /* NanoProcess.swift */; };
 		CC50C0E12C4BB02F00482E4B /* NanoHTML.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0E02C4BB02F00482E4B /* NanoHTML.swift */; };
@@ -179,6 +180,7 @@
 		CC50C0D62C4BAE5400482E4B /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
 		CC50C0D82C4BAE8F00482E4B /* String+File.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+File.swift"; sourceTree = "<group>"; };
 		CC50C0DA2C4BAEDF00482E4B /* NanoFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoFiles.swift; sourceTree = "<group>"; };
+		CC1D0C0A2D000001000D0001 /* NanoHTTP.docc */ = {isa = PBXFileReference; lastKnownFileType = folder.documentationcatalog; path = NanoHTTP.docc; sourceTree = "<group>"; };
 		CC50C0DC2C4BAF2D00482E4B /* NanoWebSockets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoWebSockets.swift; sourceTree = "<group>"; };
 		CC50C0DE2C4BAFFC00482E4B /* NanoProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoProcess.swift; sourceTree = "<group>"; };
 		CC50C0E02C4BB02F00482E4B /* NanoHTML.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTML.swift; sourceTree = "<group>"; };
@@ -302,6 +304,7 @@
 				CC50C0D62C4BAE5400482E4B /* String+Extensions.swift */,
 				CC50C0D82C4BAE8F00482E4B /* String+File.swift */,
 				CC50C0DA2C4BAEDF00482E4B /* NanoFiles.swift */,
+				CC1D0C0A2D000001000D0001 /* NanoHTTP.docc */,
 				CC50C0DC2C4BAF2D00482E4B /* NanoWebSockets.swift */,
 				CC50C0DE2C4BAFFC00482E4B /* NanoProcess.swift */,
 				CC50C0E02C4BB02F00482E4B /* NanoHTML.swift */,
@@ -600,6 +603,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CC1D0C0A2D000002000D0002 /* NanoHTTP.docc in Sources */,
 				CC50C0E12C4BB02F00482E4B /* NanoHTML.swift in Sources */,
 				CC50C0D52C4BADE800482E4B /* NanoSocket.swift in Sources */,
 				CC50C0CF2C4BAD2200482E4B /* NanoHTTPServerIO.swift in Sources */,

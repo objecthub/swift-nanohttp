@@ -36,20 +36,42 @@
 
 import Foundation
 
+/// Errors of sockets. The associated text is the description of the system error (`strerror`).
 public enum NanoSocketError: Error {
+  /// A socket could not be created.
   case socketCreationFailed(String)
+  /// `SO_REUSEADDR` could not be set.
   case socketSettingReUseAddrFailed(String)
+  /// The socket could not be bound: the port is in use, or the listen address is not an address of this machine (or no address at all).
   case bindFailed(String)
+  /// The socket could not be put into the listening state.
   case listenFailed(String)
+  /// Writing failed, or the socket is closed.
   case writeFailed(String)
+  /// The address of the peer is not available, or the socket is closed.
   case getPeerNameFailed(String)
+  /// The address of the peer could not be converted.
   case convertingPeerNameFailed
+  /// An address could not be converted into text.
   case getNameInfoFailed(String)
+  /// Accepting a connection failed.
   case acceptFailed(String)
+  /// Reading failed: the connection ended or failed, the socket is closed, or a number of bytes that cannot be read was requested.
   case recvFailed(String)
+  /// The local address is not available, or the socket is closed.
   case getSockNameFailed(String)
 }
 
+/// A socket: a listening socket (see ``tcpSocketForListen(_:_:_:_:)``) or one end of a connection.
+/// It reads and writes bytes and lines, sends files, and is where the server's connections end up.
+///
+/// It can be used from several threads. In particular `close()` can be called while other threads read
+/// or write: they fail or return, and the file descriptor is not reused while any of them is running.
+/// Operations on a closed socket throw an error. Several threads that write at the same time are not
+/// synchronized with each other: the bytes of their writes may be mixed, so serialize writes if a
+/// connection is written by more than one thread (``WebSocketSession`` does).
+///
+/// Sockets are equal only if they are the same object.
 open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   
   // Constants
@@ -89,6 +111,7 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     hasher.combine(ObjectIdentifier(self))
   }
   
+  /// Sockets are equal if they are the same object (not if they have the same descriptor number).
   public static func == (socket1: NanoSocket, socket2: NanoSocket) -> Bool {
     return socket1 === socket2
   }
@@ -189,6 +212,7 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     self.close()
   }
   
+  /// The local port of the socket; for a listening socket started with port 0, the port that the system chose.
   public func port() throws -> in_port_t {
     return try self.withDescriptor(closedError: .getSockNameFailed(Self.closedDescription)) { descriptor in
       var addr = sockaddr_in()
@@ -207,6 +231,7 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     }
   }
   
+  /// Whether the local address of the socket is an IPv4 address.
   public func isIPv4() throws -> Bool {
     return try self.withDescriptor(closedError: .getSockNameFailed(Self.closedDescription)) { descriptor in
       var addr = sockaddr_in()
@@ -220,24 +245,29 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     }
   }
   
+  /// Writes the UTF-8 bytes of the string. Blocks until all bytes are written; throws if the peer went away.
   public func writeUTF8(_ string: String) throws {
     try self.writeUInt8(ArraySlice(string.utf8))
   }
   
+  /// Writes bytes. Blocks until all bytes are written; throws if the peer went away.
   public func writeUInt8(_ data: [UInt8]) throws {
     try self.writeUInt8(ArraySlice(data))
   }
   
+  /// Writes bytes. Blocks until all bytes are written; throws if the peer went away.
   public func writeUInt8(_ data: ArraySlice<UInt8>) throws {
     try data.withUnsafeBufferPointer {
       try self.writeBuffer($0.baseAddress!, length: data.count)
     }
   }
   
+  /// Writes bytes. Blocks until all bytes are written; throws if the peer went away.
   public func writeData(_ data: NSData) throws {
     try self.writeBuffer(data.bytes, length: data.length)
   }
   
+  /// Writes bytes. Blocks until all bytes are written; throws if the peer went away.
   public func writeData(_ data: Data) throws {
     try data.withUnsafeBytes { (body: UnsafeRawBufferPointer) -> Void in
       if let baseAddress = body.baseAddress, body.count > 0 {
@@ -317,6 +347,9 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     }
   }
   
+  /// Reads a line: bytes up to a line feed, without the line break; carriage returns and other control
+  /// characters are dropped, and every other byte is taken as one character (Latin-1). The length of the
+  /// line is not limited: use ``NanoHTTPParser`` for requests, which has limits.
   public func readLine() throws -> String {
     var characters: String = ""
     var index: UInt8 = 0
@@ -329,6 +362,7 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     return characters
   }
   
+  /// The IP address of the peer in its text form.
   public func peername() throws -> String {
     var addr = sockaddr(), len: socklen_t = socklen_t(MemoryLayout<sockaddr>.size)
     try self.withDescriptor(closedError: .getPeerNameFailed(Self.closedDescription)) { descriptor in
@@ -343,6 +377,7 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     return String(cString: hostBuffer)
   }
   
+  /// Makes writes to a socket whose peer has gone fail with an error instead of raising `SIGPIPE`.
   public class func setNoSigPipe(_ socket: Int32) {
     #if os(Linux)
     // There is no SO_NOSIGPIPE in Linux (nor some other systems). You can instead use the MSG_NOSIGNAL flag when calling send(),
@@ -354,6 +389,7 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     #endif
   }
   
+  /// Closes a file descriptor. Prefer ``close()`` for the sockets of this class.
   public class func close(_ socket: Int32) {
     #if os(Linux)
     _ = Glibc.close(socket)
@@ -362,6 +398,7 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     #endif
   }
   
+  /// Sends the content of a file, from its beginning to its end. Uses `sendfile` where the system has it.
   public func writeFile(_ file: String.File) throws {
     try self.withDescriptor(closedError: .writeFailed(Self.closedDescription)) { descriptor in
       var offset: off_t = 0
@@ -377,12 +414,20 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     }
   }
   
+  /// Creates a listening TCP socket.
+  ///
   /// - Parameters:
+  ///   - port: The port to listen at; `0` lets the system choose a free port (see ``port()``).
+  ///   - forceIPv4: Whether to create an IPv4 socket. Otherwise the socket is an IPv6 socket that
+  ///       also accepts IPv4 connections (where the system allows it).
+  ///   - maxPendingConnection: The length of the queue of connections that wait to be accepted.
   ///   - listenAddress: String representation of the address the socket should accept
   ///       connections from. It should be in IPv4 format if forceIPv4 == true,
   ///       otherwise - in IPv6. Without an address, the socket accepts connections on all
   ///       network interfaces. An address that cannot be parsed, or cannot be bound on this
   ///       machine, makes this method throw `NanoSocketError.bindFailed`.
+  /// - Returns: The listening socket.
+  /// - Throws: `NanoSocketError` if the socket cannot be created, bound or put into the listening state.
   public class func tcpSocketForListen(_ port: in_port_t,
                                        _ forceIPv4: Bool = false,
                                        _ maxPendingConnection: Int32 = SOMAXCONN,
@@ -509,6 +554,9 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     }
   }
   
+  /// Waits for a connection to this listening socket and returns the socket of the connection.
+  /// Throws on every failure; the server uses a more careful variant that retries the failures that
+  /// are only temporary.
   public func acceptClientSocket() throws -> NanoSocket {
     switch self.acceptOutcome() {
       case .accepted(let socket):
@@ -518,14 +566,17 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     }
   }
   
+  /// Sends a file; see ``writeFile(_:)``.
   public func write(_ file: String.File) throws {
     try self.writeFile(file)
   }
   
+  /// Sends bytes.
   public func write(_ data: ArraySlice<UInt8>) throws {
     try self.writeUInt8(data)
   }
   
+  /// Sends bytes.
   public func write(_ data: Data) throws {
     try self.writeData(data)
   }

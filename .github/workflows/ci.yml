@@ -18,6 +18,10 @@ jobs:
           xcodebuild -version
       - name: Xcode project lists every Swift file once
         run: python3 Scripts/check_xcodeproj.py
+      - name: Documentation builds without warnings
+        run: python3 Scripts/check_docs.py
+      - name: Documentation examples compile
+        run: python3 Scripts/check_doc_examples.py
       - name: Build
         run: swift build --build-tests
       - name: Test

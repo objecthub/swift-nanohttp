@@ -36,12 +36,40 @@
 
 import Foundation
 
+/// An HTTP/1.1 server with routing.
+///
+/// Create a server, register handlers for methods and paths, and start it:
+///
+/// ```swift
+/// let server = NanoHTTPServer()
+/// server.get["/hello"] = { _ in .ok(.text("Hello, world!")) }
+/// server.get["/users/:id"] = { request in .ok(.text("User \(request.params["id"] ?? "?")")) }
+/// server.post["/echo"] = { request in .ok(.data(Data(request.body), contentType: "application/octet-stream")) }
+/// try server.start(8080)
+/// ```
+///
+/// A handler is a function from ``NanoHTTPRequest`` to ``NanoHTTPResponse``. Every connection is served
+/// by its own thread, so handlers of different connections run at the same time; a handler that
+/// shares state with others has to protect it.
+///
+/// The server is a subclass of ``NanoHTTPServerIO``, which provides the listening socket, the
+/// connections and the lifecycle (``NanoHTTPServerIO/start(_:forceIPv4:priority:handlerPriority:)``,
+/// ``NanoHTTPServerIO/stop()``); this class adds routing, middleware and a handler for unknown paths.
 open class NanoHTTPServer: NanoHTTPServerIO {
   
+  /// Registers handlers for one HTTP method: `server.get["/a", "/b"] = handler` registers `handler` for
+  /// GET requests to both paths, `server.get["/a"] = nil` removes the handler of `/a` again.
+  /// Reading the subscript always gives `nil`.
+  ///
+  /// Paths may contain variables, see ``NanoHTTPSegmentRouter``.
   public struct MethodRoute {
+    /// The HTTP method, in upper case (`"GET"`).
     public let method: String
+    /// The router that receives the registrations.
     public let router: NanoHTTPRouter
     
+    /// The handler for `path`, assigned with `server.get[path] = ...`. Several paths can be given to
+    /// register the same handler for all of them. Reading gives `nil`.
     public subscript(path: String...) -> NanoHTTPRequestHandler? {
       get {
         return nil
@@ -54,20 +82,46 @@ open class NanoHTTPServer: NanoHTTPServerIO {
     }
   }
   
+  /// The router that maps methods and paths to handlers. It is created by ``initialRouter()`` and
+  /// can be used directly to register routes.
   public let router: NanoHTTPRouter
+  /// Registers handlers for DELETE requests: `server.delete["/items/:id"] = ...`.
   public var delete: MethodRoute
+  /// Registers handlers for PATCH requests: `server.patch["/items/:id"] = ...`.
   public var patch: MethodRoute
+  /// Registers handlers for HEAD requests: `server.head["/items"] = ...`. A HEAD request is only
+  /// answered by a handler registered for HEAD or for all methods; a handler for GET is not used.
   public var head: MethodRoute
+  /// Registers handlers for POST requests: `server.post["/items"] = ...`.
   public var post: MethodRoute
+  /// Registers handlers for GET requests: `server.get["/items"] = ...`.
   public var get: MethodRoute
+  /// Registers handlers for PUT requests: `server.put["/items/:id"] = ...`.
   public var put: MethodRoute
+  /// The handler for requests that no route matches. Without one, such requests are answered with
+  /// `404 Not Found` and an empty body.
   public var notFoundHandler: NanoHTTPRequestHandler? = nil
+  /// Functions that see every request before it is routed, in the order of the array. The first function
+  /// that returns a response answers the request: the router and the handlers are not consulted. A
+  /// function returns `nil` to let the request pass.
+  ///
+  /// ```swift
+  /// let server = NanoHTTPServer()
+  /// server.middleware.append { request in
+  ///   request.header("x-api-key") == "secret" ? nil : .unauthorized(.text("API key required"))
+  /// }
+  /// ```
+  ///
+  /// Middleware runs on the threads of the connections. Configure it before starting the server.
   public var middleware: [(NanoHTTPRequest) -> NanoHTTPResponse?] = []
   
+  /// Creates the router of a new server: a ``NanoHTTPSegmentRouter``. Override in a subclass to use a
+  /// different ``NanoHTTPRouter``.
   open class func initialRouter() -> NanoHTTPRouter {
     return NanoHTTPSegmentRouter()
   }
   
+  /// Creates a server that is not running yet; see ``NanoHTTPServerIO/start(_:forceIPv4:priority:handlerPriority:)``.
   public override init() {
     self.router = Swift.type(of: self).initialRouter()
     self.delete = MethodRoute(method: "DELETE", router: self.router)
@@ -78,10 +132,15 @@ open class NanoHTTPServer: NanoHTTPServerIO {
     self.put = MethodRoute(method: "PUT", router: self.router)
   }
   
+  /// The registered route patterns (`/users/:id`, `/files/::path`), for diagnostics or an index page.
+  /// The methods are not part of the result.
   public var routes: [String] {
     return self.router.routes()
   }
   
+  /// Registers a handler for one or more paths and for *all* HTTP methods: `server["/status"] = ...`.
+  /// A handler registered for a specific method (`server.get[...]`) takes precedence over it.
+  /// Reading gives `nil`.
   public subscript(path: String...) -> NanoHTTPRequestHandler? {
     get {
       return nil
@@ -93,10 +152,19 @@ open class NanoHTTPServer: NanoHTTPServerIO {
     }
   }
   
+  /// Mounts the routes of another router below `prefix`, so that a group of routes can be developed on
+  /// its own (`try server.use("/api/v1", router: api)`).
+  ///
+  /// The routes are copied: changes of `router` after this call are not seen by the server.
+  ///
+  /// - Throws: ``NanoHTTPRouterError`` if the router of the server cannot merge `router`.
   public func use(_ prefix: String, router: NanoHTTPSegmentRouter) throws {
     try self.router.merge(router, withPrefix: prefix)
   }
   
+  /// Finds the handler for a request: the first middleware that answers, else the route that matches
+  /// the method and path, else ``notFoundHandler``, else a `404`. Returns the variables of the route
+  /// (`request.params`) and the handler.
   override open func dispatch(request: NanoHTTPRequest) -> ([String: String], NanoHTTPRequestHandler) {
     for layer in middleware {
       if let response = layer(request) {

@@ -43,6 +43,7 @@ import FoundationNetworking
 extension NanoHTTPServer {
   class func pingServer() -> NanoHTTPServer {
     let server = NanoHTTPServer()
+    server.listenAddressIPv4 = "127.0.0.1"
     server.get["/ping"] = { _ in
       return .ok(.text("pong!"))
     }
@@ -50,19 +51,17 @@ extension NanoHTTPServer {
   }
 }
 
-let defaultLocalhost = URL(string: "http://localhost:8080")!
-
 // Client
 extension URLSession {
   func pingTask(
-    hostURL: URL = defaultLocalhost,
+    hostURL: URL,
     completionHandler handler: @escaping (Data?, URLResponse?, Error?) -> Void
   ) -> URLSessionDataTask {
     return self.dataTask(with: hostURL.appendingPathComponent("/ping"), completionHandler: handler)
   }
   
   func retryPing(
-    hostURL: URL = defaultLocalhost,
+    hostURL: URL,
     timeout: Double = 2.0
   ) -> Bool {
     let semaphore = DispatchSemaphore(value: 0)

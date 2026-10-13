@@ -45,6 +45,7 @@ final class ServerThreadingTests: XCTestCase {
   override func setUp() {
     super.setUp()
     server = NanoHTTPServer()
+    server.listenAddressIPv4 = "127.0.0.1"
   }
   
   override func tearDown() {
@@ -55,79 +56,49 @@ final class ServerThreadingTests: XCTestCase {
     super.tearDown()
   }
   
-  func testShouldHandleTheRequestInDifferentTimeIntervals() {
-    
-    let path = "/a/:b/c"
-    let queue = DispatchQueue(label: "com.swifter.threading")
-    let hostURL: URL
-    
-    server.get[path] = { .ok(.htmlBody("You asked for " + $0.path)) }
-    
-    do {
-      
-      #if os(Linux)
-      try server.start(9081)
-      hostURL = URL(string: "http://localhost:9081")!
-      #else
-      try server.start()
-      hostURL = defaultLocalhost
-      #endif
-      
-      let requestExpectation = expectation(description: "Request should finish.")
-      requestExpectation.expectedFulfillmentCount = 3
-      
-      (1...3).forEach { index in
-        queue.asyncAfter(deadline: .now() + .seconds(index)) {
-          let task = URLSession.shared.executeAsyncTask(hostURL: hostURL, path: path) { (_, response, _ ) in
-            requestExpectation.fulfill()
-            let statusCode = (response as? HTTPURLResponse)?.statusCode
-            XCTAssertNotNil(statusCode)
-            XCTAssertEqual(statusCode, 200, "\(hostURL)")
-          }
-          
-          task.resume()
+  private func startServer() throws -> URL {
+    try server.start(0, forceIPv4: true)
+    return URL(string: "http://127.0.0.1:\(try server.port())")!
+  }
+  
+  func testShouldHandleTheRequestInDifferentTimeIntervals() throws {
+    let path = "/a/b/c"
+    let queue = DispatchQueue(label: "com.nanohttp.threading")
+    server.get["/a/:b/c"] = { .ok(.htmlBody("You asked for " + $0.path)) }
+    let hostURL = try startServer()
+    let requestExpectation = expectation(description: "Request should finish.")
+    requestExpectation.expectedFulfillmentCount = 3
+    (1...3).forEach { index in
+      queue.asyncAfter(deadline: .now() + .seconds(index)) {
+        let task = URLSession.shared.executeAsyncTask(hostURL: hostURL, path: path) { (_, response, _ ) in
+          let statusCode = (response as? HTTPURLResponse)?.statusCode
+          XCTAssertEqual(statusCode, 200, "\(hostURL)")
+          requestExpectation.fulfill()
         }
+        task.resume()
       }
-      
-    } catch let error {
-      XCTFail("\(error)")
     }
-    
     waitForExpectations(timeout: 10, handler: nil)
   }
   
-  func testShouldHandleTheSameRequestConcurrently() {
-    
-    let path = "/a/:b/c"
-    server.get[path] = { .ok(.htmlBody("You asked for " + $0.path)) }
-    
-    var requestExpectation: XCTestExpectation? = expectation(description: "Should handle the request concurrently")
-    
-    do {
-      
-      try server.start()
-      let downloadGroup = DispatchGroup()
-      
-      DispatchQueue.concurrentPerform(iterations: 3) { _ in
-        downloadGroup.enter()
-        
-        let task = URLSession.shared.executeAsyncTask(path: path) { (_, response, _ ) in
-          
-          let statusCode = (response as? HTTPURLResponse)?.statusCode
-          XCTAssertNotNil(statusCode)
-          XCTAssertEqual(statusCode, 200)
-          requestExpectation?.fulfill()
-          requestExpectation = nil
-          downloadGroup.leave()
-        }
-        
-        task.resume()
+  /// All requests are in flight at the same time and the test waits for *all* of them. (It used
+  /// to finish when the first one answered; `tearDown` then stopped the server and the remaining
+  /// requests failed after the test had ended, which made the suite flaky and attributed the
+  /// failure to an unrelated test.)
+  func testShouldHandleTheSameRequestConcurrently() throws {
+    let count = 20
+    server.get["/a/:b/c"] = { .ok(.htmlBody("You asked for " + $0.path)) }
+    let hostURL = try startServer()
+    let requestExpectation = expectation(description: "Should handle the requests concurrently")
+    requestExpectation.expectedFulfillmentCount = count
+    DispatchQueue.concurrentPerform(iterations: count) { _ in
+      let task = URLSession.shared.executeAsyncTask(hostURL: hostURL, path: "/a/b/c") { (_, response, _ ) in
+        let statusCode = (response as? HTTPURLResponse)?.statusCode
+        XCTAssertEqual(statusCode, 200)
+        requestExpectation.fulfill()
       }
-      
-    } catch let error {
-      XCTFail("\(error)")
+      task.resume()
     }
-    
     waitForExpectations(timeout: 15, handler: nil)
   }
 }
@@ -135,11 +106,10 @@ final class ServerThreadingTests: XCTestCase {
 
 extension URLSession {
   func executeAsyncTask(
-    hostURL: URL = defaultLocalhost,
+    hostURL: URL,
     path: String,
     completionHandler handler: @escaping (Data?, URLResponse?, Error?) -> Void
   ) -> URLSessionDataTask {
     return self.dataTask(with: hostURL.appendingPathComponent(path), completionHandler: handler)
   }
 }
-

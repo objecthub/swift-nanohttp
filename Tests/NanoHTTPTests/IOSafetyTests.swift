@@ -40,46 +40,33 @@ import FoundationNetworking
 @testable import NanoHTTP
 
 class IOSafetyTests: XCTestCase {
-  var server: NanoHTTPServer? = nil
   var urlSession: URLSession? = nil
   
   override func setUp() {
     super.setUp()
-    self.server = NanoHTTPServer.pingServer()
     self.urlSession = URLSession(configuration: .default)
   }
   
   override func tearDown() {
-    guard let server else {
-      return
-    }
-    if server.operating {
-      server.stop()
-    }
     self.urlSession = nil
-    self.server = nil
     super.tearDown()
   }
   
-  func testStopWithActiveConnections() {
-    (0...100).forEach { cpt in
+  /// Starting and stopping servers while requests are in flight must not crash or hang. Every
+  /// server binds its own ephemeral port; a failure to bind is a test failure (it used to be
+  /// silently ignored, which let the test pass without testing anything).
+  func testStopWithActiveConnections() throws {
+    for iteration in 0...100 {
       let server = NanoHTTPServer.pingServer()
-      do {
-        try server.start()
-        XCTAssertFalse(urlSession?.retryPing() ?? true)
-        (0...100).forEach { _ in
-          DispatchQueue.global(qos: DispatchQoS.default.qosClass).sync {
-            urlSession?.pingTask { _, _, _ in }.resume()
-          }
-        }
-        server.stop()
-      } catch let error {
-        if let socketError = error as? NanoSocketError, case .bindFailed(_) = socketError {
-          // ignore
-        } else {
-          XCTFail("\(cpt): \(error)")
+      try server.start(0, forceIPv4: true)
+      let hostURL = URL(string: "http://127.0.0.1:\(try server.port())")!
+      XCTAssertFalse(urlSession?.retryPing(hostURL: hostURL) ?? true, "iteration \(iteration)")
+      (0...100).forEach { _ in
+        DispatchQueue.global(qos: DispatchQoS.default.qosClass).sync {
+          urlSession?.pingTask(hostURL: hostURL) { _, _, _ in }.resume()
         }
       }
+      server.stop()
     }
   }
 }

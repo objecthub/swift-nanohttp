@@ -43,6 +43,16 @@
 		CC50C1152C4BBC8A00482E4B /* NanoHTTPDemo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0B12C4BA95500482E4B /* NanoHTTPDemo.framework */; };
 		CC50C1162C4BBC8A00482E4B /* NanoHTTPDemo.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0B12C4BA95500482E4B /* NanoHTTPDemo.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CC50C11B2C4BBE9500482E4B /* DemoServerContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C11A2C4BBE9500482E4B /* DemoServerContainer.swift */; };
+		CC60E9AE307E5051000EE746 /* HTMLDSLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9A4307E5051000EE746 /* HTMLDSLTests.swift */; };
+		CC60E9AF307E5051000EE746 /* HTTPProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9A5307E5051000EE746 /* HTTPProtocolTests.swift */; };
+		CC60E9B1307E5051000EE746 /* RequestParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9A8307E5051000EE746 /* RequestParsingTests.swift */; };
+		CC60E9B2307E5051000EE746 /* WebSocketIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9AD307E5051000EE746 /* WebSocketIntegrationTests.swift */; };
+		CC60E9B3307E5051000EE746 /* RobustnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9A9307E5051000EE746 /* RobustnessTests.swift */; };
+		CC60E9B4307E5051000EE746 /* RouterBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9AA307E5051000EE746 /* RouterBehaviorTests.swift */; };
+		CC60E9B7307E5051000EE746 /* SecurityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9AB307E5051000EE746 /* SecurityTests.swift */; };
+		CC60E9BC307E5070000EE746 /* KnownIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9B8307E5070000EE746 /* KnownIssue.swift */; };
+		CC60E9BD307E5070000EE746 /* RawClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9B9307E5070000EE746 /* RawClient.swift */; };
+		CC60E9BE307E5070000EE746 /* TestServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9BA307E5070000EE746 /* TestServer.swift */; };
 		CC80DA822C4E73A700FCFF2E /* ServerThreadingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC80DA812C4E73A700FCFF2E /* ServerThreadingTests.swift */; };
 		CC80DA842C4E744300FCFF2E /* PingServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC80DA832C4E744300FCFF2E /* PingServer.swift */; };
 		CC80DA862C4E74F900FCFF2E /* HTTPParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC80DA852C4E74F900FCFF2E /* HTTPParserTests.swift */; };
@@ -181,6 +191,16 @@
 		CC50C1092C4BB7FB00482E4B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		CC50C10C2C4BB7FB00482E4B /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		CC50C11A2C4BBE9500482E4B /* DemoServerContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoServerContainer.swift; sourceTree = "<group>"; };
+		CC60E9A4307E5051000EE746 /* HTMLDSLTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLDSLTests.swift; sourceTree = "<group>"; };
+		CC60E9A5307E5051000EE746 /* HTTPProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPProtocolTests.swift; sourceTree = "<group>"; };
+		CC60E9A8307E5051000EE746 /* RequestParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestParsingTests.swift; sourceTree = "<group>"; };
+		CC60E9A9307E5051000EE746 /* RobustnessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RobustnessTests.swift; sourceTree = "<group>"; };
+		CC60E9AA307E5051000EE746 /* RouterBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouterBehaviorTests.swift; sourceTree = "<group>"; };
+		CC60E9AB307E5051000EE746 /* SecurityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityTests.swift; sourceTree = "<group>"; };
+		CC60E9AD307E5051000EE746 /* WebSocketIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketIntegrationTests.swift; sourceTree = "<group>"; };
+		CC60E9B8307E5070000EE746 /* KnownIssue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnownIssue.swift; sourceTree = "<group>"; };
+		CC60E9B9307E5070000EE746 /* RawClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawClient.swift; sourceTree = "<group>"; };
+		CC60E9BA307E5070000EE746 /* TestServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestServer.swift; sourceTree = "<group>"; };
 		CC80DA812C4E73A700FCFF2E /* ServerThreadingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerThreadingTests.swift; sourceTree = "<group>"; };
 		CC80DA832C4E744300FCFF2E /* PingServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PingServer.swift; sourceTree = "<group>"; };
 		CC80DA852C4E74F900FCFF2E /* HTTPParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPParserTests.swift; sourceTree = "<group>"; };
@@ -303,6 +323,14 @@
 				CC80DA8F2C4E851000FCFF2E /* WebSocketTests.swift */,
 				CC80DA892C4E790C00FCFF2E /* MimeTypeTests.swift */,
 				CC80DA8D2C4E7A1000FCFF2E /* StringExtensionsTests.swift */,
+				CC60E9A4307E5051000EE746 /* HTMLDSLTests.swift */,
+				CC60E9A5307E5051000EE746 /* HTTPProtocolTests.swift */,
+				CC60E9A8307E5051000EE746 /* RequestParsingTests.swift */,
+				CC60E9A9307E5051000EE746 /* RobustnessTests.swift */,
+				CC60E9AA307E5051000EE746 /* RouterBehaviorTests.swift */,
+				CC60E9AB307E5051000EE746 /* SecurityTests.swift */,
+				CC60E9AD307E5051000EE746 /* WebSocketIntegrationTests.swift */,
+				CC60E9BB307E5070000EE746 /* Support */,
 			);
 			name = NanoHTTPTests;
 			path = Tests/NanoHTTPTests;
@@ -353,6 +381,16 @@
 				CC50C10C2C4BB7FB00482E4B /* Preview Assets.xcassets */,
 			);
 			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		CC60E9BB307E5070000EE746 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				CC60E9B8307E5070000EE746 /* KnownIssue.swift */,
+				CC60E9B9307E5070000EE746 /* RawClient.swift */,
+				CC60E9BA307E5070000EE746 /* TestServer.swift */,
+			);
+			path = Support;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -593,7 +631,17 @@
 				CC80DA822C4E73A700FCFF2E /* ServerThreadingTests.swift in Sources */,
 				CC80DA882C4E775F00FCFF2E /* HTTPRouterTests.swift in Sources */,
 				CC80DA902C4E851000FCFF2E /* WebSocketTests.swift in Sources */,
+				CC60E9AE307E5051000EE746 /* HTMLDSLTests.swift in Sources */,
+				CC60E9AF307E5051000EE746 /* HTTPProtocolTests.swift in Sources */,
+				CC60E9B1307E5051000EE746 /* RequestParsingTests.swift in Sources */,
+				CC60E9B2307E5051000EE746 /* WebSocketIntegrationTests.swift in Sources */,
+				CC60E9B3307E5051000EE746 /* RobustnessTests.swift in Sources */,
+				CC60E9B4307E5051000EE746 /* RouterBehaviorTests.swift in Sources */,
+				CC60E9B7307E5051000EE746 /* SecurityTests.swift in Sources */,
 				CC80DA842C4E744300FCFF2E /* PingServer.swift in Sources */,
+				CC60E9BC307E5070000EE746 /* KnownIssue.swift in Sources */,
+				CC60E9BD307E5070000EE746 /* RawClient.swift in Sources */,
+				CC60E9BE307E5070000EE746 /* TestServer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -712,15 +760,15 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				TVOS_DEPLOYMENT_TARGET = 14.0;
+				TVOS_DEPLOYMENT_TARGET = 15.0;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
@@ -773,13 +821,13 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				TVOS_DEPLOYMENT_TARGET = 14.0;
+				TVOS_DEPLOYMENT_TARGET = 15.0;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
@@ -802,7 +850,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
@@ -811,7 +859,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
@@ -827,6 +875,7 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3";
+				TVOS_DEPLOYMENT_TARGET = 15.0;
 			};
 			name = Debug;
 		};
@@ -847,7 +896,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
@@ -856,7 +905,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
@@ -871,6 +920,7 @@
 				SWIFT_INSTALL_OBJC_HEADER = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3";
+				TVOS_DEPLOYMENT_TARGET = 15.0;
 			};
 			name = Release;
 		};
@@ -883,8 +933,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = C72Z63N8M5;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTTPTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -905,8 +955,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = C72Z63N8M5;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTTPTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -935,7 +985,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
@@ -944,7 +994,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
@@ -978,7 +1028,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
@@ -987,7 +1037,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
@@ -1009,7 +1059,7 @@
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = NO;
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
@@ -1023,7 +1073,7 @@
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = NO;
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
@@ -1047,7 +1097,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1078,7 +1128,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

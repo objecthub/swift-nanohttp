@@ -38,9 +38,9 @@ let package = Package(
   name: "NanoHTTP",
   
   platforms: [
-    .macOS(.v11),
-    .iOS(.v14),
-    .tvOS(.v14)
+    .macOS(.v12),
+    .iOS(.v15),
+    .tvOS(.v15)
   ],
   
   // Products define the executables and libraries produced by a package, and make them visible

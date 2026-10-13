@@ -245,7 +245,8 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
   
   /// Finds the handler for a request. Fixed segments win over variables, and the search backtracks:
   /// `/a/b/c` and `/a/:x/d` both match `/a/b/d`. A route for `method` is tried before a route for all
-  /// methods.
+  /// methods. A `HEAD` request that has no route of its own is answered by the route for `GET`, before the
+  /// route for all methods is tried.
   ///
   /// `path` is the path as the client sent it, percent-encoded: it is split into segments first, and every
   /// segment is decoded then (an encoded slash stays inside its segment). The decoded segments are compared
@@ -253,6 +254,56 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
   /// (`::name`, `**`) gets its decoded segments joined with `/`. A path with a segment that is not valid
   /// percent-encoded UTF-8 matches no route.
   open func route(_ method: String, path: String) -> ([String: String], NanoHTTPRequestHandler)? {
+    guard let segments = self.decodedSegments(of: path) else {
+      return nil
+    }
+    self.lock.lock()
+    defer {
+      self.lock.unlock()
+    }
+    if method == "HEAD" {
+      return self.root["HEAD"]?.match(path: segments, index: 0) ??
+             self.root["GET"]?.match(path: segments, index: 0) ??
+             self.root[nil]?.match(path: segments, index: 0)
+    }
+    return self.root[method]?.match(path: segments, index: 0) ??
+           self.root[nil]?.match(path: segments, index: 0)
+  }
+  
+  /// The methods of the routes that match `path`, in the usual order (`GET`, `HEAD`, `POST`, `PUT`, `PATCH`,
+  /// `DELETE`, `OPTIONS`) followed by the others in alphabetical order. `HEAD` is included where there is a
+  /// route for `GET` (it answers `HEAD` requests), and `OPTIONS` always (the server answers it itself). The path
+  /// `*` has the methods of all routes.
+  open func allowedMethods(path: String) -> [String] {
+    var methods = Set<String>()
+    self.lock.lock()
+    if path == "*" {
+      for method in self.root.keys {
+        if let method {
+          methods.insert(method)
+        }
+      }
+    } else if let segments = self.decodedSegments(of: path) {
+      for (method, segment) in self.root {
+        if let method, segment.match(path: segments, index: 0) != nil {
+          methods.insert(method)
+        }
+      }
+    }
+    self.lock.unlock()
+    guard !methods.isEmpty else {
+      return []
+    }
+    if methods.contains("GET") {
+      methods.insert("HEAD")
+    }
+    methods.insert("OPTIONS")
+    let usual = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+    return usual.filter { methods.contains($0) } + methods.subtracting(usual).sorted()
+  }
+  
+  /// The segments of a path as the client sent it, each decoded; `nil` if one of them is not valid percent-encoding.
+  private func decodedSegments(of path: String) -> [String]? {
     var segments = [String]()
     for segment in (path.components(separatedBy: "?").first ?? path).split("/") {
       guard let decoded = segment.removingPercentEncoding else {
@@ -260,12 +311,7 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
       }
       segments.append(decoded)
     }
-    self.lock.lock()
-    defer {
-      self.lock.unlock()
-    }
-    return self.root[method]?.match(path: segments, index: 0) ??
-           self.root[nil]?.match(path: segments, index: 0)
+    return segments
   }
   
   private func selectors(from path: String) -> [String] {

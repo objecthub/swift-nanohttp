@@ -65,7 +65,12 @@ pool): connections have threads of their own now, and there are idle/read/write 
 `RobustnessTests.swift` is a plain test again). `SingleThreadTests.swift` covers the one-thread mode: all code runs on
 one thread, handlers need no locks (plain variables; the thread sanitizer is the judge), the process gets no thread
 per connection, idle and keep-alive connections do not block others, timeouts, limits, `run(_:)`.
-`RequestSemanticsTests.swift` covers H1 (**fixed in 2.0**: `path`, query values and route variables are decoded once, `rawPath`/`rawQuery`
+`BufferedReadingTests.swift` (the read buffer, and the pipelined requests and WebSocket frames that wait in it: with
+the buffer awareness of the one-thread loop removed, the pipelining tests fail), `ResponseSerializerTests.swift` (the head
+of a response as a function, `Date`, bodies in memory), `ConnectionSemanticsTests.swift` (H4: keep-alive by version,
+`Connection: close`, chunked requests and responses, `Expect`, declared lengths), `HeadAndOptionsTests.swift` (H7) and
+`FileServingTests.swift` (H10: `ETag`, `304`, ranges, directories) cover batch 2 of the 2.0 plan: **H4, H7 and H10 are fixed**, only
+H9 (multipart) and the HTML builder are left of the known issues. `RequestSemanticsTests.swift` covers H1 (**fixed in 2.0**: `path`, query values and route variables are decoded once, `rawPath`/`rawQuery`
 keep what was sent, routing works on the raw path, the file handlers do not decode again, `bodyString`, `json`).
 `SocketSessionTests.swift` covers WebSockets on the one thread (**W3**, fixed: sessions are driven by the server;
 chat and broadcast without locks, close handshake, protocol errors, stalls, `stop()`, limits) and the
@@ -77,9 +82,7 @@ threads of connections (reuse, no limit for the number of threads, idle lifetime
 Performance is not tested by the suite: `Benchmarks/` is the tool for that.
 
 Confirmed by execution and still open (each is an `expectKnownIssue` or crash test):
-H4 persistent connections, `Connection: close`, chunked bodies ·
-H7 HEAD sends a body, 405 · H9 multipart · H10 file responses disable keep-alive,
-directory → empty 200 · N3 void elements.
+H9 multipart · N3 void elements.
 
 Hypotheses that did **not** reproduce (kept as plain regression tests):
 the leak of the listening socket after `stop()` (the port is released, restart on the same port works 25/25) · R6 (empty writes do not crash).

@@ -9,6 +9,15 @@ All notable changes to this project are documented in this file. The format is b
 Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says how to move from 1.x.
 
 ### Changed
+- **Faster** (R8): sockets read in blocks of 16 KB (it was a system call for every byte), the head and the body of a
+  response are written together (one system call), the parser reads lines faster, and `TCP_NODELAY` is set. A request on a
+  kept connection costs less than half of the CPU time (1.4x requests per second for one client, 4x for sixteen).
+- **Breaking: connections are persistent and `.custom` bodies are chunked**, see `MIGRATION-2.0.md` (*HTTP as clients
+  expect it*): code and tests that relied on the server closing the connection after a response have to send
+  `Connection: close`; a path with routes for other methods answers `405` instead of `404`; `HEAD` is no longer answered
+  with a body; a directory in `share(directory:)` is redirected or answered with its index file instead of an empty `200`;
+  the listing of `browse` no longer has the entries `.` and `..`; `NanoHTTPRequest.supportsKeepAlive` follows the version
+  of the protocol.
 - **Breaking: paths and query values are decoded** (H1). `request.path`, the names and values of `request.queryParams`
   and the values of `request.params` are percent-decoded text, once (`/caf%C3%A9?q=a%20b+c` is the path `/café` and
   `q` = `a b c`; a `+` is a space in a query, not in a path). `::path` variables are decoded too (they were not), and
@@ -53,6 +62,23 @@ Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says 
   "connection closed by peer" instead of "Undefined error: 0".
 
 ### Added
+- **HTTP/1.1 behavior** (batch 2 of 2.0):
+  - Keep-alive by default (H4): connections are persistent unless `Connection: close` (HTTP/1.0: unless
+    `keep-alive`); the server answers `Connection: close` when it closes; `Date` on every response; no
+    `Content-Length` on `204` and `304`.
+  - Bodies of requests in chunks (`Transfer-Encoding: chunked`) are decoded, `Expect: 100-continue` is answered
+    (`417` for other expectations), and ambiguous requests are refused: `Content-Length` with chunks (`400`),
+    another `Transfer-Encoding` (`501`), a version other than HTTP/1.0 and HTTP/1.1 (`505`). New
+    `NanoHTTPParserError` cases and `request.httpVersion`.
+  - Bodies that a function writes (`.custom`) are sent in chunks, or with the `Content-Length` that the handler
+    declares (checked: a body of another length ends the connection).
+  - `HEAD` is answered by the `GET` handler without a body (H7); `405` with `Allow` for a path that has routes, but
+    not for the method; automatic `OPTIONS`; `server.options[...]`; `NanoHTTPRouter.allowedMethods(path:)`.
+  - Files (H10): `ETag`, `Last-Modified`, `If-None-Match`/`If-Modified-Since` (`304`), `Range`/`If-Range` (`206`, `416`),
+    keep-alive for files, `301` for a directory without a slash and its index file inside, `404` instead of an empty `200`.
+    `NanoSocket.writeFile(_:offset:length:)` and `NanoHTTPResponseBodyWriter.write(_:offset:length:)`.
+  - `Benchmarks/` has scenarios for files and WebSockets, and the load generator retries a request on a connection that
+    the server has closed in between, like a client does.
 - **Request helpers** (H1): `NanoHTTPRequest.query(_:)` and `queries(_:)`, `rawPath` and `rawQuery` (what the client
   sent), `bodyString` (in the charset of the `Content-Type`), `json(_:decoder:)` (decodes the body; a body that is empty,
   no JSON or does not fit the type throws `NanoHTTPError.badRequest` with a message that says what is wrong) and

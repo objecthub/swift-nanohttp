@@ -88,9 +88,14 @@ open class NanoHTTPServer: NanoHTTPServerIO {
   public var delete: MethodRoute
   /// Registers handlers for PATCH requests: `server.patch["/items/:id"] = ...`.
   public var patch: MethodRoute
-  /// Registers handlers for HEAD requests: `server.head["/items"] = ...`. A HEAD request is only
-  /// answered by a handler registered for HEAD or for all methods; a handler for GET is not used.
+  /// Registers handlers for HEAD requests: `server.head["/items"] = ...`. A HEAD request is answered by a
+  /// handler registered for HEAD, or else by the handler for GET (with the body of its response left out,
+  /// as HEAD wants), or else by a handler for all methods. Registering a handler for HEAD is only needed to
+  /// answer it differently from GET.
   public var head: MethodRoute
+  /// Registers handlers for OPTIONS requests: `server.options["/items"] = ...`. Without one, the server
+  /// answers `OPTIONS` requests itself with the methods that the path has (`Allow`).
+  public var options: MethodRoute
   /// Registers handlers for POST requests: `server.post["/items"] = ...`.
   public var post: MethodRoute
   /// Registers handlers for GET requests: `server.get["/items"] = ...`.
@@ -159,6 +164,7 @@ open class NanoHTTPServer: NanoHTTPServerIO {
     self.delete = MethodRoute(method: "DELETE", router: self.router)
     self.patch = MethodRoute(method: "PATCH", router: self.router)
     self.head = MethodRoute(method: "HEAD", router: self.router)
+    self.options = MethodRoute(method: "OPTIONS", router: self.router)
     self.post = MethodRoute(method: "POST", router: self.router)
     self.get = MethodRoute(method: "GET", router: self.router)
     self.put = MethodRoute(method: "PUT", router: self.router)
@@ -216,10 +222,20 @@ open class NanoHTTPServer: NanoHTTPServerIO {
     return ([:], chain)
   }
   
-  /// The router, the not-found handler, and finally the `404` of ``NanoHTTPServerIO``.
+  /// The router; else, if the path has routes for other methods, the answer that the server gives itself
+  /// (`204` with `Allow` to `OPTIONS`, `405` with `Allow` to the others); else the not-found handler, and finally
+  /// the `404` of ``NanoHTTPServerIO``.
   private func route(_ request: NanoHTTPRequest) -> ([String: String], NanoHTTPRequestHandler) {
     if let result = router.route(request.method, path: request.rawPath) {
       return result
+    }
+    let allowed = router.allowedMethods(path: request.rawPath)
+    if !allowed.isEmpty {
+      let allow = allowed.joined(separator: ", ")
+      if request.method == "OPTIONS" {
+        return ([:], { _ in NanoHTTPResponse(statusCode: 204, headers: ["Allow": allow]) })
+      }
+      return ([:], { _ in .methodNotAllowed(headers: ["Allow": allow]) })
     }
     if let notFoundHandler = self.notFoundHandler {
       return ([:], notFoundHandler)

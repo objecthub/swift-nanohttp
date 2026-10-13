@@ -173,3 +173,41 @@ Two smaller things that come with it: the decoded path can contain line breaks a
 Targets with bytes that are not ASCII (a client that sends `é` as UTF-8 without encoding it), the absolute form (`GET http://host/a`) and
 `*` are handled by the parser now; `URLComponents` is no longer involved in reading a request.
 
+## HTTP as clients expect it (H4, H7, H10)
+
+The server does what HTTP/1.1 clients assume. Most of it is invisible; these are the changes that are not:
+
+- **Connections are persistent.** After a response the server waits for the next request on the connection (it
+  used to close it unless the request said `Connection: keep-alive`), until the client says `Connection: close`, the
+  connection is idle for the `idleTimeout` (60 seconds), or the server stops. Idle connections count towards
+  `maxConnections` and, with threads per connection, occupy a thread each: a server that many browsers use can set a
+  shorter `idleTimeout` (the one-thread mode does not have this cost). Tests and tools that relied on the server
+  closing the connection have to send `Connection: close`.
+- **The server says what it does with the connection**: `Connection: close` in the response before it closes, and
+  `Connection: keep-alive` for a client that asked for that. Every response has a `Date` header, and `204` and `304`
+  responses have no `Content-Length`.
+- **Bodies that a function writes are sent in chunks** (`Transfer-Encoding: chunked`) to HTTP/1.1 clients, and the
+  connection goes on; they used to end with the connection. A handler that knows the length sets `Content-Length` and
+  gets a body without chunks (it has to write exactly that many bytes, or the connection is closed). HTTP/1.0 clients
+  still get a body that ends with the connection.
+- **`HEAD`** is answered by the handler of the `GET` route, without a body (it used to be `404`, or the body was sent
+  for a handler that is registered for all methods). **A path that has routes, but not for the method of the request,
+  is `405`** with an `Allow` header (it was `404`), and **`OPTIONS` is answered by the server** (`204` and `Allow`)
+  unless there is a handler: `server.options[...]`. A custom `NanoHTTPRouter` can offer `allowedMethods(path:)`, which a
+  router that does not leaves as it is (always `404`).
+- **Requests**: bodies in chunks are decoded (the handler sees the body, `Content-Length` of its size and no
+  `Transfer-Encoding`), `Expect: 100-continue` is answered, and requests that cannot be handled safely are refused: a
+  `Content-Length` together with chunks (`400`), another `Transfer-Encoding` (`501`), a version that is not HTTP/1.0 or
+  HTTP/1.1 (`505`), another expectation (`417`). `request.httpVersion` is new, and `supportsKeepAlive` follows the
+  version of the protocol.
+- **Files** (`share`, `browse`) are sent with `ETag`, `Last-Modified` and `Accept-Ranges`, answer conditional requests
+  with `304` and ranges with `206` and `416`, and keep the connection. A directory is redirected to the address with a
+  slash and serves its index file (it was an empty `200`, or only for the root), and the listing of `browse` no longer has
+  the entries `.` and `..`.
+- `NanoHTTPResponseBodyWriter` has a new function, `write(_:offset:length:)`, with an implementation for all writers, so
+  that existing ones need no change; `NanoSocket.writeFile(_:offset:length:)` sends a part of a file exactly.
+
+Under the hood, sockets read in blocks of 16 KB (a `NanoSocket` reads from a buffer: code that waits for the descriptor
+of a socket itself has to look at `NanoSocket.hasBufferedData` first, which `NanoSocket` subclasses of the framework
+and the sessions of `NanoSocketSession` need not do), and `TCP_NODELAY` is set on accepted connections.
+

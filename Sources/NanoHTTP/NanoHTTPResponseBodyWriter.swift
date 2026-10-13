@@ -42,6 +42,9 @@ import Foundation
 public protocol NanoHTTPResponseBodyWriter {
   /// Writes the content of a file.
   func write(_ file: String.File) throws
+  /// Writes `length` bytes of a file, from `offset` on: fewer if the file ends earlier. This is how a part
+  /// of a file is sent (a range); where the system allows, the bytes do not pass through this process.
+  func write(_ file: String.File, offset: Int64, length: Int64) throws
   /// Writes bytes.
   func write(_ data: ArraySlice<UInt8>) throws
   /// Writes bytes.
@@ -52,5 +55,22 @@ extension NanoHTTPResponseBodyWriter {
   /// Writes bytes.
   public func write(_ data: [UInt8]) throws {
     try self.write(ArraySlice(data))
+  }
+  
+  /// Reads the part of the file and writes it in blocks.
+  public func write(_ file: String.File, offset: Int64, length: Int64) throws {
+    guard offset >= 0, length >= 0, file.seek(Int(offset)) else {
+      throw NanoSocketError.writeFailed("seek failed")
+    }
+    var remaining = length
+    while remaining > 0 {
+      var block = [UInt8](repeating: 0, count: Int(min(64 * 1024, remaining)))
+      let count = try file.read(&block)
+      if count == 0 {
+        break
+      }
+      try self.write(block[0..<count])
+      remaining -= Int64(count)
+    }
   }
 }

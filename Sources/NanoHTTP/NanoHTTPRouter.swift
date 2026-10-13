@@ -48,6 +48,18 @@ public protocol NanoHTTPRouter {
   func route(_ method: String, path: String) -> ([String: String], NanoHTTPRequestHandler)?
   /// The registered route patterns; the methods are not part of them.
   func routes() -> [String]
+  /// The methods that a request for `path` (percent-encoded, as in ``route(_:path:)``) can have, because
+  /// there are routes for them: the server answers a request that no route matches with `405 Method Not Allowed`
+  /// and this list as its `Allow` header, and an `OPTIONS` request with it. Empty if no route matches the path
+  /// with any method; for the path `*` the methods of all routes. The default implementation gives no methods,
+  /// so that a router that does not offer this has requests without a route answered with `404`.
+  func allowedMethods(path: String) -> [String]
+}
+
+extension NanoHTTPRouter {
+  public func allowedMethods(path: String) -> [String] {
+    return []
+  }
 }
 
 /// Errors of routers.

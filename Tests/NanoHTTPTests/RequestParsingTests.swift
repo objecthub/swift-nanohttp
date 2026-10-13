@@ -120,11 +120,13 @@ final class HeaderParsingTests: XCTestCase {
     XCTAssertFalse(request.hasTokenForHeader("connection", token: "Upgrade"))
   }
 
-  func testSupportsKeepAliveNeedsTheExplicitHeader() throws {
+  /// 2.0 (H4): HTTP/1.1 connections are persistent unless `Connection: close`, HTTP/1.0 ones only with `keep-alive`.
+  func testSupportsKeepAliveFollowsTheVersionOfTheProtocol() throws {
     XCTAssertTrue(try parse("GET / HTTP/1.1\r\nConnection: keep-alive\r\n\r\n").supportsKeepAlive)
     XCTAssertFalse(try parse("GET / HTTP/1.1\r\nConnection: close\r\n\r\n").supportsKeepAlive)
-    // Pinned current behavior; the HTTP/1.1 default is the opposite (finding H4).
-    XCTAssertFalse(try parse("GET / HTTP/1.1\r\n\r\n").supportsKeepAlive)
+    XCTAssertTrue(try parse("GET / HTTP/1.1\r\n\r\n").supportsKeepAlive)
+    XCTAssertFalse(try parse("GET / HTTP/1.0\r\n\r\n").supportsKeepAlive)
+    XCTAssertTrue(try parse("GET / HTTP/1.0\r\nConnection: keep-alive\r\n\r\n").supportsKeepAlive)
   }
 }
 

@@ -29,6 +29,7 @@ SCENARIOS = {
   "10 MB response c=1":       ["/blob/10m", "-c", "1"],
   "POST 1 MB c=4":            ["/upload", "-c", "4", "--post", "1048576"],
   "close c=1, 50 idle conns": ["/ping", "-c", "1", "--idle", "50"],
+  "file 100 KB keep-alive c=4": ["/file/100k", "-c", "4", "-k"],
   "websocket echo c=1":       ["/ws", "-c", "1", "--ws"],
   "websocket echo c=16":      ["/ws", "-c", "16", "--ws"],
 }
@@ -53,6 +54,10 @@ for name in ["1k", "100k", "1m", "10m"] {
 }
 server.post["/upload"] = { request in .ok(.text("\\(request.body.count)")) }
 server["/ws"] = websocket(text: { session, text in session.writeText(text) })
+// A file of 100 KB, which `share(file:)` serves (a file that is closed after every response in 1.x).
+let benchmarkFile = NSTemporaryDirectory() + "nanohttp-benchmark-100k.bin"
+try? blobs["100k"]!.write(to: URL(fileURLWithPath: benchmarkFile))
+server["/file/100k"] = share(file: benchmarkFile)
 """
 
 # NanoHTTP 1.x: listenAddressIPv4 and the parameters of start(); "serial" is handlerPriority: nil
@@ -198,7 +203,13 @@ if __name__ == "__main__":
             sys.exit(f"unknown scenario {name!r}")
 
     os.makedirs(WORK, exist_ok=True)
-    baseline = os.path.join(WORK, "baseline-" + options.baseline.replace("/", "_"))
+    # The export is named after the commit, not after the name that was given: `HEAD` and branches move.
+    commit = subprocess.run(["git", "rev-parse", "--verify", "--quiet", options.baseline + "^{commit}"],
+                            cwd=ROOT, capture_output=True, text=True).stdout.strip()
+    if not commit:
+        sys.exit(f"{options.baseline!r} is no commit of this repository")
+    print(f"baseline: {options.baseline} = {commit[:12]}", flush=True)
+    baseline = os.path.join(WORK, "baseline-" + commit[:12])
     if not os.path.isdir(baseline):
         os.makedirs(baseline)
         archive = subprocess.Popen(["git", "archive", options.baseline], cwd=ROOT, stdout=subprocess.PIPE)

@@ -54,6 +54,18 @@ public enum NanoHTTPParserError: Error, Equatable {
   case negativeContentLength
   /// The `Content-Length` header exceeds `Limits.maxBodyBytes` (HTTP status 413).
   case bodyTooLarge
+  /// The protocol version is not one that this server speaks, HTTP/1.0 and HTTP/1.1 (HTTP status 505).
+  case unsupportedVersion(String)
+  /// The request has a `Content-Length` and a `Transfer-Encoding`: which of them says where the body ends
+  /// is a question that different servers answer differently, which is how requests are smuggled past a
+  /// proxy (HTTP status 400).
+  case conflictingFraming
+  /// The `Transfer-Encoding` is not just `chunked`, the only one that the server decodes (HTTP status 501).
+  case unsupportedTransferEncoding(String)
+  /// The body that is sent in chunks is malformed (HTTP status 400).
+  case invalidChunk
+  /// The `Expect` header asks for something other than `100-continue` (HTTP status 417).
+  case expectationFailed(String)
 }
 
 /// Reads HTTP requests from a socket.
@@ -101,16 +113,107 @@ public struct NanoHTTPParser {
     if statusLineTokens.count < 3 {
       throw NanoHTTPParserError.invalidStatusLine(statusLine)
     }
+    let version = try NanoHTTPParser.version(of: statusLineTokens[2].trimmingCharacters(in: .whitespaces),
+                                             in: statusLine)
     let (rawPath, rawQuery) = NanoHTTPParser.split(target: statusLineTokens[1])
     let request = NanoHTTPRequest(
                     method: statusLineTokens[0],
                     rawPath: rawPath,
                     rawQuery: rawQuery,
-                    headers: try readHeaders(budget: &budget))
-    if let contentLength = request.header("content-length") {
-      request.body = try readBody(size: try self.bodySize(contentLength))
+                    headers: try readHeaders(budget: &budget),
+                    httpVersion: version)
+    // Where the body ends: with the chunks that say so, or after as many bytes as `Content-Length` says.
+    // A request that says both is refused (see `NanoHTTPParserError.conflictingFraming`).
+    let contentLength = request.header("content-length")
+    if let encoding = request.header("transfer-encoding") {
+      guard contentLength == nil else {
+        throw NanoHTTPParserError.conflictingFraming
+      }
+      guard encoding.trimmingCharacters(in: .whitespaces).lowercased() == "chunked", version == "HTTP/1.1" else {
+        throw NanoHTTPParserError.unsupportedTransferEncoding(encoding)
+      }
+      try self.acceptExpectation(of: request, bodyFollows: true)
+      let body = try self.readChunkedBody()
+      request.body = body
+      // The headers describe the request as the handler sees it.
+      request.removeHeader("transfer-encoding")
+      request.setHeader("content-length", to: String(body.count))
+    } else if let contentLength {
+      let size = try self.bodySize(contentLength)
+      try self.acceptExpectation(of: request, bodyFollows: size > 0)
+      request.body = try readBody(size: size)
+    } else {
+      try self.acceptExpectation(of: request, bodyFollows: false)
     }
     return request
+  }
+  
+  /// The version of the protocol that a request line names, as the server speaks it: `HTTP/1.0`, or
+  /// `HTTP/1.1` (also for the minor versions behind it, which HTTP/1.1 is compatible with).
+  private static func version(of token: String, in line: String) throws -> String {
+    guard token.hasPrefix("HTTP/") else {
+      throw NanoHTTPParserError.invalidStatusLine(line)
+    }
+    let numbers = token.dropFirst(5).split(separator: ".", omittingEmptySubsequences: false)
+    guard (1...2).contains(numbers.count), let major = Int(numbers[0]), major >= 0,
+          numbers.count == 1 || Int(numbers[1]) != nil else {
+      throw NanoHTTPParserError.invalidStatusLine(line)
+    }
+    guard major == 1 else {
+      throw NanoHTTPParserError.unsupportedVersion(token)
+    }
+    guard numbers.count == 2, let minor = Int(numbers[1]), minor >= 0 else {
+      throw NanoHTTPParserError.invalidStatusLine(line) // "HTTP/1" is no version
+    }
+    return minor == 0 ? "HTTP/1.0" : "HTTP/1.1"
+  }
+  
+  /// Looks at the `Expect` header: the only expectation that is understood is `100-continue`, which asks
+  /// the server to say that it wants the body before the client sends it. That is answered here, after the
+  /// size of the body has been checked (a client with a body that is too large is told so instead) and
+  /// before the body is read. HTTP/1.0 has no interim responses.
+  private func acceptExpectation(of request: NanoHTTPRequest, bodyFollows: Bool) throws {
+    guard let expectation = request.header("expect") else {
+      return
+    }
+    guard expectation.trimmingCharacters(in: .whitespaces).lowercased() == "100-continue" else {
+      throw NanoHTTPParserError.expectationFailed(expectation)
+    }
+    if bodyFollows && request.httpVersion == "HTTP/1.1" {
+      try self.socket.writeUTF8("HTTP/1.1 100 Continue\r\n\r\n")
+    }
+  }
+  
+  /// Reads a body that is sent in chunks (RFC 9112 7.1): every chunk is its size in hexadecimal (and perhaps
+  /// extensions, which are ignored), a line break, that many bytes, and a line break; a chunk of size 0 ends the
+  /// body, and is followed by trailers (ignored) and an empty line. The total is limited like a body with a length.
+  private func readChunkedBody() throws -> [UInt8] {
+    var body = [UInt8]()
+    while true {
+      var noBudget = Int.max
+      let line = try self.readLine(tooLong: .invalidChunk, budget: &noBudget)
+      let digits = (line.split(separator: ";", maxSplits: 1, omittingEmptySubsequences: false).first ?? "")
+                      .trimmingCharacters(in: .whitespaces)
+      guard !digits.isEmpty, digits.utf8.allSatisfy({ ($0 >= 48 && $0 <= 57) || ($0 >= 65 && $0 <= 70) || ($0 >= 97 && $0 <= 102) }) else {
+        throw NanoHTTPParserError.invalidChunk
+      }
+      // More digits than an `Int` holds are more bytes than any limit allows.
+      guard digits.count <= 15, let size = Int(digits, radix: 16) else {
+        throw NanoHTTPParserError.bodyTooLarge
+      }
+      if size == 0 {
+        var trailerBudget = self.limits.maxHeaderBytes
+        while try !self.readLine(tooLong: .headerLineTooLong, budget: &trailerBudget).isEmpty {}
+        return body
+      }
+      guard size <= self.limits.maxBodyBytes - body.count else {
+        throw NanoHTTPParserError.bodyTooLarge
+      }
+      body.append(contentsOf: try self.socket.read(length: size))
+      guard try self.readLine(tooLong: .invalidChunk, budget: &noBudget).isEmpty else {
+        throw NanoHTTPParserError.invalidChunk // there is more than the line break behind the chunk
+      }
+    }
   }
   
   /// Splits the target of a request line into the path and the query, both still percent-encoded. The
@@ -167,8 +270,9 @@ public struct NanoHTTPParser {
   /// dropped), and charges every byte read to `budget`. Throws `tooLong` if the line has more than
   /// `limits.maxLineLength` characters, and `headersTooLarge` if more than the budget is read.
   private func readLine(tooLong: NanoHTTPParserError, budget: inout Int) throws -> String {
-    var characters = ""
-    var length = 0
+    var bytes = [UInt8]()
+    bytes.reserveCapacity(96)
+    var ascii = true
     while true {
       let byte = try self.socket.read()
       budget -= 1
@@ -176,16 +280,21 @@ public struct NanoHTTPParser {
         throw NanoHTTPParserError.headersTooLarge
       }
       if byte == NanoHTTPParser.NL {
-        return characters
+        break
       }
       if byte > NanoHTTPParser.CR {
-        length += 1
-        if length > self.limits.maxLineLength {
+        if bytes.count >= self.limits.maxLineLength {
           throw tooLong
         }
-        characters.append(Character(UnicodeScalar(byte)))
+        bytes.append(byte)
+        ascii = ascii && byte < 128
       }
     }
+    if ascii {
+      return String(decoding: bytes, as: UTF8.self)
+    }
+    // Every byte is one character (Latin-1); `split(target:)` and the decoding of paths read them as UTF-8 again.
+    return String(String.UnicodeScalarView(bytes.map { Unicode.Scalar($0) }))
   }
   
   private static let CR: UInt8 = 13

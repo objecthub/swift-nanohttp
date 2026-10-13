@@ -69,9 +69,11 @@ public struct NanoHTTPResponse {
     /// Bytes with a content type (`application/octet-stream` if none is given).
     case data(Data, contentType: String? = nil)
     /// A body that a function writes to the connection, for content that is not available as a whole
-    /// or too large to hold in memory. The length is unknown to the server, so the connection is closed
-    /// after such a response; set a `Content-Length` header only if the writer writes exactly that many
-    /// bytes.
+    /// or too large to hold in memory. Whatever the function writes is sent at once. Its length is not
+    /// known, so the body is sent in chunks (`Transfer-Encoding: chunked`) and the connection can be used for
+    /// the next request; an HTTP/1.0 client, which does not know chunks, gets the body up to the end of the
+    /// connection. If the handler sets a `Content-Length` header, the body is sent with that length instead: the
+    /// function has to write exactly that many bytes, or the connection is closed after the response.
     case custom((NanoHTTPResponseBodyWriter) throws -> Void, contentType: String? = nil)
     /// The connection becomes something else than HTTP, see ``NanoHTTPResponse/switchProtocols(_:_:)``.
     case socket((NanoSocket) -> Void)

@@ -106,6 +106,14 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   /// Is set to `true` as soon as the socket is being closed
   private var closed = false
   
+  /// What has been read from the connection but not consumed yet: bytes `inputStart..<inputEnd` of `input`.
+  /// Reading in blocks costs a system call for a few hundred bytes instead of one for every byte. Only the
+  /// thread that reads the socket uses these (a socket is read by one thread at a time).
+  private var input = [UInt8]()
+  private var inputStart = 0
+  private var inputEnd = 0
+  private static let inputCapacity = 16 * 1024
+  
   /// The number of operations (reads, writes, ...) that are using the descriptor right now
   private var activeOperations = 0
   
@@ -202,6 +210,8 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   ///   - timeout: The longest time to wait for the peer to finish, in seconds.
   ///   - limit: The most data to read and drop, in bytes.
   func closeAfterDraining(timeout: TimeInterval = 1, limit: Int = 4 * 1024 * 1024) {
+    self.inputStart = 0 // what is in the buffer is dropped like the rest
+    self.inputEnd = 0
     try? self.withDescriptor(closedError: .recvFailed(Self.closedDescription)) { descriptor in
       _ = Darwin.shutdown(descriptor, SHUT_WR)
       let deadline = DispatchTime.now().uptimeNanoseconds + UInt64(timeout * 1_000_000_000)
@@ -295,6 +305,9 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   /// - Returns: `true` if a read will not block; `false` if the timeout passed first.
   /// - Throws: `NanoSocketError.recvFailed` if the socket is closed or cannot be polled.
   public func waitUntilReadable(timeout: TimeInterval?) throws -> Bool {
+    if self.hasBufferedData {
+      return true
+    }
     return try self.withDescriptor(closedError: .recvFailed(Self.closedDescription)) { descriptor in
       var poller = pollfd(fd: descriptor, events: Int16(POLLIN), revents: 0)
       var deadline: UInt64? = nil
@@ -320,8 +333,8 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     }
   }
   
-  /// Waits until there is something to read, without reading it: data, or the end of the connection, which
-  /// the next read reports. Waits for as long as the receive timeout (see ``setReceiveTimeout(_:)``), and
+  /// Waits until there is something to read, without reading it: data (also data that has been read from the
+  /// connection already and is waiting in the buffer), or the end of the connection, which the next read reports. Waits for as long as the receive timeout (see ``setReceiveTimeout(_:)``), and
   /// forever without one.
   ///
   /// This is how a thread that serves one connection waits for the next message of a session: in contrast to
@@ -331,6 +344,9 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   /// - Returns: `true` if a read will not wait; `false` if the receive timeout has passed.
   /// - Throws: `NanoSocketError.recvFailed` if the socket is closed or fails.
   func awaitData() throws -> Bool {
+    if self.hasBufferedData {
+      return true
+    }
     return try self.withDescriptor(closedError: .recvFailed(Self.closedDescription)) { descriptor in
       var byte: UInt8 = 0
       while true {
@@ -457,16 +473,31 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   /// - Returns: A single byte
   /// - Throws: SocketError.recvFailed if unable to read from the socket
   open func read() throws -> UInt8 {
-    return try self.withDescriptor(closedError: .recvFailed(Self.closedDescription)) { descriptor in
-      var byte: UInt8 = 0
+    if self.inputStart == self.inputEnd {
+      try self.fillInput()
+    }
+    let byte = self.input[self.inputStart]
+    self.inputStart += 1
+    return byte
+  }
+  
+  /// Whether bytes have been read from the connection that nobody has consumed yet. Whoever waits for
+  /// the socket to become readable (`poll`) has to look at this first: the data is not in the kernel any more.
+  var hasBufferedData: Bool {
+    return self.inputStart < self.inputEnd
+  }
+  
+  /// Reads a block from the connection into the buffer: at least one byte, or an error. Only called when
+  /// the buffer is empty.
+  private func fillInput() throws {
+    if self.input.isEmpty {
+      self.input = [UInt8](repeating: 0, count: Self.inputCapacity)
+    }
+    let count = try self.withDescriptor(closedError: .recvFailed(Self.closedDescription)) { descriptor -> Int in
       while true {
-        #if os(Linux)
-        let count = Glibc.read(descriptor, &byte, 1)
-        #else
-        let count = Darwin.read(descriptor, &byte, 1)
-        #endif
+        let count = self.input.withUnsafeMutableBytes { Darwin.read(descriptor, $0.baseAddress, $0.count) }
         if count > 0 {
-          return byte
+          return count
         }
         if count < 0 && errno == EINTR {
           continue
@@ -474,6 +505,8 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
         throw Self.readFailure(count)
       }
     }
+    self.inputStart = 0
+    self.inputEnd = count
   }
   
   /// Reads exactly `length` bytes from this socket.
@@ -490,11 +523,33 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     guard length >= 0 else {
       throw NanoSocketError.recvFailed("negative length")
     }
+    var result = [UInt8]()
+    // First what has been read already ...
+    let buffered = min(self.inputEnd - self.inputStart, length)
+    if buffered > 0 {
+      result.append(contentsOf: self.input[self.inputStart..<(self.inputStart + buffered)])
+      self.inputStart += buffered
+    }
+    var remaining = length - result.count
+    if remaining == 0 {
+      return result
+    }
+    if remaining < Self.inputCapacity {
+      // ... a little more: read a block, which probably has more of what comes next as well ...
+      while remaining > 0 {
+        try self.fillInput()
+        let count = min(self.inputEnd - self.inputStart, remaining)
+        result.append(contentsOf: self.input[self.inputStart..<(self.inputStart + count)])
+        self.inputStart += count
+        remaining -= count
+      }
+      return result
+    }
+    // ... and a lot: straight from the connection, without a detour through the buffer.
     return try self.withDescriptor(closedError: .recvFailed(Self.closedDescription)) { descriptor in
-      var result = [UInt8]()
-      var chunk = [UInt8](repeating: 0, count: min(length, NanoSocket.kChunkLength))
-      while result.count < length {
-        let wanted = min(chunk.count, length - result.count)
+      var chunk = [UInt8](repeating: 0, count: min(remaining, NanoSocket.kChunkLength))
+      while remaining > 0 {
+        let wanted = min(chunk.count, remaining)
         let count = chunk.withUnsafeMutableBytes { Darwin.read(descriptor, $0.baseAddress, wanted) }
         if count < 0 && errno == EINTR {
           continue
@@ -503,6 +558,7 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
           throw Self.readFailure(count)
         }
         result.append(contentsOf: chunk[0..<count])
+        remaining -= count
       }
       return result
     }
@@ -576,6 +632,74 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
         throw NanoSocketError.writeFailed("sendfile: " + Self.errnoDescription)
       }
     }
+  }
+  
+  /// Sends `length` bytes of a file, from `offset` on, and returns how many were sent: fewer than `length` if
+  /// the file ends earlier. Uses `sendfile` where the system has it (the bytes do not pass through this process).
+  /// Exactly the bytes that were asked for are sent, also if the file grows meanwhile, which a response that
+  /// has a length has to rely on.
+  ///
+  /// - Throws: `NanoSocketError.timedOut` if the peer takes nothing for as long as the send timeout, or another
+  ///     `NanoSocketError` if the connection fails.
+  @discardableResult
+  public func writeFile(_ file: String.File, offset: Int64, length: Int64) throws -> Int64 {
+    guard offset >= 0, length >= 0 else {
+      throw NanoSocketError.writeFailed("negative offset or length")
+    }
+    #if os(iOS) || os(tvOS) || os(Linux)
+    return try self.writeFileByReading(file, offset: offset, length: length)
+    #else
+    return try self.withDescriptor(closedError: .writeFailed(Self.closedDescription)) { descriptor in
+      var sent: Int64 = 0
+      while sent < length {
+        var count = off_t(length - sent)
+        let result = sendfile(fileno(file.pointer), descriptor, off_t(offset + sent), &count, nil, 0)
+        sent += Int64(count)
+        if result == 0 {
+          if count == 0 {
+            break // the file ends before `length`
+          }
+          continue
+        }
+        if errno == EINTR {
+          continue
+        }
+        if errno == EAGAIN || errno == EWOULDBLOCK {
+          if count == 0 {
+            throw NanoSocketError.timedOut // the send timeout has passed without progress
+          }
+          continue
+        }
+        throw NanoSocketError.writeFailed("sendfile: " + Self.errnoDescription)
+      }
+      return sent
+    }
+    #endif
+  }
+  
+  /// The portable way to send a part of a file: read it in blocks and write them. Systems that have no
+  /// `sendfile` use this; it is separate so that it can be tested on the others.
+  func writeFileByReading(_ file: String.File, offset: Int64, length: Int64) throws -> Int64 {
+    guard fseeko(file.pointer, off_t(offset), SEEK_SET) == 0 else {
+      throw NanoSocketError.writeFailed("seek: " + Self.errnoDescription)
+    }
+    var sent: Int64 = 0
+    var block = [UInt8](repeating: 0, count: 64 * 1024)
+    while sent < length {
+      let wanted = Int(min(Int64(block.count), length - sent))
+      let count = fread(&block, 1, wanted, file.pointer)
+      if count == 0 {
+        break // the file ends before `length`
+      }
+      try self.writeUInt8(block[0..<count])
+      sent += Int64(count)
+    }
+    return sent
+  }
+  
+  /// Sends a part of a file, see ``writeFile(_:offset:length:)``.
+  public func write(_ file: String.File, offset: Int64, length: Int64) throws {
+    try self.writeFile(file, offset: offset, length: length)
   }
   
   /// Creates a listening TCP socket.
@@ -716,6 +840,10 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     if clientSocket >= 0 {
       NanoSocket.setNoSigPipe(clientSocket)
       NanoSocket.setNonBlocking(clientSocket, false)
+      // Responses are written in as few pieces as possible; whatever is written is sent at once, instead of
+      // waiting for the peer to acknowledge the piece before (Nagle's algorithm, up to 40 ms of delay).
+      var one: Int32 = 1
+      setsockopt(clientSocket, IPPROTO_TCP, TCP_NODELAY, &one, socklen_t(MemoryLayout<Int32>.size))
       return .accepted(NanoSocket(socketFileDescriptor: clientSocket))
     }
     let code = errno

@@ -202,6 +202,12 @@ final class RawClient {
     if head || (100..<200).contains(status) || status == 204 || status == 304 {
       return response
     }
+    if response.header("transfer-encoding")?.lowercased().contains("chunked") == true {
+      while let chunk = self.readChunk() {
+        response.body.append(contentsOf: chunk)
+      }
+      return response
+    }
     if let length = response.header("content-length").flatMap({ Int($0) }) {
       while self.buffer.count < length && self.fill() {}
       let take = min(length, self.buffer.count)
@@ -213,6 +219,38 @@ final class RawClient {
       self.buffer.removeAll()
     }
     return response
+  }
+
+  /// Reads a line (without the line break) of what the server sends. `nil` on EOF/timeout.
+  func readLine() -> String? {
+    let terminator: [UInt8] = [13, 10]
+    while true {
+      if let end = RawClient.index(of: terminator, in: self.buffer) {
+        let line = String(decoding: self.buffer[0..<end], as: UTF8.self)
+        self.buffer.removeSubrange(0..<(end + 2))
+        return line
+      }
+      if !self.fill() {
+        return nil
+      }
+    }
+  }
+
+  /// Reads one chunk of a body that is sent in chunks. `nil` after the last chunk (the empty one, and the
+  /// trailers behind it are read), and when the stream is not in the form of chunks, or ends.
+  func readChunk() -> [UInt8]? {
+    guard let line = self.readLine(),
+          let size = Int(line.split(separator: ";").first.map(String.init) ?? "", radix: 16) else {
+      return nil
+    }
+    if size == 0 {
+      while let trailer = self.readLine(), !trailer.isEmpty {}
+      return nil
+    }
+    guard let data = self.readBytes(size), self.readBytes(2) == [13, 10] else {
+      return nil
+    }
+    return data
   }
 
   /// Reads exactly `count` bytes (used for WebSocket frames). `nil` on EOF/timeout.

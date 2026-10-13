@@ -53,6 +53,10 @@ public final class NanoHTTPRequest: Hashable {
   /// The HTTP method in the form the client sent it, normally in upper case (`"GET"`, `"POST"`).
   public var method: String
   
+  /// The version of the protocol that the client speaks, as it is in the request line: `"HTTP/1.1"` or
+  /// `"HTTP/1.0"`.
+  public var httpVersion: String
+  
   /// The path of the request as the client sent it, still percent-encoded (`/a%20b/%C3%A9`), without the query.
   /// The router matches this, one segment at a time, so that an encoded slash (`%2F`) stays inside its
   /// segment. Use ``path`` to read the path; set `rawPath` (for example in middleware) to route the request
@@ -111,8 +115,10 @@ public final class NanoHTTPRequest: Hashable {
               path: String,
               queryParams: [(String, String)] = [],
               headers: [String : String] = [:],
-              body: [UInt8] = []) {
+              body: [UInt8] = [],
+              httpVersion: String = "HTTP/1.1") {
     self.method = method
+    self.httpVersion = httpVersion
     self.rawPath = path.percentEncodedAsPath
     self.queryParams = queryParams
     self.rawQuery = queryParams.isEmpty
@@ -129,8 +135,10 @@ public final class NanoHTTPRequest: Hashable {
               rawPath: String,
               rawQuery: String?,
               headers: [String : String] = [:],
-              body: [UInt8] = []) {
+              body: [UInt8] = [],
+              httpVersion: String = "HTTP/1.1") {
     self.method = method
+    self.httpVersion = httpVersion
     self.rawPath = rawPath
     self.rawQuery = rawQuery
     self.queryParams = rawQuery.map { NanoHTTPRequest.parseQuery($0) } ?? []
@@ -178,14 +186,19 @@ public final class NanoHTTPRequest: Hashable {
     hasher.combine(ObjectIdentifier(self))
   }
   
-  /// Whether the client asked for the connection to be kept open after the response: only if the request
-  /// has the header `Connection: keep-alive`. (Without it the server closes the connection after the
-  /// response, although HTTP/1.1 connections are persistent by default.)
+  /// Whether the client wants the connection to be kept open after the response: HTTP/1.1 connections are
+  /// persistent unless the request has `Connection: close`; HTTP/1.0 connections are closed unless the
+  /// request has `Connection: keep-alive`.
   public var supportsKeepAlive: Bool {
-    if let value = self.headers["connection"] {
-      return value.trimmingCharacters(in: .whitespaces).lowercased() == "keep-alive"
+    if self.hasTokenForHeader("connection", token: "close") {
+      return false
     }
-    return false
+    return self.httpVersion != "HTTP/1.0" || self.hasTokenForHeader("connection", token: "keep-alive")
+  }
+  
+  /// Whether the request says `Connection: keep-alive`, which a response confirms.
+  var asksForKeepAlive: Bool {
+    return self.hasTokenForHeader("connection", token: "keep-alive")
   }
   
   /// The value of a header, or `nil`. The name is case-insensitive. If the client sent a header several

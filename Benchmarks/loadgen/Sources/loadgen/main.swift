@@ -187,15 +187,29 @@ final class Worker {
     }
     var buffer = [UInt8](repeating: 0, count: 256 * 1024)
     var fd: Int32? = nil
+    var reused = false // is the connection one that has served a request already?
     while now() < end {
       let begin = now()
-      if fd == nil { fd = connectToServer() }
-      guard let current = fd else { errors += 1; usleep(1000); continue }
+      if fd == nil { fd = connectToServer(); reused = false }
+      guard var current = fd else { errors += 1; usleep(1000); continue }
       var ok = false
       var bodyBytes = 0
       if sendAll(current, requestBytes), let response = readResponse(current, &buffer), response.status == 200 {
         ok = true
         bodyBytes = response.body
+      } else if reused {
+        // A connection that the server has closed since: what every HTTP client does is to open another one and
+        // ask again (once), without calling that an error. 1.x servers close the connection after some responses.
+        abortiveClose(current)
+        fd = connectToServer()
+        reused = false
+        if let again = fd {
+          current = again
+          if sendAll(current, requestBytes), let response = readResponse(current, &buffer), response.status == 200 {
+            ok = true
+            bodyBytes = response.body
+          }
+        }
       }
       let finish = now()
       if !ok {
@@ -203,6 +217,7 @@ final class Worker {
         if begin >= measureFrom { errors += 1 }
         continue
       }
+      reused = true
       if !keepAlive { abortiveClose(current); fd = nil }
       if begin >= measureFrom && finish <= end {
         latencies.append(finish - begin)

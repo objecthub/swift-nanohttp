@@ -118,24 +118,70 @@ server.get["/countdown"] = { _ in
 }
 ```
 
-The writer is a ``NanoHTTPResponseBodyWriter``. Whatever it writes is sent at once. The length of such a body is
-not known, so the server closes the connection after it (see below). If writing fails because the client has
-gone, the function throws; there is no way to answer the client any more.
+The writer is a ``NanoHTTPResponseBodyWriter``. Whatever it writes is sent at once, which makes this the way to send
+events and progress as they happen. The length of such a body is not known, so the server sends it in *chunks*
+(`Transfer-Encoding: chunked`): every write is a chunk, and the empty chunk at the end ends the body, so that the
+connection can be used for the next request. An HTTP/1.0 client does not know chunks; it gets the body up to the end
+of the connection, which is then closed. If writing fails because the client has gone, the function throws; there is
+no way to answer the client any more, and the body is not ended properly, so that the client sees that it is not
+complete.
+
+If you know the length, say so with a `Content-Length` header: the body is then sent as it is, without chunks. The
+server makes sure that it has that many bytes: a function that writes fewer or more leaves the connection unusable,
+which the server ends (and logs).
+
+```swift
+let server = NanoHTTPServer()
+server.get["/report"] = { _ in
+  .custom(200, headers: ["Content-Length": "6"], contentType: "text/plain") { writer in
+    try writer.write(Array("abc".utf8))
+    try writer.write(Array("def".utf8))
+  }
+}
+```
 
 ### What the server adds
 
-The server writes the status line, `Content-Length` for bodies of known length, `Connection: keep-alive`
-where the connection stays open, the `Content-Type` of the body, and your headers. It does not add `Date` or
-`Server`. Header names must be valid tokens (a name with a space or a colon is dropped, and logged), and
-carriage return, line feed and NUL in a header value are replaced by spaces, so that a value taken from a request
-cannot inject headers.
+The server writes the status line, `Content-Length` (or `Transfer-Encoding: chunked`) for the body, a `Date`
+header, the `Content-Type` of the body, `Connection` where the connection is closed, and your headers. It does not add
+`Server`. A `Content-Length`, `Transfer-Encoding`, `Connection` or `Date` header of yours is replaced by what the
+server knows better (a handler that sets `Date` itself is the exception: the server adds none then). Responses that
+have no body (`1xx`, `204`, `304`) have no `Content-Length` and no body, whatever the handler returned. Header names
+must be valid tokens (a name with a space or a colon is dropped, and logged), and carriage return, line feed and NUL
+in a header value are replaced by spaces, so that a value taken from a request cannot inject headers.
+
+A body that is in memory is sent together with the head of the response, in one piece.
+
+### HEAD, OPTIONS and methods that a path does not have
+
+- A `HEAD` request is answered by the handler of the `GET` route (or by a handler that is registered for `HEAD`; one for
+  all methods comes last). The response is the one that `GET` would get, `Content-Length` included, without
+  the body: the handler sees the method `HEAD` and need not do anything special, and a function that writes a body
+  is not called.
+- If a path has routes, but not for the method of the request, the answer is `405 Method Not Allowed` with an `Allow` header
+  that lists the methods that the path has (`Allow: GET, HEAD, POST, OPTIONS`). Without a route for the path it is `404`.
+  The ``NanoHTTPServer/notFoundHandler`` is for paths without routes.
+- An `OPTIONS` request is answered with `204 No Content` and the same `Allow` header, unless there is a handler for
+  `OPTIONS` (`server.options["/items"] = ...`, which is also where cross-origin preflight requests can be answered).
+  `OPTIONS *` lists the methods of all routes.
 
 ### Connections
 
-HTTP/1.1 connections can be reused for several requests. This server keeps a connection open after a response
-only if the client sent `Connection: keep-alive` and the response has a known length (not `.custom` and not
-a file); otherwise it closes the connection after the response, without announcing that with a
-`Connection: close` header. A client that wants to reuse connections has to open a new one for the next request.
+HTTP/1.1 connections are **persistent**: the server keeps a connection open after a response and waits for the next
+request, until the client sends `Connection: close`, the connection is idle for longer than the
+``NanoHTTPServerIO/Configuration/idleTimeout``, or the server stops. An HTTP/1.0 client has its connection closed,
+unless it sends `Connection: keep-alive` (and the response has a length). The server says what it does: a response
+before the connection is closed has `Connection: close`, and one to a client that asked for `keep-alive` confirms it.
+
+A connection also ends after a response whose end is not known (HTTP/1.0 and no `Content-Length`), after one whose body
+could not be written completely, and after a request that cannot be answered (`400`, `413`, `414`, `431`, `408`, `417`, `501`,
+`505`, which all have `Connection: close`).
+
+Requests can have bodies of two kinds: with a `Content-Length`, or sent in chunks (`Transfer-Encoding: chunked`), which
+the server puts together before the handler is called. A client that sends `Expect: 100-continue` before a body is
+answered with `100 Continue` as soon as the server accepts the body (a body that is too large is refused instead). A
+request with both a `Content-Length` and chunks, or with another `Transfer-Encoding` than `chunked`, is refused (`400`,
+`501`), as is one that speaks another version than HTTP/1.0 and HTTP/1.1 (`505`).
 
 ## Topics
 

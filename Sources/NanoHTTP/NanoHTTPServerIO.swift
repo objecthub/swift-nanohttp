@@ -40,7 +40,7 @@ import os
 
 /// A lock that costs next to nothing when nobody else holds it. The state of a server is read several
 /// times for every request, by all connection threads.
-private final class UnfairLock {
+final class UnfairLock {
   private let storage: UnsafeMutablePointer<os_unfair_lock>
   
   init() {
@@ -623,6 +623,9 @@ open class NanoHTTPServerIO {
         if let due = entry.deadline {
           wait = min(wait, due > begin ? due - begin : 0)
         }
+        if entry.socket.hasBufferedData {
+          wait = 0 // a request or a message has been read ahead: it is waiting for us, not for the system
+        }
       }
       if !accepting {
         wait = min(wait, acceptAgainAt - begin)
@@ -640,7 +643,7 @@ open class NanoHTTPServerIO {
       var index = 0
       while index < waiting.count && self.isRunning(listener) {
         let socket = waiting[index].socket
-        if (result > 0 && pollers[index + 1].revents != 0) || socket.isClosed {
+        if (result > 0 && pollers[index + 1].revents != 0) || socket.hasBufferedData || socket.isClosed {
           if let session = waiting[index].session {
             if !session.receive() {
               session.end()

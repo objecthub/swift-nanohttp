@@ -127,10 +127,13 @@ public struct NanoHTTPConnection {
   
   /// Writes `response`, then waits for the next request of the connection.
   ///
-  /// The connection stays open if the client asked for it with `Connection: keep-alive`, the response
-  /// has a known length, and the server is still running; `dontKeepAlive` forces it to close. A response
-  /// whose body is a socket session (``NanoHTTPResponse/switchProtocols(_:_:)``, WebSocket) runs the
-  /// session first and ends the connection afterwards.
+  /// The connection stays open if the client wants that (HTTP/1.1 connections are persistent unless the
+  /// request has `Connection: close`; HTTP/1.0 connections close unless it has `Connection: keep-alive`), the
+  /// end of the response is known (a length, chunks, or no body), and the server is still running;
+  /// `dontKeepAlive` forces it to close. The response says `Connection: close` if the connection is going to be
+  /// closed. A response to a `HEAD` request has no body. A response whose body is a socket session
+  /// (``NanoHTTPResponse/switchProtocols(_:_:)``, WebSocket) runs the session first and ends the connection
+  /// afterwards.
   ///
   /// - Returns: The connection with the next request, or `nil` if the connection has ended (it is
   ///     closed then). A request that cannot be read is answered with `400`, `408`, `413`, `414` or
@@ -150,6 +153,7 @@ public struct NanoHTTPConnection {
                                       keepAlive: keepConnection && !dontKeepAlive)
     } catch {
       server.log("Failed to send response: \(error)")
+      keepConnection = false // the client has a response that is cut off
     }
     if let session = response.eventSession() {
       // A WebSocket may be silent for hours: the server waits for the next message without a limit, and the
@@ -243,8 +247,14 @@ public struct NanoHTTPConnection {
           status = "431 Request Header Fields Too Large"
         case .bodyTooLarge:
           status = "413 Content Too Large"
-        case .invalidStatusLine, .invalidContentLength, .negativeContentLength:
+        case .invalidStatusLine, .invalidContentLength, .negativeContentLength, .conflictingFraming, .invalidChunk:
           status = "400 Bad Request"
+        case .unsupportedVersion:
+          status = "505 HTTP Version Not Supported"
+        case .unsupportedTransferEncoding:
+          status = "501 Not Implemented"
+        case .expectationFailed:
+          status = "417 Expectation Failed"
       }
     } else if let error = error as? NanoSocketError, case .timedOut = error {
       status = "408 Request Timeout"
@@ -275,64 +285,119 @@ public struct NanoHTTPConnection {
     self.server?.forget(socket: self.socket)
   }
   
-  /// A header name is a token (RFC 9110 5.6.2): letters, digits and a few punctuation characters,
-  /// but no whitespace, no colon and no line break.
-  private static func isValidHeaderName(_ name: String) -> Bool {
-    let punctuation = Set("!#$%&'*+-.^_`|~".utf8)
-    return !name.isEmpty && name.utf8.allSatisfy {
-      ($0 >= 48 && $0 <= 57) || ($0 >= 65 && $0 <= 90) || ($0 >= 97 && $0 <= 122) || punctuation.contains($0)
-    }
-  }
-  
-  /// A header value without line breaks. A carriage return or line feed would end the header and let
-  /// whatever follows become a header (or the body) of the response, which is how a redirect to a
-  /// location taken from a request can be turned into an injection of arbitrary headers.
-  private static func sanitizedHeaderValue(_ value: String) -> String {
-    guard value.utf8.contains(where: { $0 == 13 || $0 == 10 || $0 == 0 }) else {
-      return value
-    }
-    // Not `Character`s: "\r\n" is a single Character that is neither "\r" nor "\n".
-    return String(String.UnicodeScalarView(value.unicodeScalars.map { $0 == "\r" || $0 == "\n" || $0 == "\0" ? " " : $0 }))
-  }
-  
+  /// Writes the response and tells whether the connection can be kept open.
+  ///
+  /// How the body ends decides: a body in memory has a length, and is written with the head of the response in one
+  /// piece (one system call; the client gets the response in one segment). A body that a function writes has the
+  /// length that its `Content-Length` header declares (and that is checked), or is sent in chunks, or, for an
+  /// HTTP/1.0 client, which does not know chunks, ends with the connection. The connection is kept if the client
+  /// wants that and the end of the response is known.
   private func respond(response: NanoHTTPResponse, keepAlive: Bool) throws -> Bool {
     guard let server else {
       return false
     }
-    // Some web-socket clients (like Jetfire) expects to have header section in a single packet.
-    // We can't promise that but make sure we invoke "write" only once for response header section.
     var response = response
-    let length: Int?
-    let write: ((NanoHTTPResponseBodyWriter) throws -> Void)?
+    var inline: NanoHTTPInlineBody?
     do {
-      (length, write) = try response.body.content()
+      inline = try response.body.inline()
     } catch {
       // The body could not be produced (a `.json` body that is not JSON). Nothing has been sent
       // yet, so the client can still be told that the server failed.
       server.log("Unable to produce the body of the response: \(error)")
       response = NanoHTTPResponse.internalServerError(.text("Internal Server Error"))
-      (length, write) = try response.body.content()
+      inline = try response.body.inline()
     }
-    var responseHeader = String()
-    responseHeader.append("HTTP/1.1 \(response.statusCode) \(response.reasonPhrase)\r\n")
-    if let length, length >= 0 {
-      responseHeader.append("Content-Length: \(length)\r\n")
-      if keepAlive {
-        responseHeader.append("Connection: keep-alive\r\n")
+    let status = response.statusCode
+    // The responses that have no body, whatever the handler said; and the responses to HEAD, which are
+    // those to GET without the body (their headers, `Content-Length` included, say what GET would get).
+    let isHead = self.request.method == "HEAD"
+    let bodyAllowed = !((100..<200).contains(status) || status == 204 || status == 304)
+    let framing: NanoHTTPResponseSerializer.Framing
+    if !bodyAllowed {
+      framing = .none
+    } else if let inline {
+      framing = .length(inline.count)
+    } else if case .custom(_, _) = response.body {
+      if let declared = NanoHTTPConnection.declaredLength(of: response) {
+        framing = .length(declared)
+      } else if isHead {
+        framing = .none // the length is not known, and there is no body that chunks could be for
+      } else {
+        framing = self.request.httpVersion == "HTTP/1.0" ? .untilClose : .chunked
+      }
+    } else {
+      framing = .none // the connection is switched to another protocol
+    }
+    // The end of the response is known if it has a length or chunks, or cannot have a body.
+    let endIsKnown: Bool
+    switch framing {
+      case .length, .chunked:
+        endIsKnown = true
+      case .none:
+        endIsKnown = status == 204 || status == 304 || (isHead && status != 101)
+      case .untilClose:
+        endIsKnown = false
+    }
+    var keeping = keepAlive && endIsKnown
+    // What the head says about the connection: `Connection: close` if it is going to be closed, and
+    // `Connection: keep-alive` if the client asked for that explicitly (HTTP/1.1 connections are persistent anyway).
+    let connection: NanoHTTPResponseSerializer.Connection
+    if keeping {
+      connection = self.request.asksForKeepAlive ? .keepAlive : .unspecified
+    } else {
+      connection = status == 101 ? .unspecified : .close
+    }
+    var message = NanoHTTPResponseSerializer.head(response,
+                                                  framing: framing,
+                                                  connection: connection,
+                                                  date: (100..<200).contains(status) ? nil : NanoHTTPDate.string(),
+                                                  dropped: { server.log("Dropped a response header with an invalid name: \(String(reflecting: $0))") })
+    if isHead && status != 101 {
+      try self.socket.writeUInt8(message) // the head only
+    } else if let inline, bodyAllowed {
+      if message.count + inline.count <= NanoHTTPConnection.coalescingLimit {
+        inline.append(to: &message)
+        try self.socket.writeUInt8(message)
+      } else {
+        try self.socket.writeUInt8(message)
+        var body = [UInt8]()
+        body.reserveCapacity(inline.count)
+        inline.append(to: &body)
+        try self.socket.writeUInt8(body)
+      }
+    } else {
+      try self.socket.writeUInt8(message)
+      if bodyAllowed, case .custom(let write, _) = response.body {
+        switch framing {
+          case .length(let length):
+            let writer = LengthLimitedBodyWriter(socket: self.socket, length: length)
+            try write(writer)
+            if !writer.isComplete {
+              server.log("The body of a response has \(writer.overflowed ? "more" : "fewer") bytes than the \(length) of its Content-Length; the connection is closed")
+              keeping = false
+            }
+          case .chunked:
+            let writer = ChunkedBodyWriter(socket: self.socket)
+            try write(writer)
+            try writer.finish()
+          default:
+            try write(self.socket)
+        }
       }
     }
-    for (name, value) in response.allHeaders() {
-      guard NanoHTTPConnection.isValidHeaderName(name) else {
-        server.log("Dropped a response header with an invalid name: \(String(reflecting: name))")
-        continue
-      }
-      responseHeader.append("\(name): \(NanoHTTPConnection.sanitizedHeaderValue(value))\r\n")
-    }
-    responseHeader.append("\r\n")
-    try self.socket.writeUTF8(responseHeader)
-    if let write {
-      try write(self.socket)
-    }
-    return keepAlive && length != nil
+    return keeping
   }
+  
+  /// The length that the handler declares with a `Content-Length` header, if it is a number.
+  private static func declaredLength(of response: NanoHTTPResponse) -> Int? {
+    for (name, value) in response.headers where name.lowercased() == "content-length" {
+      if let length = Int(value.trimmingCharacters(in: .whitespaces)), length >= 0 {
+        return length
+      }
+    }
+    return nil
+  }
+  
+  /// Heads and bodies up to this size are written together, in one system call.
+  private static let coalescingLimit = 64 * 1024
 }

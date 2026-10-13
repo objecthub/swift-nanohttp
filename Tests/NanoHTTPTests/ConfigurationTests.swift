@@ -148,7 +148,9 @@ final class ListenAddressTests: XCTestCase {
       server.configuration.listenAddress = .address("203.0.113.7")
       XCTAssertThrowsError(try server.start(0))
     }
-    XCTAssertLessThan(openFileDescriptorCount() - before, 5)
+    // The count is that of the whole process: sockets of earlier tests are still being closed by their threads.
+    XCTAssertTrue(eventually(timeout: 3) { openFileDescriptorCount() - before < 5 },
+                  "\(openFileDescriptorCount() - before) descriptors more than before: 40 would be a leak")
   }
 }
 

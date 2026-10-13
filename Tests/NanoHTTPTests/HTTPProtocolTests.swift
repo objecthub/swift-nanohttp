@@ -66,7 +66,9 @@ final class HTTPProtocolTests: XCTestCase {
   func testRoutedMethodIsRespected() throws {
     try serve { _, port in
       XCTAssertEqual(try RawClient.request("POST", "/echo", port: port, body: Array("hi".utf8)).bodyString, "hi")
-      XCTAssertEqual(try RawClient.request("GET", "/echo", port: port).status, 404)
+      let wrong = try RawClient.request("GET", "/echo", port: port)
+      XCTAssertEqual(wrong.status, 405, "the path has a route, but not for GET (404 in 1.x)")
+      XCTAssertEqual(wrong.header("allow"), "POST, OPTIONS")
     }
   }
 
@@ -157,7 +159,9 @@ final class HTTPProtocolTests: XCTestCase {
     }
   }
 
-  func testCustomBodyWithoutLengthIsDelimitedByClose() throws {
+  /// 2.0 (H4): the body of an HTTP/1.1 response whose length is not known is sent in chunks, and the
+  /// connection goes on; it used to be delimited by the end of the connection.
+  func testCustomBodyWithoutLengthIsSentInChunks() throws {
     try withTestServer(configure: { server in
       server["/stream"] = { _ in .custom(200) { writer in
         for index in 0..<5 { try writer.write([UInt8]("[\(index)]".utf8)) }
@@ -167,8 +171,9 @@ final class HTTPProtocolTests: XCTestCase {
       client.send(RawClient.requestText("GET", "/stream", headers: ["Connection: keep-alive"]))
       let response = client.readResponse()
       XCTAssertNil(response?.header("content-length"))
+      XCTAssertEqual(response?.header("transfer-encoding"), "chunked")
       XCTAssertEqual(response?.bodyString, "[0][1][2][3][4]")
-      XCTAssertTrue(client.waitForClose(timeout: 1))
+      XCTAssertFalse(client.waitForClose(timeout: 0.3), "the connection stays open")
     }
   }
 
@@ -180,18 +185,14 @@ final class HTTPProtocolTests: XCTestCase {
       client.send(RawClient.requestText("GET", "/ping", headers: [])) // no Connection header
       XCTAssertEqual(client.readResponse()?.status, 200)
       client.send(RawClient.requestText("GET", "/ping", headers: []))
-      expectKnownIssue("H4", "HTTP/1.1 is persistent by default; the server closes unless 'Connection: keep-alive' was sent") {
-        XCTAssertEqual(client.readResponse()?.status, 200, "second request on the same connection")
-      }
+      XCTAssertEqual(client.readResponse()?.status, 200, "second request on the same connection")
     }
   }
 
   func testServerAnnouncesConnectionCloseWhenItClosesTheConnection() throws {
     try serve { _, port in
       let response = try RawClient.get("/ping", port: port, headers: ["Connection: close"])
-      expectKnownIssue("H4", "no 'Connection: close' header is sent although the server closes") {
-        XCTAssertEqual(response.header("connection")?.lowercased(), "close")
-      }
+      XCTAssertEqual(response.header("connection")?.lowercased(), "close")
     }
   }
 
@@ -202,10 +203,7 @@ final class HTTPProtocolTests: XCTestCase {
                                         headers: ["Transfer-Encoding: chunked", "Connection: close"],
                                         body: Array("5\r\nhello\r\n0\r\n\r\n".utf8)))
       let response = client.readResponse()
-      expectKnownIssue("H4", "chunked request bodies are silently ignored (empty body, 200)") {
-        XCTAssertTrue(response?.bodyString == "hello" || response?.status == 501 || response?.status == 411,
-                      "status \(String(describing: response?.status)), body '\(response?.bodyString ?? "")'")
-      }
+      XCTAssertEqual(response?.bodyString, "hello", "the chunks are decoded")
     }
   }
 
@@ -302,9 +300,7 @@ final class HTTPProtocolTests: XCTestCase {
       XCTAssertEqual(response?.status, 200)
       XCTAssertEqual(response?.header("content-length"), "5") // length of the GET representation
       let leftover = client.readToEnd(timeout: 1)
-      expectKnownIssue("H7", "a body is sent in response to HEAD") {
-        XCTAssertEqual(leftover.count, 0, "HEAD response carried body '\(String(decoding: leftover, as: UTF8.self))'")
-      }
+      XCTAssertEqual(leftover.count, 0, "HEAD response carried body '\(String(decoding: leftover, as: UTF8.self))'")
     }
   }
 
@@ -313,10 +309,8 @@ final class HTTPProtocolTests: XCTestCase {
       server.get["/only-get"] = { _ in .ok(.text("x")) }
     }) { _, port in
       let response = try RawClient.request("POST", "/only-get", port: port)
-      expectKnownIssue("H7", "wrong method answers 404 instead of 405 + Allow") {
-        XCTAssertEqual(response.status, 405)
-        XCTAssertNotNil(response.header("allow"))
-      }
+      XCTAssertEqual(response.status, 405)
+      XCTAssertEqual(response.header("allow"), "GET, HEAD, OPTIONS")
     }
   }
 }
@@ -368,9 +362,7 @@ final class FileResponseTests: XCTestCase {
       client.send(RawClient.requestText("GET", "/file", headers: ["Connection: keep-alive"]))
       XCTAssertEqual(client.readResponse()?.bodyString, "hello")
       client.send(RawClient.requestText("GET", "/file", headers: ["Connection: keep-alive"]))
-      expectKnownIssue("H10", "file bodies have no framework-known length, so keep-alive is disabled") {
-        XCTAssertEqual(client.readResponse()?.bodyString, "hello", "second request on the same connection")
-      }
+      XCTAssertEqual(client.readResponse()?.bodyString, "hello", "second request on the same connection")
     }
   }
 
@@ -379,9 +371,8 @@ final class FileResponseTests: XCTestCase {
       let client = try RawClient(port: port)
       client.send(RawClient.requestText("GET", "/public/sub", headers: ["Connection: close"]))
       let response = client.readResponse()
-      expectKnownIssue("H10", "fopen() succeeds on a directory: 200 with a Content-Length but no body") {
-        XCTAssertNotEqual(response?.status, 200)
-      }
+      XCTAssertEqual(response?.status, 301, "a directory is redirected to its address with a slash (it was an empty 200)")
+      XCTAssertEqual(response?.header("location"), "/public/sub/")
     }
   }
 

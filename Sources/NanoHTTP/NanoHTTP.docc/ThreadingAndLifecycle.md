@@ -116,7 +116,7 @@ what a connection may waste and how many there are (see ``NanoHTTPServerIO/Confi
 
 | Setting | Default | What happens |
 |---|---|---|
-| `idleTimeout` | 60 s | A connection that sends nothing, as its first request or after a response, is closed. |
+| `idleTimeout` | 60 s | A connection that sends nothing, as its first request or between two requests (connections are persistent), is closed. |
 | `readTimeout` | 30 s | A request that has begun but stalls for this long is answered with `408 Request Timeout`. |
 | `writeTimeout` | 30 s | A connection whose peer takes no data for this long is closed. |
 | `maxConnections` | 128 | A connection that arrives when that many are open is answered with `503 Service Unavailable`. |

@@ -205,3 +205,14 @@ extension String {
     }
   }
 }
+
+extension String.File {
+  /// What `fstat` says about the file that is open: the size, the modification time and the like of the file
+  /// itself, also if it was opened through a symbolic link (which `FileManager.attributesOfItem(atPath:)` does
+  /// not do: it describes the link). `nil` if the file cannot be examined.
+  func status() -> stat? {
+    var info = stat()
+    return fstat(fileno(self.pointer), &info) == 0 ? info : nil
+  }
+}
+

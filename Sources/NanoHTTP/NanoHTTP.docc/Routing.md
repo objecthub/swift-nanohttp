@@ -18,10 +18,12 @@ server.delete["/items/:id"] = { _ in .ok(.empty) }
 server["/status", "/health"] = { _ in .ok(.text("ok")) }                  // every method, two paths
 ```
 
-`server.get`, `post`, `put`, `patch`, `delete` and `head` register for one method (``NanoHTTPServer/MethodRoute``);
+`server.get`, `post`, `put`, `patch`, `delete`, `head` and `options` register for one method (``NanoHTTPServer/MethodRoute``);
 `server[...]` registers for every method. A handler for a specific method wins over one for every method.
-Assigning `nil` removes a registration. A HEAD request is only answered by a handler registered for HEAD or for
-every method, not by the handler of a GET route.
+Assigning `nil` removes a registration. A HEAD request is answered by a handler registered for HEAD, else by the
+handler of a GET route (without the body), else by one for every method. A request with a method that a path does not
+have gets `405` and the methods that it has, and `OPTIONS` requests list them, see <doc:HandlersAndResponses>;
+`server.options[...]` registers handlers for `OPTIONS`.
 
 ### Patterns
 

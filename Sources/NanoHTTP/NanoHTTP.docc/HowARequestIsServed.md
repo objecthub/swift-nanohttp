@@ -12,24 +12,29 @@ start()  ──►  listening socket  ──►  accept loop (a thread of its ow
                                            │
         ┌──────────────────────────────────┴───────────────────────────────┐
         ▼                                                                  │
-   wait for the request (idleTimeout), NanoHTTPParser reads it            │
-        │   too large or malformed ──► 400 / 413 / 414 / 431, connection closed
-        │   stalls (readTimeout) ──► 408, connection closed
+   wait for the request (idleTimeout), NanoHTTPParser reads it             │
+        │   Expect: 100-continue ──► 100 Continue                          │
+        │   chunked bodies are put together                                │
+        │   too large or malformed ──► 400 / 413 / 414 / 417 / 431 / 501 / 505,
+        │   connection closed; stalls (readTimeout) ──► 408, connection closed
         ▼                                                                  │
    dispatch(request:)                                                      │
-        │   middleware, in order ──► a response? done                      │
+        │   middleware, outermost first, each around the rest              │
         │   router: method + path ──► handler and route variables          │
-        │   no route ──► notFoundHandler, else 404                         │
+        │   HEAD ──► the GET handler; other methods of the path ──► 405    │
+        │   OPTIONS answered; no route ──► notFoundHandler, else 404       │
         ▼                                                                  │
-   the handler returns a NanoHTTPResponse                                  │
+   the handler returns a NanoHTTPResponse (or throws: NanoHTTPError)       │
         ▼                                                                  │
-   the response is written: status line, headers, body                     │
+   the response is written: head and body in one piece, or the body        │
+        in chunks, or with the length that the handler declared            │
         │   a socket session (WebSocket) runs now, then the connection ends│
         ▼                                                                  │
-   keep-alive requested and the length of the response known? ─── yes ─────┘
+   does the client want to keep the connection, and is the end of the      │
+   response known? (HTTP/1.1: yes, unless it said Connection: close) ──────┘
         │ no
         ▼
-   the connection is closed
+   Connection: close was sent, and the connection is closed
 ```
 
 1. ``NanoHTTPServerIO/start(_:)`` creates the listening socket (at the address of the
@@ -47,8 +52,8 @@ start()  ──►  listening socket  ──►  accept loop (a thread of its ow
    router, then the `notFoundHandler`.
 5. The handler returns a response; the response is written. A body that cannot be produced (invalid JSON) becomes a
    `500`.
-6. If the client asked to keep the connection and the response had a known length, the thread waits for the next
-   request on it; otherwise the connection is closed. A WebSocket response keeps the thread: the session runs until
+6. If the client wants to keep the connection (HTTP/1.1: unless it said `Connection: close`) and the end of the response is
+   known, the thread waits for the next request on it; otherwise the connection is closed. A WebSocket response keeps the thread: the session runs until
    the connection ends.
 7. With ``NanoHTTPServerIO/Configuration/Threading/singleThread`` there are no threads for connections: the accepting
    thread waits for the listening socket and all connections together, serves the connection that has data (one

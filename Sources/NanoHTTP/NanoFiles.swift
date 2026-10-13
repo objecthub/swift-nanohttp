@@ -84,43 +84,180 @@ private func realPath(_ path: String) -> String? {
   return String(cString: resolved)
 }
 
-extension String.File {
-  /// The size in bytes of the file that is open, as `fstat` reports it. Unlike
-  /// `FileManager.attributesOfItem(atPath:)`, which describes a symbolic link itself (the length
-  /// of its target path), this is the size of the file the link leads to.
-  fileprivate var size: UInt64? {
-    var info = stat()
-    guard fstat(fileno(self.pointer), &info) == 0, info.st_size >= 0 else {
-      return nil
+/// What a path in the file system is.
+private enum FileKind {
+  case missing
+  case directory
+  case file
+}
+
+/// What `path` is, after symbolic links have been followed.
+private func kind(of path: String) -> FileKind {
+  var info = stat()
+  guard stat(path, &info) == 0 else {
+    return .missing
+  }
+  return (info.st_mode & S_IFMT) == S_IFDIR ? .directory : .file
+}
+
+/// The part of a file that a `Range` header asks for.
+enum NanoFileRange: Equatable {
+  /// There is no usable range: the whole file is sent.
+  case ignore
+  /// The range does not overlap the file (`416`).
+  case unsatisfiable
+  /// The bytes from `first` to `last`, both included.
+  case bytes(first: Int64, last: Int64)
+  
+  /// Reads the value of a `Range` header (RFC 9110 14.1.2) for a file of `size` bytes. Only a single range of
+  /// bytes is served: a header with several ranges, with another unit or with a syntax that is not understood is
+  /// ignored, which the protocol allows (the whole file is sent).
+  static func parse(_ header: String, size: Int64) -> NanoFileRange {
+    let parts = header.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+    guard parts.count == 2, parts[0].trimmingCharacters(in: .whitespaces).lowercased() == "bytes" else {
+      return .ignore
     }
-    return UInt64(info.st_size)
+    let specification = parts[1].trimmingCharacters(in: .whitespaces)
+    guard !specification.contains(",") else {
+      return .ignore
+    }
+    let bounds = specification.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: false)
+                              .map { $0.trimmingCharacters(in: .whitespaces) }
+    guard bounds.count == 2, bounds.allSatisfy({ $0.allSatisfy { $0.isASCII && $0.isNumber } }) else {
+      return .ignore
+    }
+    if bounds[0].isEmpty { // the last bytes: -500
+      guard !bounds[1].isEmpty, let length = Int64(bounds[1]) else {
+        return .ignore
+      }
+      guard length > 0, size > 0 else {
+        return .unsatisfiable
+      }
+      return .bytes(first: max(0, size - length), last: size - 1)
+    }
+    guard let first = Int64(bounds[0]) else {
+      return .ignore
+    }
+    var last = size - 1
+    if !bounds[1].isEmpty {
+      guard let requested = Int64(bounds[1]), requested >= first else {
+        return .ignore
+      }
+      last = min(requested, last)
+    }
+    return first >= size ? .unsatisfiable : .bytes(first: first, last: last)
   }
 }
 
-/// The response that sends `file`: its MIME type (from `name`, if it has an extension that is known),
-/// its size as `Content-Length`, and the content. The file is closed when it has been sent or, if
-/// the response is dropped, when the response is released.
-private func response(for file: String.File, named name: String) -> NanoHTTPResponse {
-  var headers: [String: String] = [:]
-  if let size = file.size {
-    headers["Content-Length"] = String(size)
+/// Whether the value of an `If-None-Match` header (a list of entity tags, or `*`) contains `tag`. The tags are
+/// compared weakly: `W/"a"` and `"a"` are the same (RFC 9110 8.8.3.2).
+func entityTagMatches(_ header: String, _ tag: String) -> Bool {
+  let wanted = tag.hasPrefix("W/") ? String(tag.dropFirst(2)) : tag
+  for item in header.split(separator: ",") {
+    var candidate = item.trimmingCharacters(in: .whitespaces)
+    if candidate == "*" {
+      return true
+    }
+    if candidate.hasPrefix("W/") {
+      candidate = String(candidate.dropFirst(2))
+    }
+    if candidate.count >= 2 && candidate.hasPrefix("\"") && candidate.hasSuffix("\"") && candidate == wanted {
+      return true
+    }
   }
-  return .custom(200, headers: headers, contentType: name.mimeType()) { writer in
-    try? writer.write(file)
+  return false
+}
+
+/// Whether the value of an `If-Range` header says that the client has the file as it is now: it is its (strong)
+/// entity tag, or the date of its modification, exactly.
+private func ifRangeMatches(_ header: String, tag: String, modification: Int64) -> Bool {
+  let value = header.trimmingCharacters(in: .whitespaces)
+  if value.hasPrefix("\"") {
+    return value == tag
+  }
+  if value.hasPrefix("W/") {
+    return false // weak tags are not good enough to put the parts of a file together
+  }
+  guard let date = NanoHTTPDate.date(from: value) else {
+    return false
+  }
+  return Int64(date.timeIntervalSince1970) == modification
+}
+
+/// The response that sends `file`: its MIME type (from `name`, if it has an extension that is known), its
+/// size as `Content-Length`, `ETag`, `Last-Modified`, and the content, which is closed when it has been sent or,
+/// if the response is dropped (the request was `HEAD`, or the client went away), when the response is released.
+///
+/// Conditional requests are answered with `304` (`If-None-Match`, else `If-Modified-Since`), and a `Range` header
+/// that asks for one part of the file with `206` (`416` if the file has nothing there); `If-Range` can turn a
+/// range into the whole file. A file whose length changes while it is sent ends the connection.
+private func response(for file: String.File, named name: String, request: NanoHTTPRequest) -> NanoHTTPResponse {
+  guard let info = file.status(), (info.st_mode & S_IFMT) == S_IFREG, info.st_size >= 0 else {
+    return .notFound("Unable to open file")
+  }
+  let size = Int64(info.st_size)
+  let modification = Int64(info.st_mtimespec.tv_sec)
+  let tag = "\"" + [String(UInt64(info.st_ino), radix: 16),
+                     String(UInt64(bitPattern: Int64(info.st_mtimespec.tv_sec)), radix: 16) + "." +
+                       String(UInt64(info.st_mtimespec.tv_nsec), radix: 16),
+                     String(size, radix: 16)].joined(separator: "-") + "\""
+  var headers = ["ETag": tag,
+                 "Last-Modified": NanoHTTPDate.string(for: Date(timeIntervalSince1970: Double(modification))),
+                 "Accept-Ranges": "bytes"]
+  // A conditional request: the tag, or if there is none the date.
+  if let match = request.header("if-none-match") {
+    if entityTagMatches(match, tag) {
+      return NanoHTTPResponse(statusCode: 304, headers: headers)
+    }
+  } else if let since = request.header("if-modified-since"),
+            let date = NanoHTTPDate.date(from: since),
+            modification <= Int64(date.timeIntervalSince1970) {
+    return NanoHTTPResponse(statusCode: 304, headers: headers)
+  }
+  // A range, unless `If-Range` says that the client has another version.
+  var range = NanoFileRange.ignore
+  if let wanted = request.header("range") {
+    range = NanoFileRange.parse(wanted, size: size)
+    if range != .ignore, let condition = request.header("if-range"),
+       !ifRangeMatches(condition, tag: tag, modification: modification) {
+      range = .ignore
+    }
+  }
+  var status = 200
+  var first: Int64 = 0
+  var length = size
+  switch range {
+    case .ignore:
+      break
+    case .unsatisfiable:
+      return NanoHTTPResponse(statusCode: 416, headers: ["Content-Range": "bytes */\(size)"])
+    case .bytes(let start, let end):
+      status = 206
+      first = start
+      length = end - start + 1
+      headers["Content-Range"] = "bytes \(start)-\(end)/\(size)"
+  }
+  headers["Content-Length"] = String(length)
+  return .custom(status, headers: headers, contentType: name.mimeType()) { writer in
+    if length > 0 {
+      try writer.write(file, offset: first, length: length)
+    }
     file.close()
   }
 }
 
 /// Returns a handler that serves one file.
 ///
-/// The response carries the MIME type derived from the extension of `path` and the size of the
-/// file as `Content-Length`. If the file cannot be opened, the response is `404 Not Found`.
+/// The response carries the MIME type derived from the extension of `path`, the size of the file as
+/// `Content-Length`, and `ETag` and `Last-Modified`, which clients use to ask whether their copy is still good
+/// (`304 Not Modified`). The file can be requested in parts (`Range`). If the file cannot be opened, the response
+/// is `404 Not Found`.
 ///
 /// - Parameter path: The file to serve.
 public func share(file path: String) -> NanoHTTPRequestHandler {
-  return { _ in
-    if let file = try? path.openForReading() {
-      return response(for: file, named: path)
+  return { request in
+    if kind(of: path) == .file, let file = try? path.openForReading() {
+      return response(for: file, named: path, request: request)
     }
     return .notFound()
   }
@@ -130,8 +267,9 @@ public func share(file path: String) -> NanoHTTPRequestHandler {
 ///
 /// Register the handler for a route that ends in a path variable, for example
 /// `server["/public/::path"] = share(directory: "/var/www")`. The value of that variable selects
-/// the file below `path`. A request for the root of the route (empty value) serves the first
-/// existing file of `defaults`.
+/// the file below `path`. A request for a directory is redirected to the same address with a `/` at the end (so
+/// that links in the files of the directory work), and then answers with the first existing file of `defaults`
+/// in it, or `404 Not Found`. Files are sent as by ``share(file:)``: with `ETag` and `Last-Modified`, and in parts.
 ///
 /// Requests containing `..` segments or NUL characters are always answered with
 /// `403 Forbidden`. Symbolic links that stay inside the directory are always followed. By default,
@@ -141,31 +279,40 @@ public func share(file path: String) -> NanoHTTPRequestHandler {
 ///
 /// - Parameters:
 ///   - path: The directory to serve.
-///   - defaults: File names that are served for the root of the route.
+///   - defaults: File names that are served for a directory.
 ///   - followSymlinks: If `true`, symbolic links are followed even if their target lies outside
 ///       of `path`. Only enable this if everyone who can create files in `path` is trusted.
 public func share(directory path: String,
                   defaults: [String] = ["index.html", "default.html"],
                   followSymlinks: Bool = false) -> NanoHTTPRequestHandler {
   return { request in
-    guard let (_, fileRelativePath) = request.params.first else { // decoded by the router, once
+    guard let (_, relativePath) = request.params.first else { // decoded by the router, once
       return NanoHTTPResponse.internalServerError("Internal Server Error")
     }
-    guard let filePath = locate(fileRelativePath, in: path, followSymlinks: followSymlinks) else {
+    guard let filePath = locate(relativePath, in: path, followSymlinks: followSymlinks) else {
       return .forbidden("Forbidden")
     }
-    if fileRelativePath.isEmpty {
-      for d in defaults {
-        if let defaultPath = locate(d, in: path, followSymlinks: followSymlinks),
-           let file = try? defaultPath.openForReading() {
-          return response(for: file, named: d)
+    switch kind(of: filePath) {
+      case .missing:
+        return .notFound("Unknown file/directory")
+      case .directory:
+        guard request.rawPath.hasSuffix("/") else {
+          return .movedPermanently(request.rawPath + "/" + (request.rawQuery.map { "?" + $0 } ?? ""))
         }
-      }
+        for name in defaults {
+          if let defaultPath = locate(relativePath + "/" + name, in: path, followSymlinks: followSymlinks),
+             kind(of: defaultPath) == .file,
+             let file = try? defaultPath.openForReading() {
+            return response(for: file, named: name, request: request)
+          }
+        }
+        return .notFound("Unknown file/directory")
+      case .file:
+        if let file = try? filePath.openForReading() {
+          return response(for: file, named: relativePath, request: request)
+        }
+        return .notFound("Unknown file/directory")
     }
-    if let file = try? filePath.openForReading() {
-      return response(for: file, named: fileRelativePath)
-    }
-    return .notFound("Unknown file/directory")
   }
 }
 
@@ -173,7 +320,8 @@ public func share(directory path: String,
 ///
 /// Register the handler for a route that ends in a path variable, for example
 /// `server["/files/::path"] = browse(directory: "/var/www")`. The value of that variable selects
-/// the file or directory below `dir`. Directories are answered with an HTML list of links.
+/// the file or directory below `dir`. Directories are answered with an HTML list of links; files are sent as by
+/// ``share(file:)``.
 ///
 /// Like `share(directory:defaults:followSymlinks:)`, the handler does not reach beyond `dir`:
 /// requests containing `..` segments or NUL characters are always answered with `403 Forbidden`,
@@ -196,27 +344,23 @@ public func browse(directory dir: String, followSymlinks: Bool = false) -> NanoH
     guard let filePath = locate(path, in: dir, followSymlinks: followSymlinks) else {
       return .forbidden("Forbidden")
     }
-    do {
-      guard try filePath.exists() else {
+    switch kind(of: filePath) {
+      case .missing:
         return .notFound("Unknown file/directory")
-      }
-      if try filePath.directory() {
-        var files = try filePath.files()
-        files.sort(by: {$0.lowercased() < $1.lowercased()})
+      case .directory:
+        var files = ((try? filePath.files()) ?? []).filter { $0 != "." && $0 != ".." }
+        files.sort(by: { $0.lowercased() < $1.lowercased() })
         var res = ""
         for f in files {
-          let path = base + (f.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? f)
-          res += "<li><a href=\"\(path.htmlEscaped)\">\(f.htmlEscaped)</a></li>"
+          let link = base + (f.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? f)
+          res += "<li><a href=\"\(link.htmlEscaped)\">\(f.htmlEscaped)</a></li>"
         }
         return .ok(.htmlBody("<ul style=\"list-style: none;\">\(res)</ul>"))
-      } else {
+      case .file:
         guard let file = try? filePath.openForReading() else {
           return .notFound("Unable to open file")
         }
-        return response(for: file, named: path)
-      }
-    } catch {
-      return NanoHTTPResponse.internalServerError("Internal Server Error")
+        return response(for: file, named: path, request: request)
     }
   }
 }

@@ -9,7 +9,7 @@ python3 Benchmarks/run.py --baseline 1.0.2 --repeats 8 --duration 3
 python3 Benchmarks/run.py --scenarios "keep-alive c=16,close c=1 (latency)"
 ```
 
-It needs a few minutes per scenario (every repeat runs four servers) and an otherwise idle machine. Nothing is
+The baseline can be any tag or commit (`HEAD`, `main~3`, a hash); the commit it names is printed. It needs a few minutes per scenario (every repeat runs four servers) and an otherwise idle machine. Nothing is
 installed: the baseline is exported with `git archive` into `Benchmarks/.work/`, and a small server with the same
 routes is built (in release mode) against the baseline and against the working copy. `Benchmarks/loadgen` is the
 client: a compiled load generator with one thread per connection that reports requests per second, latency
@@ -31,7 +31,8 @@ the slow cores: the comparison would flatter the working copy otherwise.
 
 `close` opens a new connection for every request (`Connection: close`), `keep-alive` reuses connections, `cN` is the
 number of client threads. The responses are `pong` (4 bytes), 100 KB and 10 MB; the POST has a 1 MB body.
-`close c=1, 50 idle conns` holds 50 connections open that send nothing. `websocket echo` opens one WebSocket per
+`file 100 KB keep-alive` serves a file of 100 KB with `share(file:)` (1.x closed the connection after every file; a
+client reconnects without counting that as an error). `close c=1, 50 idle conns` holds 50 connections open that send nothing. `websocket echo` opens one WebSocket per
 client thread and sends 16-byte messages one after the other, each of which the server echoes; 1.x servers with one
 thread serve only one of the sockets (a WebSocket held the thread), which shows as errors.
 

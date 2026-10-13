@@ -44,8 +44,13 @@ public struct NanoHTTPConnection {
   internal init?(server: NanoHTTPServerIO, socket: NanoSocket) {
     server.remember(socket: socket)
     self.server = server
-    self.parser = NanoHTTPParser(socket: socket)
-    guard let request = try? self.parser.readHttpRequest() else {
+    let parser = NanoHTTPParser(socket: socket, limits: server.limits)
+    self.parser = parser
+    let request: NanoHTTPRequest
+    do {
+      request = try parser.readHttpRequest()
+    } catch {
+      NanoHTTPConnection.refuse(error, on: socket)
       socket.close()
       server.forget(socket: socket)
       return nil
@@ -89,16 +94,42 @@ public struct NanoHTTPConnection {
       server.delegate?.connectionReceived(server: server, socket: socket)
       session(socket)
     }
-    if keepConnection && !dontKeepAlive && server.operating,
-       let request = try? parser.readHttpRequest() {
-      let request = request
-      request.address = try? socket.peername()
-      let (params, handler) = server.dispatch(request: request)
-      request.params = params
-      return NanoHTTPConnection(current: self, request: request, handler: handler)
+    if keepConnection && !dontKeepAlive && server.operating {
+      do {
+        let request = try parser.readHttpRequest()
+        request.address = try? socket.peername()
+        let (params, handler) = server.dispatch(request: request)
+        request.params = params
+        return NanoHTTPConnection(current: self, request: request, handler: handler)
+      } catch {
+        NanoHTTPConnection.refuse(error, on: socket)
+      }
     }
     self.close()
     return nil
+  }
+  
+  /// Answers a request that could not be read. Only errors caused by the request itself get a
+  /// response (400, 413, 414 or 431); if the connection failed or the peer went away, there is
+  /// nobody to answer. The caller closes the connection afterwards.
+  private static func refuse(_ error: Error, on socket: NanoSocket) {
+    guard let error = error as? NanoHTTPParserError else {
+      return
+    }
+    let status: String
+    switch error {
+      case .requestLineTooLong:
+        status = "414 URI Too Long"
+      case .headerLineTooLong, .headersTooLarge:
+        status = "431 Request Header Fields Too Large"
+      case .bodyTooLarge:
+        status = "413 Content Too Large"
+      case .invalidStatusLine, .invalidContentLength, .negativeContentLength:
+        status = "400 Bad Request"
+    }
+    try? socket.writeUTF8("HTTP/1.1 \(status)\r\nConnection: close\r\nContent-Length: 0\r\n\r\n")
+    // The client may still be sending the rest of the refused request; see `closeAfterDraining`.
+    socket.closeAfterDraining()
   }
   
   public func close() {

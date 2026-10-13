@@ -54,6 +54,8 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   
   // Constants
   static let kBufferLength = 1024
+  /// Upper bound for the size of one read when a number of bytes is requested.
+  static let kChunkLength = 64 * 1024
   private static let CR: UInt8 = 13
   private static let NL: UInt8 = 10
   
@@ -82,6 +84,45 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     }
     self.shutdown = true
     NanoSocket.close(self.socketFileDescriptor)
+  }
+  
+  /// Closes the connection after the peer had a chance to read everything sent so far.
+  ///
+  /// Closing a socket that still has unread incoming data makes TCP answer with a reset, and a reset
+  /// makes the peer discard data it has not read yet, such as an error response. Use this after
+  /// answering a request that was refused before it was read completely: the sending direction is
+  /// shut down (the peer sees the end of the response), whatever the peer still sends is read and
+  /// dropped for at most `timeout` seconds and `limit` bytes, and then the socket is closed.
+  ///
+  /// - Parameters:
+  ///   - timeout: The longest time to wait for the peer to finish, in seconds.
+  ///   - limit: The most data to read and drop, in bytes.
+  func closeAfterDraining(timeout: TimeInterval = 1, limit: Int = 4 * 1024 * 1024) {
+    guard !shutdown else {
+      return
+    }
+    _ = Darwin.shutdown(self.socketFileDescriptor, SHUT_WR)
+    let deadline = DispatchTime.now().uptimeNanoseconds + UInt64(timeout * 1_000_000_000)
+    var buffer = [UInt8](repeating: 0, count: 16 * 1024)
+    var drained = 0
+    while drained < limit {
+      let now = DispatchTime.now().uptimeNanoseconds
+      if now >= deadline {
+        break
+      }
+      let remaining = max(0.001, Double(deadline - now) / 1_000_000_000) // 0 would mean "no timeout"
+      var wait = timeval(tv_sec: Int(remaining), tv_usec: Int32((remaining - remaining.rounded(.down)) * 1_000_000))
+      setsockopt(self.socketFileDescriptor, SOL_SOCKET, SO_RCVTIMEO, &wait, socklen_t(MemoryLayout<timeval>.size))
+      let count = buffer.withUnsafeMutableBytes { Darwin.read(self.socketFileDescriptor, $0.baseAddress, $0.count) }
+      if count > 0 {
+        drained += count
+      } else if count < 0 && errno == EINTR {
+        continue
+      } else {
+        break
+      }
+    }
+    self.close()
   }
   
   public func port() throws -> in_port_t {
@@ -172,40 +213,34 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     return byte
   }
   
-  /// Read up to `length` bytes from this socket
+  /// Reads exactly `length` bytes from this socket.
   ///
-  /// - Parameter length: The maximum bytes to read
-  /// - Returns: A buffer containing the bytes read
-  /// - Throws: SocketError.recvFailed if unable to read bytes from the socket
+  /// The result grows with the data that actually arrives, in chunks of at most
+  /// `kChunkLength` bytes. A caller-supplied `length` that is far larger than what the peer
+  /// sends therefore does not reserve that much memory up front.
+  ///
+  /// - Parameter length: The number of bytes to read; must not be negative.
+  /// - Returns: A buffer containing exactly `length` bytes.
+  /// - Throws: `NanoSocketError.recvFailed` if `length` is negative or the socket fails or
+  ///     reaches end-of-file before `length` bytes were read.
   open func read(length: Int) throws -> [UInt8] {
-    return try [UInt8](unsafeUninitializedCapacity: length) { buffer, bytesRead in
-      bytesRead = try read(into: &buffer, length: length)
+    guard length >= 0 else {
+      throw NanoSocketError.recvFailed("negative length")
     }
-  }
-  
-  /// Read up to `length` bytes from this socket into an existing buffer
-  ///
-  /// - Parameter into: The buffer to read into (must be at least length bytes in size)
-  /// - Parameter length: The maximum bytes to read
-  /// - Returns: The number of bytes read
-  /// - Throws: SocketError.recvFailed if unable to read bytes from the socket
-  func read(into buffer: inout UnsafeMutableBufferPointer<UInt8>, length: Int) throws -> Int {
-    var offset = 0
-    guard let baseAddress = buffer.baseAddress else { return 0 }
-    while offset < length {
-      // Compute next read length in bytes. The bytes read is never more than kBufferLength at once.
-      let readLength = offset + NanoSocket.kBufferLength < length ? NanoSocket.kBufferLength : length - offset
-      #if os(Linux)
-      let bytesRead = Glibc.read(self.socketFileDescriptor as Int32, baseAddress + offset, readLength)
-      #else
-      let bytesRead = Darwin.read(self.socketFileDescriptor as Int32, baseAddress + offset, readLength)
-      #endif
-      guard bytesRead > 0 else {
+    var result = [UInt8]()
+    var chunk = [UInt8](repeating: 0, count: min(length, NanoSocket.kChunkLength))
+    while result.count < length {
+      let wanted = min(chunk.count, length - result.count)
+      let count = chunk.withUnsafeMutableBytes { Darwin.read(self.socketFileDescriptor, $0.baseAddress, wanted) }
+      if count < 0 && errno == EINTR {
+        continue
+      }
+      guard count > 0 else {
         throw NanoSocketError.recvFailed(Self.errnoDescription)
       }
-      offset += bytesRead
+      result.append(contentsOf: chunk[0..<count])
     }
-    return offset
+    return result
   }
   
   public func readLine() throws -> String {

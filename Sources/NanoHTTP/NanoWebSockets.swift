@@ -35,11 +35,29 @@
 
 import Foundation
 
+/// Returns a handler that upgrades a request to a WebSocket connection and then calls the given
+/// closures for what the client sends. Register it like any other handler:
+/// `server["/chat"] = websocket(text: { session, text in session.writeText(text) })`.
+///
+/// The closures run on the thread that serves the connection, one message at a time. A closure
+/// that blocks delays the processing of later messages of the same connection only.
+///
+/// Messages larger than `maxMessageSize` bytes, whether sent as one frame or assembled from
+/// fragments, end the connection.
+///
+/// - Parameters:
+///   - text: Called with every complete text message.
+///   - binary: Called with every complete binary message.
+///   - pong: Called with the payload of every pong frame.
+///   - connected: Called once the connection is established.
+///   - disconnected: Called once the connection has ended.
+///   - maxMessageSize: The largest accepted message (and frame payload) in bytes.
 public func websocket(text: ((WebSocketSession, String) -> Void)? = nil,
                       binary: ((WebSocketSession, [UInt8]) -> Void)? = nil,
                       pong: ((WebSocketSession, [UInt8]) -> Void)? = nil,
                       connected: ((WebSocketSession) -> Void)? = nil,
-                      disconnected: ((WebSocketSession) -> Void)? = nil) -> NanoHTTPRequestHandler {
+                      disconnected: ((WebSocketSession) -> Void)? = nil,
+                      maxMessageSize: Int = 16 * 1024 * 1024) -> NanoHTTPRequestHandler {
   return { request in
     guard request.hasTokenForHeader("upgrade", token: "websocket") else {
       return .badRequest(.text("Invalid value of 'Upgrade' header: \(request.header("upgrade") ?? "unknown")"))
@@ -52,8 +70,15 @@ public func websocket(text: ((WebSocketSession, String) -> Void)? = nil,
     }
     let protocolSessionClosure: ((NanoSocket) -> Void) = { socket in
       let session = WebSocketSession(socket)
+      session.maxPayloadSize = maxMessageSize
       var fragmentedOpCode = WebSocketSession.OpCode.close
       var payload = [UInt8]() // Used for fragmented frames.
+      
+      func ensureMessageFits(adding frame: WebSocketSession.Frame) throws {
+        if payload.count + frame.payload.count > maxMessageSize {
+          throw WebSocketSession.WsError.protocolError("Message exceeds \(maxMessageSize) bytes.")
+        }
+      }
       
       func handleTextPayload(_ frame: WebSocketSession.Frame) throws {
         if let handleText = text {
@@ -69,6 +94,7 @@ public func websocket(text: ((WebSocketSession, String) -> Void)? = nil,
               throw WebSocketSession.WsError.invalidUTF8("")
             }
           } else {
+            try ensureMessageFits(adding: frame)
             payload.append(contentsOf: frame.payload)
             fragmentedOpCode = .text
           }
@@ -83,6 +109,7 @@ public func websocket(text: ((WebSocketSession, String) -> Void)? = nil,
             }
             handleBinary(session, frame.payload)
           } else {
+            try ensureMessageFits(adding: frame)
             payload.append(contentsOf: frame.payload)
             fragmentedOpCode = .binary
           }
@@ -98,6 +125,7 @@ public func websocket(text: ((WebSocketSession, String) -> Void)? = nil,
             }
             frame.opcode = fragmentedOpCode
             if frame.fin {
+              try ensureMessageFits(adding: frame)
               payload.append(contentsOf: frame.payload)
               frame.payload = payload
               // Clean the buffer.
@@ -134,6 +162,7 @@ public func websocket(text: ((WebSocketSession, String) -> Void)? = nil,
       
       connected?(session)
       
+      var failed = false
       do {
         try read()
       } catch let error {
@@ -154,9 +183,17 @@ public func websocket(text: ((WebSocketSession, String) -> Void)? = nil,
         }
         // If an error occurs, send the close handshake.
         session.writeCloseFrame()
+        if case WebSocketSession.Control.close = error {} else {
+          failed = true
+        }
       }
       
       disconnected?(session)
+      if failed {
+        // The client may still be sending (e.g. the rest of a refused frame): let it read our close
+        // frame instead of resetting the connection.
+        socket.closeAfterDraining()
+      }
     }
     let secWebSocketAccept = String.toBase64((secWebSocketKey + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").sha1())
     let headers = [
@@ -200,6 +237,10 @@ public class WebSocketSession: Hashable, Equatable {
   }
   
   public let socket: NanoSocket
+  
+  /// The largest frame payload `readFrame()` accepts, in bytes. A frame that announces more is
+  /// rejected with `WsError.protocolError` before any of its payload is read.
+  public var maxPayloadSize = 16 * 1024 * 1024
   
   public init(_ socket: NanoSocket) {
     self.socket = socket
@@ -298,11 +339,13 @@ public class WebSocketSession: Hashable, Equatable {
     }
     var len = UInt64(sec & 0x7F)
     if len == 0x7E {
+      // 16-bit length, network byte order.
       let b0 = UInt64(try socket.read()) << 8
       let b1 = UInt64(try socket.read())
-      len = UInt64(littleEndian: b0 | b1)
+      len = b0 | b1
     } else if len == 0x7F {
-      let b0 = UInt64(try socket.read()) << 54
+      // 64-bit length, network byte order.
+      let b0 = UInt64(try socket.read()) << 56
       let b1 = UInt64(try socket.read()) << 48
       let b2 = UInt64(try socket.read()) << 40
       let b3 = UInt64(try socket.read()) << 32
@@ -310,14 +353,21 @@ public class WebSocketSession: Hashable, Equatable {
       let b5 = UInt64(try socket.read()) << 16
       let b6 = UInt64(try socket.read()) << 8
       let b7 = UInt64(try socket.read())
-      len = UInt64(littleEndian: b0 | b1 | b2 | b3 | b4 | b5 | b6 | b7)
+      len = b0 | b1 | b2 | b3 | b4 | b5 | b6 | b7
+    }
+    if opcode == .close || opcode == .ping || opcode == .pong, len > 125 {
+      // https://tools.ietf.org/html/rfc6455#section-5.5
+      throw WsError.protocolError("Control frames must not carry more than 125 bytes.")
+    }
+    guard len <= UInt64(max(0, self.maxPayloadSize)) else {
+      throw WsError.protocolError("Frame of \(len) bytes exceeds the limit of \(self.maxPayloadSize) bytes.")
     }
     
     let mask = [try socket.read(), try socket.read(), try socket.read(), try socket.read()]
     // Read payload all at once, then apply mask (calling `socket.read` byte-by-byte is super slow).
     frm.payload = try socket.read(length: Int(len))
-    for index in 0..<len {
-      frm.payload[Int(index)] ^= mask[Int(index % 4)]
+    for index in 0..<frm.payload.count {
+      frm.payload[index] ^= mask[index % 4]
     }
     return frm
   }

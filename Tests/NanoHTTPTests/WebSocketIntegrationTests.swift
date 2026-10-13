@@ -268,6 +268,116 @@ final class WebSocketIntegrationTests: XCTestCase {
   }
 }
 
+// MARK: - S3: message size limit (fixed)
+
+final class WebSocketMessageLimitTests: XCTestCase {
+
+  private func serve(maxMessageSize: Int? = nil, _ body: (Int) throws -> Void) throws {
+    try withTestServer(configure: { server in
+      let echoText: (WebSocketSession, String) -> Void = { session, text in session.writeText(text) }
+      let echoBinary: (WebSocketSession, [UInt8]) -> Void = { session, bytes in session.writeBinary(bytes) }
+      server["/ws"] = maxMessageSize.map { websocket(text: echoText, binary: echoBinary, maxMessageSize: $0) }
+                                    ?? websocket(text: echoText, binary: echoBinary)
+    }) { _, port in
+      try body(port)
+    }
+  }
+
+  private func text(_ count: Int) -> String {
+    return String(repeating: "x", count: count)
+  }
+
+  func testMessageAtTheLimitIsEchoed() throws {
+    try serve(maxMessageSize: 1000) { port in
+      let client = try WS.connect(port: port)
+      client.send(WS.text(text(1000)))
+      XCTAssertEqual(WS.readFrame(client)?.payload.count, 1000)
+    }
+  }
+
+  func testSingleFrameAboveTheLimitEndsTheConnection() throws {
+    try serve(maxMessageSize: 1000) { port in
+      let client = try WS.connect(port: port)
+      client.send(WS.text(text(1001)))
+      XCTAssertEqual(WS.readFrame(client)?.opcode, WS.Opcode.close.rawValue)
+      XCTAssertTrue(client.waitForClose(timeout: 2))
+    }
+  }
+
+  func testFragmentsWithinTheLimitAreAssembled() throws {
+    try serve(maxMessageSize: 1000) { port in
+      let client = try WS.connect(port: port)
+      client.send(WS.frame(.text, Array(text(500).utf8), fin: false))
+      client.send(WS.frame(.continuation, Array(text(500).utf8), fin: true))
+      XCTAssertEqual(WS.readFrame(client)?.payload.count, 1000)
+    }
+  }
+
+  func testFragmentsAddingUpAboveTheLimitEndTheConnection() throws {
+    try serve(maxMessageSize: 1000) { port in
+      let client = try WS.connect(port: port)
+      client.send(WS.frame(.text, Array(text(600).utf8), fin: false))
+      client.send(WS.frame(.continuation, Array(text(300).utf8), fin: false))
+      client.send(WS.frame(.continuation, Array(text(200).utf8), fin: false)) // 1100 bytes in total
+      XCTAssertEqual(WS.readFrame(client)?.opcode, WS.Opcode.close.rawValue)
+      XCTAssertTrue(client.waitForClose(timeout: 2))
+    }
+  }
+
+  func testTheFinalFragmentIsCountedToo() throws {
+    try serve(maxMessageSize: 1000) { port in
+      let client = try WS.connect(port: port)
+      client.send(WS.frame(.binary, [UInt8](repeating: 1, count: 900), fin: false))
+      client.send(WS.frame(.continuation, [UInt8](repeating: 1, count: 101), fin: true))
+      XCTAssertEqual(WS.readFrame(client)?.opcode, WS.Opcode.close.rawValue)
+    }
+  }
+
+  func testEndlessFragmentsCannotGrowWithoutBound() throws {
+    try serve(maxMessageSize: 10_000) { port in
+      let client = try WS.connect(port: port)
+      for _ in 0..<50 { // 50 x 1000 bytes without a final fragment
+        client.send(WS.frame(.continuation, [UInt8](repeating: 1, count: 1000), fin: false))
+      }
+      // A continuation without a message start is a protocol violation anyway; start properly:
+      let second = try WS.connect(port: port)
+      second.send(WS.frame(.text, Array(text(1000).utf8), fin: false))
+      for _ in 0..<50 {
+        second.send(WS.frame(.continuation, [UInt8](repeating: 0x78, count: 1000), fin: false))
+      }
+      XCTAssertTrue(second.waitForClose(timeout: 3))
+    }
+  }
+
+  func testOversizedControlFrameEndsTheConnection() throws {
+    try serve { port in
+      let client = try WS.connect(port: port)
+      client.send(WS.frame(.ping, [UInt8](repeating: 1, count: 126)))
+      XCTAssertEqual(WS.readFrame(client)?.opcode, WS.Opcode.close.rawValue)
+    }
+  }
+
+  func testServerKeepsServingAfterARefusedMessage() throws {
+    try serve(maxMessageSize: 100) { port in
+      let refused = try WS.connect(port: port)
+      refused.send(WS.text(text(101)))
+      XCTAssertTrue(refused.waitForClose(timeout: 2))
+      let client = try WS.connect(port: port)
+      client.send(WS.text("still alive"))
+      XCTAssertEqual(String(decoding: WS.readFrame(client)?.payload ?? [], as: UTF8.self), "still alive")
+    }
+  }
+
+  func testDefaultLimitAllowsMegabyteMessages() throws {
+    try serve { port in
+      let client = try WS.connect(port: port)
+      let payload = [UInt8](repeating: 0x42, count: 1_000_000)
+      client.send(WS.frame(.binary, payload))
+      XCTAssertEqual(WS.readFrame(client)?.payload.count, 1_000_000)
+    }
+  }
+}
+
 // MARK: - W1: concurrent writers
 
 final class WebSocketWriteTests: XCTestCase {

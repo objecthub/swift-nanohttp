@@ -46,27 +46,28 @@ assessment (S = security, R = robustness, H = HTTP, W = WebSocket, N = NanoHTML)
 Some defects abort the whole test process, so they cannot be expected failures. Those tests are
 skipped unless `NANOHTTP_CRASH_TESTS=1`. Run them one at a time (the process dies):
 
-| Test | Observed on macOS (Phase 0) |
+| Test | Observed on macOS |
 |---|---|
-| `RequestSizeLimitTests/testHugeContentLengthIsRejectedWithoutAllocating` | `Fatal error: failed to allocate 9223372036854775839 bytes` |
-| `WebSocketFrameLimitTests/testHugeFrameLengthDoesNotCrash` | `Fatal error: failed to allocate 2305843009213693984 bytes` (length decoded as 2^61: `<< 54` typo) |
-| `WebSocketFrameLimitTests/testOneTerabyteFrameLengthFailsCleanly` | passes on plain macOS, aborts under AddressSanitizer |
 | `HTMLDSLTests/testConcurrentRenderingDoesNotMixUpRequests` | abort (signal 6) in 3 of 3 runs |
 
-When a defect is fixed, remove the gate from its test.
+(The crash tests for S2 and S3 were ungated when those defects were fixed.) When a defect is fixed, remove the gate from its test.
 
 ## Phase 0 results: what the tests established
 
 Fixed since (their tests are plain regression tests now): **S1** path traversal in `share(directory:)` /
 `browse(directory:)` (literal `..`, `%2e%2e`, `..%2f`, listing and reading, symlink escape, `%00`).
 **H12** (found while adding `followSymlinks`): `Content-Length` of a symlinked file was the length of the link.
+**S2** unbounded request line / header block / `Content-Length` (a single request could abort the process;
+now `NanoHTTPParser.Limits`, answers 414/431/413/400) · **S3** WebSocket frame length (the claimed length was
+allocated up front; the 64-bit decode had a `<< 54` typo; now a payload/message limit) · **R9** garbage requests
+now get `400` instead of a silent close. (After refusing, the connection is closed only once the peer had a
+chance to read the answer: closing with unread data made TCP reset the connection and the peer lost the response.)
 
 Confirmed by execution and still open (each is an `expectKnownIssue` or crash test):
-S2 unbounded request line / header block / `Content-Length` · S3 WebSocket frame length ·
 S4 invalid listen address binds all interfaces · S5 unescaped file names, attributes, inner text ·
 S7 CR/LF header injection · R1 accept loop dies on EMFILE · R2 descriptor leak · R3 idle
 connections starve the server (**between 60 and 70 idle connections**) · R7 IPv6 addresses wrong ·
-R9 no 400 for garbage · H1 query values stay percent-encoded · H2 `%2B` → space, `=` in values,
+H1 query values stay percent-encoded · H2 `%2B` → space, `=` in values,
 bogus pairs · H3 header parsing · H4 persistent connections, `Connection: close`, chunked bodies ·
 H5 JSON failure is 200 · H6 no charset, **reason phrases `no error` / `not found`**, index without
 Content-Type · H7 HEAD sends a body, 405 · H9 multipart · H10 file responses disable keep-alive,
@@ -96,5 +97,5 @@ or renamed, update the project too (new test files go into the `NanoHTTPTests` t
 is referenced exactly once; CI runs it.
 
 The same script checks that the project's deployment targets match the platforms declared in
-`Package.swift` (project level and the library/test targets equal, demo apps equal or higher), so
+`Package.swift` (project level and the library targets must be equal; the test bundle and the demo apps may be higher), so
 raise them in both places together.

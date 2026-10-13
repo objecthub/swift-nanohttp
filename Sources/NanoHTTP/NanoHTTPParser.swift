@@ -36,16 +36,65 @@
 
 import Foundation
 
-enum NanoHTTPParserError: Error, Equatable {
+/// The reasons why `NanoHTTPParser` refuses a request. A server answers requests that fail with
+/// one of these errors with the matching HTTP status code and closes the connection; failures of
+/// the connection itself (peer closed, reset) surface as `NanoSocketError`.
+public enum NanoHTTPParserError: Error, Equatable {
+  /// The first line is not of the form `METHOD TARGET VERSION` (HTTP status 400).
   case invalidStatusLine(String)
+  /// The request line is longer than `Limits.maxLineLength` (HTTP status 414).
+  case requestLineTooLong
+  /// A header line is longer than `Limits.maxLineLength` (HTTP status 431).
+  case headerLineTooLong
+  /// Request line and headers together exceed `Limits.maxHeaderBytes` (HTTP status 431).
+  case headersTooLarge
+  /// The `Content-Length` header is not a number (HTTP status 400).
+  case invalidContentLength
+  /// The `Content-Length` header is negative (HTTP status 400).
   case negativeContentLength
+  /// The `Content-Length` header exceeds `Limits.maxBodyBytes` (HTTP status 413).
+  case bodyTooLarge
 }
 
+/// Reads HTTP requests from a socket.
+///
+/// The parser never reads or allocates more than its `limits` allow, no matter what the peer
+/// announces, so a single request cannot exhaust the memory of the process.
 public struct NanoHTTPParser {
+  
+  /// Upper bounds for the size of a request.
+  public struct Limits: Equatable {
+    /// The longest accepted line (request line or header line) in bytes, excluding the line break.
+    public var maxLineLength: Int
+    
+    /// The most bytes accepted for the request line and all headers together, including line breaks.
+    public var maxHeaderBytes: Int
+    
+    /// The largest accepted request body in bytes (the value of `Content-Length`). The body is
+    /// held in memory, so keep this as small as the application allows.
+    public var maxBodyBytes: Int
+    
+    public init(maxLineLength: Int = 8 * 1024,
+                maxHeaderBytes: Int = 64 * 1024,
+                maxBodyBytes: Int = 64 * 1024 * 1024) {
+      self.maxLineLength = maxLineLength
+      self.maxHeaderBytes = maxHeaderBytes
+      self.maxBodyBytes = maxBodyBytes
+    }
+  }
+  
   public let socket: NanoSocket
   
+  /// The bounds this parser enforces.
+  public var limits = Limits()
+  
+  /// Reads the next request: request line, headers and, if `Content-Length` announces one, the body.
+  ///
+  /// - Throws: `NanoHTTPParserError` if the request is malformed or exceeds `limits`;
+  ///     `NanoSocketError` if the connection fails or ends before the request is complete.
   public func readHttpRequest() throws -> NanoHTTPRequest {
-    let statusLine = try self.socket.readLine()
+    var budget = self.limits.maxHeaderBytes
+    let statusLine = try self.readLine(tooLong: .requestLineTooLong, budget: &budget)
     let statusLineTokens = statusLine.components(separatedBy: " ")
     if statusLineTokens.count < 3 {
       throw NanoHTTPParserError.invalidStatusLine(statusLine)
@@ -56,26 +105,67 @@ public struct NanoHTTPParser {
                     method: statusLineTokens[0],
                     path: urlComponents?.path ?? "",
                     queryParams: urlComponents?.queryItems?.map { ($0.name, $0.value ?? "") } ?? [],
-                    headers: try readHeaders())
-    if let contentLength = request.header("content-length"),
-       let contentLengthValue = Int(contentLength) {
-      // Prevent a buffer overflow and runtime error trying to create an
-      // `UnsafeMutableBufferPointer` with a negative length.
-      guard contentLengthValue >= 0 else {
-        throw NanoHTTPParserError.negativeContentLength
-      }
-      request.body = try readBody(size: contentLengthValue)
+                    headers: try readHeaders(budget: &budget))
+    if let contentLength = request.header("content-length") {
+      request.body = try readBody(size: try self.bodySize(contentLength))
     }
     return request
+  }
+  
+  /// The number of body bytes announced by a `Content-Length` header value, checked against the limits.
+  private func bodySize(_ contentLength: String) throws -> Int {
+    if let size = Int(contentLength) {
+      guard size >= 0 else {
+        throw NanoHTTPParserError.negativeContentLength
+      }
+      guard size <= self.limits.maxBodyBytes else {
+        throw NanoHTTPParserError.bodyTooLarge
+      }
+      return size
+    }
+    // Only digits, but too many for an `Int`: larger than any limit.
+    if !contentLength.isEmpty && contentLength.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }) {
+      throw NanoHTTPParserError.bodyTooLarge
+    }
+    throw NanoHTTPParserError.invalidContentLength
   }
   
   private func readBody(size: Int) throws -> [UInt8] {
     return try self.socket.read(length: size)
   }
   
-  private func readHeaders() throws -> [String: String] {
+  /// Reads one line, terminated by a line feed (carriage returns and other control characters are
+  /// dropped), and charges every byte read to `budget`. Throws `tooLong` if the line has more than
+  /// `limits.maxLineLength` characters, and `headersTooLarge` if more than the budget is read.
+  private func readLine(tooLong: NanoHTTPParserError, budget: inout Int) throws -> String {
+    var characters = ""
+    var length = 0
+    while true {
+      let byte = try self.socket.read()
+      budget -= 1
+      if budget < 0 {
+        throw NanoHTTPParserError.headersTooLarge
+      }
+      if byte == NanoHTTPParser.NL {
+        return characters
+      }
+      if byte > NanoHTTPParser.CR {
+        length += 1
+        if length > self.limits.maxLineLength {
+          throw tooLong
+        }
+        characters.append(Character(UnicodeScalar(byte)))
+      }
+    }
+  }
+  
+  private static let CR: UInt8 = 13
+  private static let NL: UInt8 = 10
+  
+  private func readHeaders(budget: inout Int) throws -> [String: String] {
     var headers = [String: String]()
-    while case let headerLine = try self.socket.readLine(), !headerLine.isEmpty {
+    while case let headerLine = try self.readLine(tooLong: .headerLineTooLong, budget: &budget),
+          !headerLine.isEmpty {
       let headerTokens = headerLine.split(separator: ":",
                                           maxSplits: 1,
                                           omittingEmptySubsequences: true).map(String.init)

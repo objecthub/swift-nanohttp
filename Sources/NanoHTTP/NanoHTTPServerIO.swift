@@ -64,6 +64,10 @@ open class NanoHTTPServerIO {
   /// Otherwise, `listenAddressIPv4` will be used.
   public var listenAddressIPv6: String?
   
+  /// The largest requests this server accepts. A request that exceeds a limit is answered with
+  /// `413`, `414` or `431` and the connection is closed. Set this before calling `start`.
+  public var limits = NanoHTTPParser.Limits()
+  
   /// Actively used sockets; mutations are synchronized
   private var sockets = Set<NanoSocket>()
   private let lock = NSLock()

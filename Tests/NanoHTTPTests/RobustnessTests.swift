@@ -258,7 +258,7 @@ final class NetworkInterfaceTests: XCTestCase {
   }
 }
 
-// MARK: - R9: malformed requests get an answer
+// MARK: - R9: malformed requests get an answer (fixed)
 
 final class MalformedRequestTests: XCTestCase {
 
@@ -267,9 +267,9 @@ final class MalformedRequestTests: XCTestCase {
       let client = try RawClient(port: port)
       client.send("garbage\r\n\r\n")
       let response = client.readResponse()
-      expectKnownIssue("R9", "the connection is closed silently; the client never gets a 400") {
-        XCTAssertEqual(response?.status, 400)
-      }
+      XCTAssertEqual(response?.status, 400)
+      XCTAssertEqual(response?.header("connection"), "close")
+      XCTAssertTrue(client.waitForClose(timeout: 2))
     }
   }
 

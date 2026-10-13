@@ -8,8 +8,9 @@ framework targets) lists them explicitly and has to be kept in sync by hand:
   * every Swift file reference must point at a file that exists,
   * every file reference must be compiled by exactly one build phase entry,
   * the deployment targets must match the platforms declared in Package.swift: the project-level
-    settings and the library/test targets (NanoHTTP, NanoHTTPDemo, NanoHTTPTests) must be equal to
-    them, the demo apps (DemoServer, DemoServer iOS) may be higher but not lower.
+    settings and the library targets (NanoHTTP, NanoHTTPDemo) must be equal to them; the test
+    bundle (NanoHTTPTests) and the demo apps (DemoServer, DemoServer iOS) are never shipped as part
+    of the package and may be higher, but not lower.
 
 Files are matched by name; all Swift file names in this repository are unique.
 
@@ -23,7 +24,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROJECT = os.path.join(ROOT, "NanoHTTP.xcodeproj", "project.pbxproj")
 PACKAGE = os.path.join(ROOT, "Package.swift")
-LIBRARY_TARGETS = {"NanoHTTP", "NanoHTTPDemo", "NanoHTTPTests"}
+LIBRARY_TARGETS = {"NanoHTTP", "NanoHTTPDemo"}
 SETTINGS = {"macOS": "MACOSX_DEPLOYMENT_TARGET", "iOS": "IPHONEOS_DEPLOYMENT_TARGET",
             "tvOS": "TVOS_DEPLOYMENT_TARGET"}
 

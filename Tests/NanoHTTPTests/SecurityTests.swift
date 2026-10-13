@@ -302,69 +302,317 @@ final class FollowSymlinksTests: XCTestCase {
   }
 }
 
-// MARK: - S2: unbounded sizes while parsing a request
+// MARK: - S2: size limits while parsing a request (fixed)
 
 final class RequestSizeLimitTests: XCTestCase {
 
-  func testHugeContentLengthIsRejectedWithoutAllocating() throws {
-    try requireCrashTests("S2", "Content-Length of Int.max is passed to Array(unsafeUninitializedCapacity:)")
-    let socket = FileSocket("POST / HTTP/1.1\r\nContent-Length: 9223372036854775807\r\n\r\n")
-    XCTAssertThrowsError(try NanoHTTPParser(socket: socket).readHttpRequest())
+  private func parser(_ text: String, _ limits: NanoHTTPParser.Limits = .init()) -> NanoHTTPParser {
+    return NanoHTTPParser(socket: FileSocket(text), limits: limits)
   }
 
-  func testOverlongRequestLineIsRejected() throws {
-    let target = String(repeating: "a", count: 100_000)
-    let socket = FileSocket("GET /\(target) HTTP/1.1\r\n\r\n")
-    try expectKnownIssue("S2", "request line length is unbounded") {
-      XCTAssertThrowsError(try NanoHTTPParser(socket: socket).readHttpRequest())
+  private func assertParserError(_ expected: NanoHTTPParserError,
+                                 _ text: String,
+                                 _ limits: NanoHTTPParser.Limits = .init(),
+                                 file: StaticString = #filePath,
+                                 line: UInt = #line) {
+    XCTAssertThrowsError(try parser(text, limits).readHttpRequest(), file: file, line: line) { error in
+      XCTAssertEqual(error as? NanoHTTPParserError, expected, file: file, line: line)
     }
   }
 
-  func testOversizedHeaderBlockIsRejected() throws {
+  // Body size
+
+  func testHugeContentLengthIsRejectedWithoutAllocating() {
+    // Used to abort the process: "failed to allocate 9223372036854775839 bytes".
+    assertParserError(.bodyTooLarge, "POST / HTTP/1.1\r\nContent-Length: 9223372036854775807\r\n\r\n")
+  }
+
+  func testContentLengthBeyondIntIsTooLargeNotInvalid() {
+    assertParserError(.bodyTooLarge, "POST / HTTP/1.1\r\nContent-Length: 99999999999999999999999\r\n\r\n")
+  }
+
+  func testBodyAtTheLimitIsAcceptedOneByteMoreIsNot() throws {
+    let limits = NanoHTTPParser.Limits(maxBodyBytes: 10)
+    XCTAssertEqual(try parser("POST / HTTP/1.1\r\nContent-Length: 10\r\n\r\n0123456789", limits).readHttpRequest().body.count, 10)
+    assertParserError(.bodyTooLarge, "POST / HTTP/1.1\r\nContent-Length: 11\r\n\r\n01234567890", limits)
+  }
+
+  func testAnnouncedButMissingBodyFailsWithoutReservingMemory() {
+    // 50 MB are announced (within the default limit), none arrive.
+    XCTAssertThrowsError(try parser("POST / HTTP/1.1\r\nContent-Length: 50000000\r\n\r\n").readHttpRequest()) { error in
+      XCTAssertTrue(error is NanoSocketError, "\(error)")
+    }
+  }
+
+  func testNegativeContentLengthIsRejected() {
+    assertParserError(.negativeContentLength, "POST / HTTP/1.1\r\nContent-Length: -1\r\n\r\n")
+  }
+
+  func testNonNumericContentLengthIsRejected() {
+    for value in ["abc", "1x", "1.5", "0x10", "1 2"] {
+      assertParserError(.invalidContentLength, "POST / HTTP/1.1\r\nContent-Length: \(value)\r\n\r\n")
+    }
+  }
+
+  // Line and header sizes
+
+  func testRequestLineAtTheLimitIsAcceptedOneByteMoreIsNot() throws {
+    let limits = NanoHTTPParser.Limits(maxLineLength: 20)
+    let ok = "GET /" + String(repeating: "a", count: 6) + " HTTP/1.1"      // exactly 20 characters
+    XCTAssertEqual(ok.count, 20)
+    XCTAssertNoThrow(try parser(ok + "\r\n\r\n", limits).readHttpRequest()) // CR does not count
+    assertParserError(.requestLineTooLong, ok + "a\r\n\r\n", limits)
+  }
+
+  func testOverlongRequestLineIsRejected() {
+    assertParserError(.requestLineTooLong, "GET /" + String(repeating: "a", count: 100_000) + " HTTP/1.1\r\n\r\n")
+  }
+
+  func testHeaderLineAtTheLimitIsAcceptedOneByteMoreIsNot() throws {
+    let limits = NanoHTTPParser.Limits(maxLineLength: 20)
+    let ok = "X: " + String(repeating: "v", count: 17)                      // exactly 20 characters
+    XCTAssertEqual(ok.count, 20)
+    XCTAssertEqual(try parser("GET / HTTP/1.1\r\n\(ok)\r\n\r\n", limits).readHttpRequest().header("x"), String(repeating: "v", count: 17))
+    assertParserError(.headerLineTooLong, "GET / HTTP/1.1\r\n\(ok)v\r\n\r\n", limits)
+  }
+
+  func testOversizedHeaderBlockIsRejected() {
     var text = "GET / HTTP/1.1\r\n"
     let value = String(repeating: "v", count: 1000)
     for index in 0..<2000 {
-      text += "X-Header-\(index): \(value)\r\n"
+      text += "X-Header-\(index): \(value)\r\n"                            // ~2 MB in total
     }
-    text += "\r\n"
-    let socket = FileSocket(text)
-    try expectKnownIssue("S2", "total header size / header count is unbounded (here: ~2 MB)") {
-      XCTAssertThrowsError(try NanoHTTPParser(socket: socket).readHttpRequest())
+    assertParserError(.headersTooLarge, text + "\r\n")
+  }
+
+  func testHeaderBlockBudgetIsExact() throws {
+    let text = "GET / HTTP/1.1\r\nA: b\r\n\r\n"                             // 16 + 6 + 2 bytes
+    let size = text.utf8.count
+    XCTAssertNoThrow(try parser(text, .init(maxHeaderBytes: size)).readHttpRequest())
+    assertParserError(.headersTooLarge, text, .init(maxHeaderBytes: size - 1))
+  }
+
+  func testControlCharactersFloodCannotBypassTheHeaderBudget() {
+    // Control characters are dropped from lines, so they never count as line length; the total
+    // byte budget still stops them.
+    let flood = String(repeating: "\u{1}", count: 200_000)
+    assertParserError(.headersTooLarge, "GET / HTTP/1.1\r\nX: \(flood)\r\n\r\n")
+  }
+
+  func testLimitsAreAppliedToLaterRequestsOnTheSameParser() throws {
+    // The budget is per request, not per connection.
+    let two = "GET /1 HTTP/1.1\r\nA: b\r\n\r\nGET /2 HTTP/1.1\r\nA: b\r\n\r\n"
+    let reader = parser(two, .init(maxHeaderBytes: 30))
+    XCTAssertEqual(try reader.readHttpRequest().path, "/1")
+    XCTAssertEqual(try reader.readHttpRequest().path, "/2")
+  }
+}
+
+// MARK: - S2: the server answers refused requests
+
+final class RequestSizeLimitServerTests: XCTestCase {
+
+  private func serve(limits: NanoHTTPParser.Limits = .init(),
+                     _ body: (Int) throws -> Void) throws {
+    try withTestServer(configure: { server in
+      server.limits = limits
+      server.get["/ping"] = { _ in .ok(.text("pong")) }
+      server.post["/echo"] = { request in .ok(.text("\(request.body.count)")) }
+    }) { _, port in
+      try body(port)
     }
   }
 
-  func testNegativeContentLengthIsRejected() throws {
-    let socket = FileSocket("POST / HTTP/1.1\r\nContent-Length: -1\r\n\r\n")
-    XCTAssertThrowsError(try NanoHTTPParser(socket: socket).readHttpRequest()) { error in
-      XCTAssertEqual(error as? NanoHTTPParserError, .negativeContentLength)
+  func testOverlongRequestLineGets414() throws {
+    try serve { port in
+      let client = try RawClient(port: port)
+      client.send("GET /" + String(repeating: "a", count: 20_000) + " HTTP/1.1\r\n\r\n")
+      let response = client.readResponse()
+      XCTAssertEqual(response?.status, 414)
+      XCTAssertEqual(response?.header("connection"), "close")
+      XCTAssertTrue(client.waitForClose(timeout: 2))
+    }
+  }
+
+  func testOverlongHeaderLineAndOversizedHeaderBlockGet431() throws {
+    try serve { port in
+      var client = try RawClient(port: port)
+      client.send("GET / HTTP/1.1\r\nX: " + String(repeating: "v", count: 20_000) + "\r\n\r\n")
+      XCTAssertEqual(client.readResponse()?.status, 431)
+      client = try RawClient(port: port)
+      var text = "GET / HTTP/1.1\r\n"
+      for index in 0..<200 { text += "X-\(index): " + String(repeating: "v", count: 1000) + "\r\n" }
+      client.send(text + "\r\n")
+      XCTAssertEqual(client.readResponse()?.status, 431)
+    }
+  }
+
+  func testBodyAboveTheConfiguredLimitGets413AndAtTheLimitWorks() throws {
+    try serve(limits: .init(maxBodyBytes: 100)) { port in
+      let atLimit = try RawClient.request("POST", "/echo", port: port, body: [UInt8](repeating: 65, count: 100))
+      XCTAssertEqual(atLimit.status, 200)
+      XCTAssertEqual(atLimit.bodyString, "100")
+      // The body is not even read: the announcement alone is refused.
+      let client = try RawClient(port: port)
+      client.send("POST /echo HTTP/1.1\r\nHost: x\r\nContent-Length: 101\r\n\r\n")
+      XCTAssertEqual(client.readResponse()?.status, 413)
+      XCTAssertTrue(client.waitForClose(timeout: 2))
+    }
+  }
+
+  func testAbsurdContentLengthGets413AndTheServerKeepsServing() throws {
+    try serve { port in
+      let client = try RawClient(port: port)
+      client.send("POST /echo HTTP/1.1\r\nHost: x\r\nContent-Length: 9223372036854775807\r\n\r\n")
+      XCTAssertEqual(client.readResponse()?.status, 413)
+      XCTAssertEqual(try RawClient.get("/ping", port: port).bodyString, "pong")
+    }
+  }
+
+  func testMalformedContentLengthGets400() throws {
+    try serve { port in
+      for value in ["abc", "-5"] {
+        let client = try RawClient(port: port)
+        client.send("POST /echo HTTP/1.1\r\nHost: x\r\nContent-Length: \(value)\r\n\r\n")
+        XCTAssertEqual(client.readResponse()?.status, 400, value)
+      }
+    }
+  }
+
+  func testOversizedFollowUpRequestOnAKeepAliveConnectionGets413() throws {
+    try serve(limits: .init(maxBodyBytes: 10)) { port in
+      let client = try RawClient(port: port)
+      client.send(RawClient.requestText("GET", "/ping", headers: ["Connection: keep-alive"]))
+      XCTAssertEqual(client.readResponse()?.bodyString, "pong")
+      client.send("POST /echo HTTP/1.1\r\nHost: x\r\nConnection: keep-alive\r\nContent-Length: 11\r\n\r\n")
+      XCTAssertEqual(client.readResponse()?.status, 413)
+      XCTAssertTrue(client.waitForClose(timeout: 2))
+    }
+  }
+
+  func testRefusedRequestsDoNotLeakConnections() throws {
+    try withTestServer(configure: { $0.limits = .init(maxLineLength: 100) }) { server, port in
+      for _ in 0..<20 {
+        let client = try RawClient(port: port)
+        client.send("GET /" + String(repeating: "a", count: 500) + " HTTP/1.1\r\n\r\n")
+        XCTAssertEqual(client.readResponse()?.status, 414)
+        client.close()
+      }
+      usleep(200_000)
+      XCTAssertEqual(server.openConnections, 0)
     }
   }
 }
 
-// MARK: - S3: WebSocket frame length
+// MARK: - NanoSocket.read(length:)
+
+final class SocketReadTests: XCTestCase {
+
+  func testReadsExactlyTheRequestedBytesAcrossChunkBoundaries() throws {
+    let chunk = NanoSocket.kChunkLength
+    for size in [0, 1, 1023, 1024, 1025, chunk - 1, chunk, chunk + 1, 3 * chunk + 7] {
+      let data = (0..<size).map { UInt8(truncatingIfNeeded: $0 &* 31 &+ 7) }
+      XCTAssertEqual(try FileSocket(data).read(length: size), data, "size \(size)")
+    }
+  }
+
+  func testReadsOnlyWhatWasRequested() throws {
+    let socket = FileSocket([1, 2, 3, 4, 5])
+    XCTAssertEqual(try socket.read(length: 2), [1, 2])
+    XCTAssertEqual(try socket.read(length: 3), [3, 4, 5])
+  }
+
+  func testShortInputFailsInsteadOfReturningFewerBytes() {
+    XCTAssertThrowsError(try FileSocket([1, 2, 3]).read(length: 4))
+    XCTAssertThrowsError(try FileSocket([]).read(length: 1))
+  }
+
+  func testNegativeLengthFailsInsteadOfTrapping() {
+    XCTAssertThrowsError(try FileSocket([1]).read(length: -1))
+  }
+
+  func testHugeLengthFailsWithoutAllocatingIt() {
+    XCTAssertThrowsError(try FileSocket([1, 2, 3]).read(length: Int.max))
+    XCTAssertThrowsError(try FileSocket([1, 2, 3]).read(length: 1 << 40))
+  }
+}
+
+// MARK: - S3: WebSocket frame limits (fixed)
 
 final class WebSocketFrameLimitTests: XCTestCase {
 
-  private func frame(lengthBytes: [UInt8]) -> WebSocketSession {
-    // FIN + text, masked + length marker 127 (8-byte length follows), the length, a 4-byte mask.
-    return WebSocketSession(FileSocket([0x81, 0xFF] + lengthBytes + [0, 0, 0, 0]))
+  private func session(_ bytes: [UInt8], maxPayloadSize: Int? = nil) -> WebSocketSession {
+    let session = WebSocketSession(FileSocket(bytes))
+    if let maxPayloadSize {
+      session.maxPayloadSize = maxPayloadSize
+    }
+    return session
   }
 
-  /// The claimed payload length is used as an allocation size without any limit, so a single
-  /// 14-byte frame aborts the process ("failed to allocate N bytes"). Observed: with the first
-  /// length byte 0x80 the decoded length is 2^61, not 2^63, because that byte is shifted by 54
-  /// instead of 56 (second defect, same line).
-  func testHugeFrameLengthDoesNotCrash() throws {
-    try requireCrashTests("S3", "claimed frame length is allocated up front; also `<< 54` typo")
-    XCTAssertThrowsError(try self.frame(lengthBytes: [0x80, 0, 0, 0, 0, 0, 0, 0]).readFrame())
+  /// FIN + text, masked + length marker 127 (8-byte length follows), the length, a 4-byte mask.
+  private func header64(_ lengthBytes: [UInt8]) -> [UInt8] {
+    return [0x81, 0xFF] + lengthBytes + [0, 0, 0, 0]
   }
 
-  /// Plain macOS grants a 1 TiB allocation lazily, so the read then fails with EOF and this
-  /// passes; under AddressSanitizer (and on iOS) the allocation itself aborts the process.
-  /// Same defect as above, so it shares the gate.
-  func testOneTerabyteFrameLengthFailsCleanly() throws {
-    try requireCrashTests("S3", "1 TiB payload buffer: aborts under ASan / on iOS, lazily granted on macOS")
-    XCTAssertThrowsError(try self.frame(lengthBytes: [0, 0, 1, 0, 0, 0, 0, 0]).readFrame())
+  private func assertProtocolError(_ bytes: [UInt8],
+                                   maxPayloadSize: Int? = nil,
+                                   file: StaticString = #filePath,
+                                   line: UInt = #line) {
+    XCTAssertThrowsError(try session(bytes, maxPayloadSize: maxPayloadSize).readFrame(), file: file, line: line) { error in
+      guard case WebSocketSession.WsError.protocolError = error else {
+        return XCTFail("expected a protocol error, got \(error)", file: file, line: line)
+      }
+    }
+  }
+
+  func testHugeFrameLengthIsRejectedBeforeReadingOrAllocating() {
+    // Used to abort the process: "failed to allocate 2305843009213693984 bytes".
+    assertProtocolError(header64([0x80, 0, 0, 0, 0, 0, 0, 0]))
+    assertProtocolError(header64([0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]))
+  }
+
+  func testOneTerabyteFrameLengthIsRejected() {
+    assertProtocolError(header64([0, 0, 1, 0, 0, 0, 0, 0]))
+  }
+
+  /// The first length byte used to be shifted by 54 instead of 56, so 2^63 was decoded as 2^61.
+  /// With an unbounded limit the two differ: 2^63 does not fit an `Int` and is a protocol error,
+  /// 2^61 would be read (and fail with an I/O error).
+  func testTheMostSignificantLengthByteHasWeight2To56() {
+    assertProtocolError(header64([0x80, 0, 0, 0, 0, 0, 0, 0]), maxPayloadSize: Int.max)
+  }
+
+  func testLengthBytesAreBigEndian() throws {
+    let cases: [([UInt8], Int)] = [([0, 0, 0, 0, 0, 0, 0, 5], 5), ([0, 0, 0, 0, 0, 0, 1, 2], 258), ([0, 0, 0, 0, 0, 0, 2, 1], 513)]
+    for (lengthBytes, size) in cases {
+      let payload = [UInt8](repeating: 0x41, count: size)
+      let frame = try session(header64(lengthBytes) + payload).readFrame()
+      XCTAssertEqual(frame.payload.count, size, "\(lengthBytes)")
+    }
+    // 16-bit form
+    let frame = try session([0x81, 0xFE, 1, 2, 0, 0, 0, 0] + [UInt8](repeating: 0x41, count: 258)).readFrame()
+    XCTAssertEqual(frame.payload.count, 258)
+  }
+
+  func testPayloadAtTheLimitIsAcceptedOneByteMoreIsNot() throws {
+    let payload = [UInt8](repeating: 0x41, count: 10)
+    XCTAssertEqual(try session([0x81, 0x8A, 0, 0, 0, 0] + payload, maxPayloadSize: 10).readFrame().payload, payload)
+    assertProtocolError([0x81, 0x8B, 0, 0, 0, 0] + payload + [0x41], maxPayloadSize: 10)
+  }
+
+  func testMaskingStillWorksOnLargerPayloads() throws {
+    let plain = (0..<1000).map { UInt8(truncatingIfNeeded: $0) }
+    let mask: [UInt8] = [0x12, 0x34, 0x56, 0x78]
+    let masked = plain.enumerated().map { $0.element ^ mask[$0.offset % 4] }
+    let frame = try session([0x82, 0xFE, UInt8(1000 >> 8), UInt8(1000 & 0xFF)] + mask + masked).readFrame()
+    XCTAssertEqual(frame.payload, plain)
+  }
+
+  func testControlFramesMayNotCarryMoreThan125Bytes() {
+    for opcode: UInt8 in [0x88, 0x89, 0x8A] { // close, ping, pong; 126 bytes via the 16-bit length
+      assertProtocolError([opcode, 0xFE, 0, 126, 0, 0, 0, 0] + [UInt8](repeating: 0x41, count: 126))
+    }
+    XCTAssertNoThrow(try session([0x89, 0xFD, 0, 0, 0, 0] + [UInt8](repeating: 0x41, count: 125)).readFrame())
   }
 }
 

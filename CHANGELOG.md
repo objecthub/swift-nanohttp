@@ -34,21 +34,43 @@ All notable changes to this project are documented in this file. The format is b
   support the previous minimums (macOS 11, iOS 14, tvOS 14), so the Xcode project did not build.
   This is a source-compatibility change for clients that still target the older systems.
 
+- **Requests are refused instead of crashing or being dropped silently.** A request line longer than the
+  limit gets `414`, too long or too many headers `431`, a body above `maxBodyBytes` `413`, and a request
+  that cannot be parsed (invalid request line, non-numeric or negative `Content-Length`) `400`; the
+  connection is closed afterwards. Bodies above 64 MiB, which were accepted before, are refused unless
+  `server.limits.maxBodyBytes` is raised. A non-numeric `Content-Length` used to be ignored.
+- WebSocket messages (single frames or assembled from fragments) above 16 MiB, and control frames with more
+  than 125 bytes, end the connection unless `maxMessageSize` is raised.
+- `NanoSocket.read(length:)` allocates with the data that arrives instead of the announced length.
+
 ### Removed
 - Carthage: dropped from the README (badge and requirements) and the `.gitignore` template block.
   No `Cartfile` or shared framework scheme ever existed, so Carthage could not build the package;
   Swift Package Manager is the supported way to depend on NanoHTTP.
 
+- Request size limits: `NanoHTTPParser.Limits` and `NanoHTTPServerIO.limits` (set before `start`) with
+  `maxLineLength` (8 KiB), `maxHeaderBytes` (64 KiB) and `maxBodyBytes` (64 MiB).
+- `websocket(..., maxMessageSize:)` (default 16 MiB) and `WebSocketSession.maxPayloadSize`.
+- `NanoHTTPParserError` is public (it was internal) and has new cases for the limits.
+
 ### Fixed
-- `share(file:)` and `share(directory:defaults:followSymlinks:)` sent the length of a symbolic link
+- `share(file:) and `share(directory:defaults:followSymlinks:)` sent the length of a symbolic link
   (the length of its target path) as `Content-Length` instead of the size of the file it points to.
   Linked files longer than that were truncated, shorter ones left clients waiting.
+
+- WebSocket: the most significant byte of a 64-bit frame length was shifted by 54 bits instead of 56.
+- After a refused request or a failed WebSocket session the connection is now closed only after the peer
+  had a chance to read the answer. Closing with unread data made TCP reset the connection, and the peer
+  could lose the response.
 
 ### Security
 - `share(directory:defaults:)` and `browse(directory:)` no longer serve files outside the shared
   directory. Requests with `..` segments (also percent-encoded), NUL characters, or paths that lead
   out of the directory through symbolic links are answered with `403 Forbidden`. Symbolic links that
   stay inside the directory, and shared directories that are themselves symbolic links, keep working.
+- A single request could abort the process: the value of `Content-Length`, and the length announced by a
+  WebSocket frame, were used as an allocation size without any limit. Request lines, headers, bodies and
+  WebSocket messages are now bounded (see Added), and memory is only used for data that actually arrives.
 
 ## [1.0.1] - 2024-08-09
 

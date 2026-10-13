@@ -57,9 +57,12 @@ When a defect is fixed, remove the gate from its test.
 
 ## Phase 0 results: what the tests established
 
-Confirmed by execution (each is an `expectKnownIssue` or crash test):
-S1 path traversal (literal `..`, `%2e%2e`, `..%2f`, `browse` listing and reading, symlink escape,
-`%00`) · S2 unbounded request line / header block / `Content-Length` · S3 WebSocket frame length ·
+Fixed since (their tests are plain regression tests now): **S1** path traversal in `share(directory:)` /
+`browse(directory:)` (literal `..`, `%2e%2e`, `..%2f`, listing and reading, symlink escape, `%00`).
+**H12** (found while adding `followSymlinks`): `Content-Length` of a symlinked file was the length of the link.
+
+Confirmed by execution and still open (each is an `expectKnownIssue` or crash test):
+S2 unbounded request line / header block / `Content-Length` · S3 WebSocket frame length ·
 S4 invalid listen address binds all interfaces · S5 unescaped file names, attributes, inner text ·
 S7 CR/LF header injection · R1 accept loop dies on EMFILE · R2 descriptor leak · R3 idle
 connections starve the server (**between 60 and 70 idle connections**) · R7 IPv6 addresses wrong ·

@@ -141,7 +141,11 @@ extension NanoHTTPResponse {
 ///     <root>/public/hello.txt           <- "hello"
 ///     <root>/public/sub/nested.txt
 ///     <root>/public/<xssName>           <- file whose *name* is an HTML payload
-///     <root>/public/escape.txt          <- symlink to ../secret.txt
+///     <root>/public/escape.txt          <- symlink to ../secret.txt (leaves the directory)
+///     <root>/public/outerdir            <- symlink to .. (a directory link that leaves it)
+///     <root>/public/alias.txt           <- symlink to hello.txt (stays inside)
+///     <root>/public/my..file.txt        <- a legitimate name that merely contains ".."
+///     <root>/public-link                <- symlink to public (a shared directory given as a link)
 final class FileFixture {
   static let secret = "TOP-SECRET-DO-NOT-SERVE"
   static let xssName = "<img src=x onerror=alert(1)>.txt" // a file name cannot contain "/"
@@ -164,6 +168,10 @@ final class FileFixture {
     try "xss".write(toFile: self.publicDir + "/" + FileFixture.xssName, atomically: true, encoding: .utf8)
     try manager.createSymbolicLink(atPath: self.publicDir + "/escape.txt",
                                    withDestinationPath: "../secret.txt")
+    try manager.createSymbolicLink(atPath: self.publicDir + "/outerdir", withDestinationPath: "..")
+    try manager.createSymbolicLink(atPath: self.publicDir + "/alias.txt", withDestinationPath: "hello.txt")
+    try "dotted".write(toFile: self.publicDir + "/my..file.txt", atomically: true, encoding: .utf8)
+    try manager.createSymbolicLink(atPath: self.root + "/public-link", withDestinationPath: "public")
   }
 
   func remove() {

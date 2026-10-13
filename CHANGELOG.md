@@ -18,6 +18,10 @@ All notable changes to this project are documented in this file. The format is b
   stale in `NanoHTTP.xcodeproj`. The new test files were added to the project; duplicate references to
   `IOSafetyTests`, `PingServer` and `ServerThreadingTests` were removed.
 
+- `followSymlinks` parameter for `share(directory:defaults:followSymlinks:)` and
+  `browse(directory:followSymlinks:)` (default `false`): serve symbolic links even if they lead out of
+  the shared directory. Links that stay inside the directory are always followed.
+
 ### Changed
 - Existing tests no longer use fixed ports (8080, 9081), no longer ignore bind failures, and the
   flaky `testShouldHandleTheSameRequestConcurrently` waits for all of its requests.
@@ -34,6 +38,17 @@ All notable changes to this project are documented in this file. The format is b
 - Carthage: dropped from the README (badge and requirements) and the `.gitignore` template block.
   No `Cartfile` or shared framework scheme ever existed, so Carthage could not build the package;
   Swift Package Manager is the supported way to depend on NanoHTTP.
+
+### Fixed
+- `share(file:)` and `share(directory:defaults:followSymlinks:)` sent the length of a symbolic link
+  (the length of its target path) as `Content-Length` instead of the size of the file it points to.
+  Linked files longer than that were truncated, shorter ones left clients waiting.
+
+### Security
+- `share(directory:defaults:)` and `browse(directory:)` no longer serve files outside the shared
+  directory. Requests with `..` segments (also percent-encoded), NUL characters, or paths that lead
+  out of the directory through symbolic links are answered with `403 Forbidden`. Symbolic links that
+  stay inside the directory, and shared directories that are themselves symbolic links, keep working.
 
 ## [1.0.1] - 2024-08-09
 

@@ -66,7 +66,10 @@ final class RawClient {
 
   /// Creates a client socket and (by default) connects it to `127.0.0.1:port`.
   /// Pass `connect: false` to reserve the file descriptor first and connect later.
-  init(port: Int, host: String = "127.0.0.1", timeout: TimeInterval = 3, connect: Bool = true) throws {
+  /// `receiveBuffer` sets the size of the receive buffer of the socket before it connects; a small one
+  /// lets a client that does not read stall the sender after a few kilobytes.
+  init(port: Int, host: String = "127.0.0.1", timeout: TimeInterval = 3, connect: Bool = true,
+       receiveBuffer: Int? = nil) throws {
     self.host = host
     self.fd = socket(AF_INET, SOCK_STREAM, 0)
     guard self.fd >= 0 else {
@@ -75,6 +78,9 @@ final class RawClient {
     var one: Int32 = 1
     setsockopt(self.fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
     self.setReceiveTimeout(timeout)
+    if var size = receiveBuffer.map({ Int32($0) }) {
+      setsockopt(self.fd, SOL_SOCKET, SO_RCVBUF, &size, socklen_t(MemoryLayout<Int32>.size))
+    }
     if connect {
       try self.connect(port: port)
     }

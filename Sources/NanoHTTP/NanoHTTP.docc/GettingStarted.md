@@ -38,8 +38,7 @@ print("Serving at http://localhost:\(try server.port())")
 RunLoop.main.run()
 ```
 
-``NanoHTTPServerIO/start(_:forceIPv4:priority:handlerPriority:)`` returns at once: the server accepts
-connections on background threads. A command-line tool has to keep the process alive, as the example does with
+``NanoHTTPServerIO/start(_:)`` returns at once: the server accepts connections on threads of its own. A command-line tool has to keep the process alive, as the example does with
 the run loop; an app has a run loop anyway. Passing the port `0` lets the system choose a free port, which
 ``NanoHTTPServerIO/port()`` reports.
 
@@ -53,17 +52,17 @@ Stop the server with ``NanoHTTPServerIO/stop()``. A stopped server can be starte
 
 ### Who can connect
 
-Without further settings the server accepts connections on **all network interfaces**: from this
-machine and from every machine that can reach it. To accept connections from this machine only, give the
-address to listen at:
+Without further settings the server accepts connections from **this machine only** (`127.0.0.1`). A server that
+other devices are meant to reach has to say so:
 
 ```swift
 let server = NanoHTTPServer()
-server.listenAddressIPv4 = "127.0.0.1"
-try server.start(8080, forceIPv4: true)
+server.configuration.listenAddress = .allInterfaces
+try server.start(8080)
 ```
 
-An address that is not an address makes `start` throw instead of listening everywhere. See
+With `.address("192.168.1.20")` the server listens at one address; one that is not an address of this machine makes
+`start` throw instead of listening everywhere. See
 <doc:SecurityAndLimits> for what else to consider before you expose a server.
 
 ### Next steps

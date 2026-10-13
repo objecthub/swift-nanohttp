@@ -59,9 +59,18 @@ allocated up front; the 64-bit decode had a `<< 54` typo; now a payload/message 
 now get `400` instead of a silent close. (After refusing, the connection is closed only once the peer had a
 chance to read the answer: closing with unread data made TCP reset the connection and the peer lost the response.)
 
+**2.0:** **R3** idle connections starved the server (between 60 and 70 of them pinned all threads of the dispatch
+pool): connections have threads of their own now, and there are idle/read/write timeouts and `maxConnections`
+(`TimeoutTests.swift`: `RequestTimeoutTests`, `WriteTimeoutTests`, `ConnectionLimitTests`; the idle-connection test in
+`RobustnessTests.swift` is a plain test again). `SingleThreadTests.swift` covers the one-thread mode: all code runs on
+one thread, handlers need no locks (plain variables; the thread sanitizer is the judge), the process gets no thread
+per connection, idle and keep-alive connections do not block others, timeouts, limits, `run(_:)`; **W3** (a WebSocket
+session occupies the only thread) is a known issue. The tests of `ConfigurationTests.swift` cover the listen address
+(loopback by default) and the `Configuration` object. The timeout tests wait for real time (the suite takes ~25 s). `ThreadPoolTests.swift` covers the pool that reuses the
+threads of connections (reuse, no limit for the number of threads, idle lifetime, `close`, exactly-once execution).
+Performance is not tested by the suite: `Benchmarks/` is the tool for that.
+
 Confirmed by execution and still open (each is an `expectKnownIssue` or crash test):
-R3 idle
-connections starve the server (**between 60 and 70 idle connections**) ·
 H1 query values stay percent-encoded · H4 persistent connections, `Connection: close`, chunked bodies ·
 H7 HEAD sends a body, 405 · H9 multipart · H10 file responses disable keep-alive,
 directory → empty 200 · N3 void elements.

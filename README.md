@@ -54,11 +54,12 @@ grouped and mounted below a prefix, and `server["/path"]` answers every method.
 - **A small HTML builder** for status and admin pages.
 - **Middleware** and subclassing for everything else: how requests are dispatched, how connections are handled,
   logging.
-- **Limits** for lines, headers and bodies, and answers (`400`, `413`, `414`, `431`) for requests that exceed
-  them.
+- **Limits** for lines, headers and bodies, timeouts for idle and stalled connections, a limit for the number of
+  connections, and answers (`400`, `408`, `413`, `414`, `431`, `503`) for requests that exceed them.
 
-A thread serves each connection, so handlers of different connections run at the same time. There are no timeouts,
-and about 64 connections that stay idle stop the server from answering others.
+By default a thread serves each connection, so handlers of different connections run at the same time. Or the
+server runs on **one thread** (`server.configuration.threading = .singleThread`): requests are served one at a time
+and handlers need no locks.
 
 ## Serving files
 
@@ -84,18 +85,18 @@ Sessions can be written from any thread, which makes broadcasting to many client
 
 ## Security
 
-NanoHTTP listens on **all network interfaces** unless you tell it otherwise. For a server that is for this machine
-only:
+A server accepts connections from **this machine only** unless you tell it otherwise. A server that other devices are
+meant to reach has to say so:
 
 ```swift
 let server = NanoHTTPServer()
-server.listenAddressIPv4 = "127.0.0.1"
-try server.start(8080, forceIPv4: true)
+server.configuration.listenAddress = .allInterfaces
+try server.start(8080)
 ```
 
-Even then, web pages in the user's browser can send requests to it: check the `Host` and `Origin` headers in a
-middleware if that matters. There is no TLS, no authentication, no rate limiting and no timeouts: do not expose a
-server to the internet without a reverse proxy that provides them. The documentation article *Security and Limits*
+Even a server that listens at the loopback address can be reached by web pages in the user's browser: check the `Host`
+and `Origin` headers in a middleware if that matters. There is no TLS, no authentication and no rate limiting: do not
+expose a server to the internet without a reverse proxy that provides them. The documentation article *Security and Limits*
 lists what to decide, with code. To report a vulnerability, see [SECURITY.md](SECURITY.md).
 
 ## Installation
@@ -125,10 +126,18 @@ stay correct. The [CHANGELOG](CHANGELOG.md) lists what changed in every version.
 ## Demo servers
 
 The framework comes with a [demo server](Sources/NanoHTTPDemo/NanoHTTPDemo.swift), which runs as a
-[command-line tool on macOS](Sources/DemoServer/main.swift) (`swift run DemoServer`) and as a
-[SwiftUI app on iOS](Sources/DemoServer%20iOS/ContentView.swift). It shows many features, and serves your
-**Downloads folder** read-only on port 9080, to every device that can reach your machine. Run it on networks you
-trust, or change the directory.
+[command-line tool on macOS](Sources/DemoServer/main.swift) and as a
+[SwiftUI app on iOS](Sources/DemoServer%20iOS/ContentView.swift). It shows many features, and serves a folder on
+port 9080: the **Downloads folder** in the command-line tool. The tool is reachable from this machine only; start it
+with `--network` to let other devices connect, on networks you trust:
+
+```bash
+swift run DemoServer                 # http://localhost:9080
+swift run DemoServer --network       # reachable from the network
+swift run DemoServer --single-thread # everything on one thread
+```
+
+The iOS app listens on all network interfaces, because its purpose is to be reached from other devices.
 
 ## Requirements
 

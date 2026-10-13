@@ -58,7 +58,7 @@ class IOSafetyTests: XCTestCase {
   func testStopWithActiveConnections() throws {
     for iteration in 0...100 {
       let server = NanoHTTPServer.pingServer()
-      try server.start(0, forceIPv4: true)
+      try server.start(0)
       let hostURL = URL(string: "http://127.0.0.1:\(try server.port())")!
       XCTAssertFalse(urlSession?.retryPing(hostURL: hostURL) ?? true, "iteration \(iteration)")
       (0...100).forEach { _ in

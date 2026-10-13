@@ -4,6 +4,57 @@ All notable changes to this project are documented in this file. The format is b
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says how to move from 1.x.
+
+### Changed
+- **Breaking: servers listen at the loopback address (`127.0.0.1`) by default.** They accepted connections on all
+  network interfaces. A server that other devices are meant to reach needs
+  `server.configuration.listenAddress = .allInterfaces`. The command-line demo is reachable from this machine only
+  unless it is started with `--network`, and with `--single-thread` it runs on one thread.
+- **Breaking: `NanoHTTPServerIO.Configuration`** (`server.configuration`, or `NanoHTTPServer(configuration:)`)
+  replaces the settings that were spread over properties and parameters: `listenAddressIPv4`, `listenAddressIPv6`
+  and the `forceIPv4` parameter of `start` become `listenAddress` (`.loopback`, `.allInterfaces`,
+  `.address("192.168.1.20")`; the address family follows the address), `limits` moves into the configuration, and
+  the `priority` and `handlerPriority` parameters of `start` become `acceptQoS` and `connectionQoS`.
+  `start(_ port:)` takes only the port. A running server keeps the configuration it was started with.
+- **Breaking:** `NanoHTTPServerIO.listen(priority:)` is `listen()`; `NanoSocket.tcpSocketForListen` takes a
+  `NanoListenAddress` and a `backlog` instead of `forceIPv4`, `maxPendingConnection` and `listenAddress`.
+- Connections and the accept loop run on threads of their own instead of the global dispatch queues. The threads
+  of connections are reused (a thread that has served a connection waits up to 10 seconds for the next one; at most
+  32 wait), so a connection does not cost the creation of a thread. A thread with `.userInitiated` priority accepts
+  connections (it was `.background`, which the system may throttle).
+- The `priority` and `handlerPriority` parameters of `start` are gone, and so are their `nil` values, which
+  made the server accept connections on the calling thread (`priority: nil`) and serve them one after another on
+  the accepting thread (`handlerPriority: nil`). `threading = .singleThread` and `run(_:)` replace them.
+- `NanoSocket.read()` retries when it is interrupted by a signal, and a closed connection is reported as
+  "connection closed by peer" instead of "Undefined error: 0".
+
+### Added
+- `Benchmarks/`: `python3 Benchmarks/run.py` compares the throughput, latency and CPU use of the working copy
+  with a release (default: 1.0.2), with paired runs so that machine noise does not decide; see
+  `Benchmarks/README.md`.
+- **One-thread servers.** `server.configuration.threading = .singleThread` makes one thread do everything:
+  accepting connections, reading requests, the middleware, the handlers and writing the responses. Requests are served
+  one at a time, and handlers need no locks. `start(_:)` starts that thread; the new `run(_:)` uses the calling thread
+  and returns when the server is stopped (it is also available with threads per connection, where it accepts
+  connections on the calling thread). The thread waits for the listening socket and all connections together, so
+  idle and keep-alive connections do not block anything, and idle connections are closed after the idle timeout.
+  Limits: a slow handler delays everything, a stalled request or a client that does not read delays the server up to
+  the read or write timeout, and a WebSocket session occupies the thread until it ends.
+- **Timeouts and a limit for connections** (R3), in `NanoHTTPServerIO.Configuration`: `idleTimeout` (60 s; a
+  connection that sends no request is closed), `readTimeout` (30 s; a request that stalls is answered with
+  `408 Request Timeout`), `writeTimeout` (30 s; a peer that does not read is dropped) and `maxConnections` (128;
+  further connections get `503 Service Unavailable` with `Retry-After`). `nil` disables a limit. WebSocket sessions are
+  not subject to the idle and read timeouts, but count as connections.
+- `NanoListenAddress`, `NanoSocketError.timedOut`, `NanoSocket.setReceiveTimeout(_:)`, `setSendTimeout(_:)` and
+  `waitUntilReadable(timeout:)`.
+
+### Fixed
+- Idle connections no longer starve the server: between 60 and 70 silent connections used up the threads of the
+  dispatch pool, and no request was served after that (R3).
+
 ## [1.0.2] - 2026-10-13
 
 ### Added

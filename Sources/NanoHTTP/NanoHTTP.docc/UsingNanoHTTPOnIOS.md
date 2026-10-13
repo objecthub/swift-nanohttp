@@ -22,7 +22,7 @@ final class ExampleServerController {
   }
 
   func appDidBecomeActive() {
-    try? server.start(8080, forceIPv4: true)
+    try? server.start(8080)
   }
 
   func appWillResignActive() {
@@ -31,7 +31,7 @@ final class ExampleServerController {
 }
 ```
 
-``NanoHTTPServerIO/start(_:forceIPv4:priority:handlerPriority:)`` does nothing if the server is already running,
+``NanoHTTPServerIO/start(_:)`` does nothing if the server is already running,
 and a stopped server can be started again, so both calls are safe to repeat.
 
 ### Finding the address
@@ -41,7 +41,8 @@ and a stopped server can be started again, so both calls are safe to repeat.
 
 ```swift
 let server = NanoHTTPServer()
-try server.start(8080, forceIPv4: true)
+server.configuration.listenAddress = .allInterfaces   // the default, loopback, cannot be reached by other devices
+try server.start(8080)
 if let address = NetworkInterface.localIP {
   print("Open http://\(address):\(try server.port()) on another device")
 }

@@ -5,19 +5,22 @@ What to decide before a server is reachable by others, and what the framework do
 ## Overview
 
 NanoHTTP is made for servers inside apps and tools that are used by you, your own devices or a small trusted group.
-It has **no TLS, no authentication, no rate limiting and no timeouts**. This article lists what you have to decide, and
-what the framework guards against.
+It has **no TLS, no authentication and no rate limiting**. This article lists what you have to decide, and what the
+framework guards against.
 
 ### 1. Who can connect
 
-By default the server accepts connections on all network interfaces. To serve this machine only, set the address
-(`start` throws if it is not an address, instead of listening everywhere):
+By default the server accepts connections from this machine only (the loopback address `127.0.0.1`). A server that is
+meant to be reached from other devices has to say so:
 
 ```swift
 let server = NanoHTTPServer()
-server.listenAddressIPv4 = "127.0.0.1"
-try server.start(8080, forceIPv4: true)
+server.configuration.listenAddress = .allInterfaces      // everybody who can reach this machine
+try server.start(8080)
 ```
+
+Or listen at the address of one network interface, `.address("192.168.1.20")`. `start` throws if the address is not an
+address of this machine, instead of listening everywhere.
 
 Even a server that listens on the loopback address can be reached by every web page that the user opens, because the
 browser runs on the same machine. The next two points matter for such servers too.
@@ -67,19 +70,32 @@ do not expect big uploads:
 
 ```swift
 let server = NanoHTTPServer()
-server.limits = NanoHTTPParser.Limits(maxLineLength: 4 * 1024,
-                                      maxHeaderBytes: 16 * 1024,
-                                      maxBodyBytes: 1024 * 1024)
+server.configuration.limits = NanoHTTPParser.Limits(maxLineLength: 4 * 1024,
+                                                    maxHeaderBytes: 16 * 1024,
+                                                    maxBodyBytes: 1024 * 1024)
 ```
 
 WebSocket messages are limited by `maxMessageSize` (16 MiB by default), see <doc:WebSockets>.
 
-### 5. What the server does not limit
+### 5. Time and the number of connections
 
-- **The number of idle connections**: each one occupies a thread, and around 64 of them stop the server from
-  answering others (see <doc:ThreadingAndLifecycle>). There are no timeouts for reading a request or for idle
-  connections.
-- The time a handler takes, and the rate of requests.
+Every connection occupies a thread, so connections that do nothing are limited as well
+(``NanoHTTPServerIO/Configuration``, see <doc:ThreadingAndLifecycle>):
+
+- `idleTimeout` (60 s): a connection that sends no request is closed.
+- `readTimeout` (30 s): a request that stalls half way is answered with `408 Request Timeout`.
+- `writeTimeout` (30 s): a peer that does not read its response is dropped.
+- `maxConnections` (128): further connections are answered with `503 Service Unavailable`.
+
+```swift
+let server = NanoHTTPServer()
+server.configuration.idleTimeout = 15
+server.configuration.maxConnections = 64
+```
+
+The timeouts are pauses, not total times: a client that sends one byte every 29 seconds is not stopped, so this does
+not make the server safe against slow-request attacks. What is not limited: the time a handler takes, and the rate of
+requests.
 
 For a server that strangers can reach, put a reverse proxy in front of it that provides TLS, timeouts and rate
 limits, or use another server.
@@ -100,4 +116,4 @@ limits, or use another server.
 
 - ``NanoHTTPParser/Limits``
 - ``NanoHTTPParserError``
-- ``NanoHTTPServerIO/limits``
+- ``NanoHTTPServerIO/Configuration``

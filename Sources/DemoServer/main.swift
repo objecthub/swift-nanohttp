@@ -46,15 +46,17 @@ final class MacOsHttpServer: NanoHTTPServer {
     }
   }
   
-  public override func listen(priority: DispatchQoS.QoSClass?) {
+  public override func listen() {
     do {
       let port = try self.port()
       self.log("Server has started (port = \(port))")
-      if let ip = NetworkInterface.localIP {
+      if self.configuration.listenAddress == .loopback {
+        self.log("Try to connect now at http://localhost:\(port)")
+      } else if let ip = NetworkInterface.localIP {
         self.log("Try to connect now at http://\(ip):\(port)")
       }
     } catch {}
-    super.listen(priority: priority)
+    super.listen()
   }
 }
 
@@ -66,7 +68,15 @@ do {
     print("Received request: \(request)")
     return .ok(.htmlBody("ok !"))
   }
-  try? server.start(9080, forceIPv4: true)
+  // The server shares the Downloads folder: only this machine can reach it, unless asked otherwise.
+  if CommandLine.arguments.contains("--network") {
+    server.configuration.listenAddress = .allInterfaces
+  }
+  // Everything on one thread: requests are served one at a time (the WebSocket demo keeps it busy).
+  if CommandLine.arguments.contains("--single-thread") {
+    server.configuration.threading = .singleThread
+  }
+  try server.start(9080)
   RunLoop.main.run()
 } catch {
   print("Server start error: \(error)")

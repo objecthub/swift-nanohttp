@@ -45,7 +45,6 @@ final class ServerThreadingTests: XCTestCase {
   override func setUp() {
     super.setUp()
     server = NanoHTTPServer()
-    server.listenAddressIPv4 = "127.0.0.1"
   }
   
   override func tearDown() {
@@ -57,7 +56,7 @@ final class ServerThreadingTests: XCTestCase {
   }
   
   private func startServer() throws -> URL {
-    try server.start(0, forceIPv4: true)
+    try server.start(0)
     return URL(string: "http://127.0.0.1:\(try server.port())")!
   }
   

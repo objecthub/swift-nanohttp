@@ -37,7 +37,7 @@ The server is built to be subclassed. These methods are `open`:
 | ``NanoHTTPServerIO/dispatch(request:)`` | for every request | change how handlers are found (``NanoHTTPServer`` overrides it to run the middleware and the router) |
 | ``NanoHTTPServerIO/handle(connection:)`` | once per connection | wrap the handling of a connection, for example to measure its duration |
 | ``NanoHTTPServerIO/log(_:)`` | when the server reports something | send messages to your logger instead of the console |
-| ``NanoHTTPServerIO/listen(priority:)`` | when the server starts accepting | do something when the server is up (call `super`) |
+| ``NanoHTTPServerIO/listen()`` | when the server starts accepting | do something when the server is up (call `super`) |
 | ``NanoHTTPServerIO/stop()`` | when the server stops | do something when it stops (call `super`) |
 | ``NanoHTTPServer/initialRouter()`` | when a server is created | use another ``NanoHTTPRouter`` |
 

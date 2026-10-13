@@ -1,0 +1,53 @@
+# Benchmarks
+
+Compares the throughput, latency and CPU use of the working copy of NanoHTTP with a release or any commit, to
+find out whether a change made the server slower.
+
+```bash
+python3 Benchmarks/run.py                                  # the working copy against the tag 1.0.2
+python3 Benchmarks/run.py --baseline 1.0.2 --repeats 8 --duration 3
+python3 Benchmarks/run.py --scenarios "keep-alive c=16,close c=1 (latency)"
+```
+
+It needs a few minutes per scenario (every repeat runs four servers) and an otherwise idle machine. Nothing is
+installed: the baseline is exported with `git archive` into `Benchmarks/.work/`, and a small server with the same
+routes is built (in release mode) against the baseline and against the working copy. `Benchmarks/loadgen` is the
+client: a compiled load generator with one thread per connection that reports requests per second, latency
+percentiles and errors.
+
+## The four servers
+
+| Name | What |
+|---|---|
+| *baseline* (e.g. `1.0.2`) | the default: a thread per connection |
+| *baseline* `one-thread` | 1.x: `handlerPriority: nil`, 2.x: `.singleThread` |
+| `current` | the working copy, a thread per connection |
+| `current one-thread` | the working copy with `threading = .singleThread` |
+
+The accept thread of 1.x runs at `.userInitiated`, not at the 1.x default `.background`, which the system may run on
+the slow cores: the comparison would flatter the working copy otherwise.
+
+## Scenarios
+
+`close` opens a new connection for every request (`Connection: close`), `keep-alive` reuses connections, `cN` is the
+number of client threads. The responses are `pong` (4 bytes), 100 KB and 10 MB; the POST has a 1 MB body. The last
+scenario holds 50 connections open that send nothing.
+
+## Reading the result
+
+**Look at the second table, the paired ratios.** The same server measures up to 15% apart in two runs a few minutes
+apart (cores, clock speeds, other processes), and bimodal in the latency of single requests, so absolute numbers of
+different runs mean little. Every repeat runs all four servers one after the other, and the ratio is taken between
+runs that were made back to back. A ratio of 0.97 with 3 wins out of 8 is noise; 0.95 with 0 wins out of 8 is a
+real difference of 5%. Use at least 8 repeats for such small differences.
+
+- *req/s*: higher is better; *latency* and *CPU/req* (microseconds of CPU time of the server per request): lower.
+- 1.x `one-thread` serves one connection at a time and starves the other connections of a keep-alive load, so its
+  latency at `keep-alive c=16` is that of the one connection that is served, and a comparison of latencies there is
+  meaningless; compare the throughput.
+
+## What it does not measure
+
+Only the loopback interface (no network), only small numbers of connections, no TLS (there is none), and the
+client shares the machine with the server. The client closes short-lived connections with a reset (`SO_LINGER`),
+so that tens of thousands of them do not use up the ephemeral ports in `TIME_WAIT`; that is the same for all servers.

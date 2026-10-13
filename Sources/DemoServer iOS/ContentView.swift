@@ -72,7 +72,7 @@ struct ContentView: View {
           }
         } else {
           Button("Start server") {
-            try? self.container.server.start(9080, forceIPv4: true)
+            try? self.container.server.start(9080)
             DispatchQueue.main.async {
               self.state = "Running"
             }

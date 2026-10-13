@@ -50,6 +50,9 @@ public struct NanoHTTPConnection {
   public let request: NanoHTTPRequest
   /// The handler chosen for `request`.
   public let handler: NanoHTTPRequestHandler
+  /// The configuration of the run of the server that this connection belongs to. It is read once: the
+  /// server's copy is guarded by a lock that all connections share.
+  private let configuration: NanoHTTPServerIO.Configuration
   
   internal init?(server: NanoHTTPServerIO, socket: NanoSocket) {
     server.remember(socket: socket)
@@ -61,13 +64,16 @@ public struct NanoHTTPConnection {
       return nil
     }
     self.server = server
-    let parser = NanoHTTPParser(socket: socket, limits: server.limits)
+    let configuration = server.activeConfiguration
+    self.configuration = configuration
+    socket.setSendTimeout(configuration.writeTimeout)
+    let parser = NanoHTTPParser(socket: socket, limits: configuration.limits)
     self.parser = parser
     let request: NanoHTTPRequest
     do {
-      request = try parser.readHttpRequest()
+      request = try NanoHTTPConnection.readRequest(parser, configuration)
     } catch {
-      NanoHTTPConnection.refuse(error, on: socket)
+      NanoHTTPConnection.refuse(error, on: socket, configuration)
       socket.close()
       server.forget(socket: socket)
       return nil
@@ -85,6 +91,7 @@ public struct NanoHTTPConnection {
                handler: @escaping NanoHTTPRequestHandler) {
     self.server = current.server
     self.parser = current.parser
+    self.configuration = current.configuration
     self.request = request
     self.handler = handler
   }
@@ -102,7 +109,9 @@ public struct NanoHTTPConnection {
   /// session first and ends the connection afterwards.
   ///
   /// - Returns: The connection with the next request, or `nil` if the connection has ended (it is
-  ///     closed then). A request that cannot be read is answered with `400`, `413`, `414` or `431`.
+  ///     closed then). A request that cannot be read is answered with `400`, `408`, `413`, `414` or
+  ///     `431`. A server with only one thread does not wait for the next request here: it gets `nil`
+  ///     for a connection that stays open, and waits for the request itself.
   public func send(_ response: NanoHTTPResponse,
                    dontKeepAlive: Bool = false) -> NanoHTTPConnection? {
     guard let server else {
@@ -110,53 +119,101 @@ public struct NanoHTTPConnection {
       return nil
     }
     var keepConnection = request.supportsKeepAlive
+    let operating = server.operating
     do {
-      keepConnection = try server.operating &&
+      keepConnection = try operating &&
                          self.respond(response: response,
-                                      keepAlive: keepConnection && !dontKeepAlive && server.operating)
+                                      keepAlive: keepConnection && !dontKeepAlive)
     } catch {
       server.log("Failed to send response: \(error)")
     }
     if let session = response.socketSession() {
+      // The session decides how long it waits for data: a WebSocket may be silent for hours.
+      socket.setReceiveTimeout(nil)
+      if self.configuration.threading == .singleThread {
+        server.log("A socket session (WebSocket) runs on the only thread of the server; nothing else is served until it ends")
+      }
       server.delegate?.connectionReceived(server: server, socket: socket)
       session(socket)
     }
     if keepConnection && !dontKeepAlive && server.operating {
+      if self.configuration.threading == .singleThread {
+        // The only thread must not wait for the next request: the server does, together with all
+        // other connections, and calls `handle(connection:)` again when it has arrived.
+        return nil
+      }
       do {
-        let request = try parser.readHttpRequest()
+        let request = try NanoHTTPConnection.readRequest(parser, self.configuration)
         request.address = try? socket.peername()
         let (params, handler) = server.dispatch(request: request)
         request.params = params
         return NanoHTTPConnection(current: self, request: request, handler: handler)
       } catch {
-        NanoHTTPConnection.refuse(error, on: socket)
+        NanoHTTPConnection.refuse(error, on: socket, self.configuration)
       }
     }
     self.close()
     return nil
   }
   
+  /// Thrown when a connection that was expected to send a request stayed silent.
+  private struct IdleTimeout: Error {
+  }
+  
+  /// Waits for the next request and reads it. The wait for its first byte is limited by the idle
+  /// timeout (a connection that stays silent is simply closed); once it has begun, a pause longer
+  /// than the read timeout is an error (answered with `408`).
+  private static func readRequest(_ parser: NanoHTTPParser,
+                                  _ configuration: NanoHTTPServerIO.Configuration) throws -> NanoHTTPRequest {
+    let socket = parser.socket
+    // A server with one thread has waited for all its connections together, and calls only for the
+    // connection that has something to read. Otherwise this thread waits, for the idle timeout.
+    if configuration.threading != .singleThread,
+       try !socket.waitUntilReadable(timeout: configuration.idleTimeout) {
+      throw IdleTimeout()
+    }
+    socket.setReceiveTimeout(configuration.readTimeout)
+    return try parser.readHttpRequest()
+  }
+  
   /// Answers a request that could not be read. Only errors caused by the request itself get a
-  /// response (400, 413, 414 or 431); if the connection failed or the peer went away, there is
-  /// nobody to answer. The caller closes the connection afterwards.
-  private static func refuse(_ error: Error, on socket: NanoSocket) {
-    guard let error = error as? NanoHTTPParserError else {
+  /// response (400, 408, 413, 414 or 431); if the connection failed, was idle for too long or the
+  /// peer went away, there is nobody to answer. The caller closes the connection afterwards.
+  private static func refuse(_ error: Error, on socket: NanoSocket,
+                             _ configuration: NanoHTTPServerIO.Configuration) {
+    let status: String
+    if let error = error as? NanoHTTPParserError {
+      switch error {
+        case .requestLineTooLong:
+          status = "414 URI Too Long"
+        case .headerLineTooLong, .headersTooLarge:
+          status = "431 Request Header Fields Too Large"
+        case .bodyTooLarge:
+          status = "413 Content Too Large"
+        case .invalidStatusLine, .invalidContentLength, .negativeContentLength:
+          status = "400 Bad Request"
+      }
+    } else if let error = error as? NanoSocketError, case .timedOut = error {
+      status = "408 Request Timeout"
+    } else {
       return
     }
-    let status: String
-    switch error {
-      case .requestLineTooLong:
-        status = "414 URI Too Long"
-      case .headerLineTooLong, .headersTooLarge:
-        status = "431 Request Header Fields Too Large"
-      case .bodyTooLarge:
-        status = "413 Content Too Large"
-      case .invalidStatusLine, .invalidContentLength, .negativeContentLength:
-        status = "400 Bad Request"
-    }
-    try? socket.writeUTF8("HTTP/1.1 \(status)\r\nConnection: close\r\nContent-Length: 0\r\n\r\n")
-    // The client may still be sending the rest of the refused request; see `closeAfterDraining`.
-    socket.closeAfterDraining()
+    // A thread that serves one connection can afford to wait for the client to finish; the only thread
+    // of a server cannot.
+    NanoHTTPConnection.reject(status, on: socket,
+                              drainTimeout: configuration.threading == .singleThread ? 0.1 : 1)
+  }
+  
+  /// Answers with an empty response that ends the connection, and closes the socket.
+  ///
+  /// The client may still be sending the rest of the refused request; see `closeAfterDraining`.
+  static func reject(_ status: String,
+                     headers: String = "",
+                     on socket: NanoSocket,
+                     drainTimeout: TimeInterval = 1,
+                     drainLimit: Int = 4 * 1024 * 1024) {
+    try? socket.writeUTF8("HTTP/1.1 \(status)\r\nConnection: close\r\n\(headers)Content-Length: 0\r\n\r\n")
+    socket.closeAfterDraining(timeout: drainTimeout, limit: drainLimit)
   }
   
   /// Closes the connection and removes it from the server.
@@ -186,7 +243,7 @@ public struct NanoHTTPConnection {
   }
   
   private func respond(response: NanoHTTPResponse, keepAlive: Bool) throws -> Bool {
-    guard let server, server.operating else {
+    guard let server else {
       return false
     }
     // Some web-socket clients (like Jetfire) expects to have header section in a single packet.

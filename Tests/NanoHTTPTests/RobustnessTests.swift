@@ -44,7 +44,7 @@ final class AcceptLoopTests: XCTestCase {
 
   func testAcceptClassifiesDescriptorExhaustionAsTemporary() throws {
     raiseFileDescriptorLimit()
-    let listener = try NanoSocket.tcpSocketForListen(0, true, 8, "127.0.0.1")
+    let listener = try NanoSocket.tcpSocketForListen(0, .loopback, backlog: 8)
     let port = Int(try listener.port())
     let client = try RawClient(port: port)
     defer { client.close() }
@@ -148,14 +148,15 @@ final class DescriptorLeakTests: XCTestCase {
 
 final class IdleConnectionTests: XCTestCase {
 
-  /// Number of silent connections. Overridable (`NANOHTTP_IDLE_CONNECTIONS=64`) to probe the
-  /// starvation threshold.
+  /// Number of silent connections, fewer than the server accepts at the same time
+  /// (`maxConnections`). Overridable (`NANOHTTP_IDLE_CONNECTIONS=64`) to probe other numbers.
   private var idleCount: Int {
-    return ProcessInfo.processInfo.environment["NANOHTTP_IDLE_CONNECTIONS"].flatMap { Int($0) } ?? 150
+    return ProcessInfo.processInfo.environment["NANOHTTP_IDLE_CONNECTIONS"].flatMap { Int($0) } ?? 100
   }
 
-  /// Every connection is served by a blocking thread from the GCD pool. Once enough connections
-  /// sit idle (no timeouts exist), no thread is left for new requests.
+  /// Connections used to be served by threads of the GCD pool, which holds only about 64 blocked
+  /// threads: once that many connections sat idle, no thread was left for new requests. Every
+  /// connection has a thread of its own now.
   func testManyIdleConnectionsDoNotBlockNewRequests() throws {
     raiseFileDescriptorLimit()
     try withTestServer(configure: { server in
@@ -164,9 +165,7 @@ final class IdleConnectionTests: XCTestCase {
       let idle = try (0..<self.idleCount).map { _ in try RawClient(port: port) }
       usleep(500_000)
       let response = try? RawClient.get("/ping", port: port, timeout: 2)
-      expectKnownIssue("R3", "no read timeout: idle connections pin threads and starve new requests") {
-        XCTAssertEqual(response?.status, 200, "a new request was starved by \(idle.count) idle connections")
-      }
+      XCTAssertEqual(response?.status, 200, "a new request was starved by \(idle.count) idle connections")
     }
   }
 }
@@ -177,8 +176,7 @@ final class LifecycleTests: XCTestCase {
 
   func testStopReleasesListeningSocket() throws {
     let server = NanoHTTPServer()
-    server.listenAddressIPv4 = "127.0.0.1"
-    try server.start(0, forceIPv4: true, priority: .userInitiated)
+    try server.start(0)
     let port = try server.port()
     usleep(200_000) // let the accept loop block in accept()
     server.stop()
@@ -191,9 +189,8 @@ final class LifecycleTests: XCTestCase {
     var port: UInt16 = 0
     for round in 0..<25 {
       let server = NanoHTTPServer()
-      server.listenAddressIPv4 = "127.0.0.1"
       server.get["/ping"] = { _ in .ok(.text("pong")) }
-      try server.start(port, forceIPv4: true, priority: .userInitiated)
+      try server.start(port)
       if port == 0 {
         port = UInt16(try server.port())
       }
@@ -218,7 +215,7 @@ final class LifecycleTests: XCTestCase {
 
   func testStartTwiceIsHarmless() throws {
     try withTestServer { server, port in
-      try server.start(0, forceIPv4: true)
+      try server.start(0)
       XCTAssertEqual(try server.port(), port)
     }
   }
@@ -390,7 +387,6 @@ final class ServerStateTests: XCTestCase {
 
   private func newServer() -> NanoHTTPServer {
     let server = NanoHTTPServer()
-    server.listenAddressIPv4 = "127.0.0.1"
     server.get["/ping"] = { _ in .ok(.text("pong")) }
     return server
   }
@@ -398,7 +394,7 @@ final class ServerStateTests: XCTestCase {
   func testStateFollowsTheLifecycle() throws {
     let server = newServer()
     XCTAssertEqual(server.state, .stopped)
-    try server.start(0, forceIPv4: true)
+    try server.start(0)
     XCTAssertEqual(server.state, .running)
     XCTAssertTrue(server.operating)
     server.stop()
@@ -409,23 +405,23 @@ final class ServerStateTests: XCTestCase {
   /// A failed start used to leave the server in the state `starting` for good.
   func testFailedStartLeavesTheServerStopped() throws {
     let first = newServer()
-    try first.start(0, forceIPv4: true)
+    try first.start(0)
     defer { first.stop() }
     let second = newServer()
     defer { second.stop() }
-    XCTAssertThrowsError(try second.start(UInt16(try first.port()), forceIPv4: true)) // address in use
+    XCTAssertThrowsError(try second.start(UInt16(try first.port()))) // address in use
     XCTAssertEqual(second.state, .stopped)
-    try second.start(0, forceIPv4: true)
+    try second.start(0)
     XCTAssertEqual(second.state, .running)
     XCTAssertEqual(try RawClient.get("/ping", port: try second.port()).status, 200)
   }
 
   func testStartingARunningServerChangesNothing() throws {
     let server = newServer()
-    try server.start(0, forceIPv4: true)
+    try server.start(0)
     defer { server.stop() }
     let port = try server.port()
-    try server.start(0, forceIPv4: true)
+    try server.start(0)
     XCTAssertEqual(try server.port(), port)
     XCTAssertEqual(try RawClient.get("/ping", port: port).status, 200)
   }
@@ -433,7 +429,7 @@ final class ServerStateTests: XCTestCase {
   func testConcurrentStopCallsStopOnce() throws {
     for _ in 0..<20 {
       let server = newServer()
-      try server.start(0, forceIPv4: true)
+      try server.start(0)
       let port = try server.port()
       let client = try RawClient(port: port)
       client.send(RawClient.requestText("GET", "/ping", headers: ["Connection: keep-alive"]))
@@ -455,19 +451,18 @@ final class ServerStateTests: XCTestCase {
       countLock.lock(); defer { countLock.unlock() }
       return starts
     }
-    override func listen(priority: DispatchQoS.QoSClass?) {
+    override func listen() {
       countLock.lock(); starts += 1; countLock.unlock()
-      super.listen(priority: priority)
+      super.listen()
     }
   }
 
   func testConcurrentStartCallsStartOnce() throws {
     let server = CountingServer()
-    server.listenAddressIPv4 = "127.0.0.1"
     server.get["/ping"] = { _ in .ok(.text("pong")) }
     defer { server.stop() }
     DispatchQueue.concurrentPerform(iterations: 8) { _ in
-      try? server.start(0, forceIPv4: true, priority: .userInitiated)
+      try? server.start(0)
     }
     XCTAssertEqual(server.state, .running)
     XCTAssertEqual(try RawClient.get("/ping", port: try server.port()).status, 200)
@@ -481,7 +476,7 @@ final class ServerStateTests: XCTestCase {
     let server = newServer()
     defer { server.stop() }
     for round in 0..<60 {
-      try server.start(0, forceIPv4: true)
+      try server.start(0)
       XCTAssertEqual(try RawClient.get("/ping", port: try server.port()).status, 200, "round \(round)")
       server.stop()
     }
@@ -492,10 +487,10 @@ final class ServerStateTests: XCTestCase {
   func testALateAcceptLoopOfAnEarlierRunCannotStopTheNewRun() throws {
     let server = newServer()
     defer { server.stop() }
-    try server.start(0, forceIPv4: true)
+    try server.start(0)
     let earlierRun = server.socket
     server.stop()
-    try server.start(0, forceIPv4: true)
+    try server.start(0)
     XCTAssertFalse(server.socket === earlierRun)
     server.shutDown(run: earlierRun)
     XCTAssertEqual(server.state, .running)
@@ -506,7 +501,7 @@ final class ServerStateTests: XCTestCase {
 
   func testStoppingFromAnotherThreadWhileRequestsAreServed() throws {
     let server = newServer()
-    try server.start(0, forceIPv4: true)
+    try server.start(0)
     let port = try server.port()
     let group = DispatchGroup()
     for _ in 0..<4 {

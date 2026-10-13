@@ -17,6 +17,8 @@ raw socket client for the exact bytes of a request, `withTestServer`, fixtures).
 ## Rules
 
 - **A change comes with a test.** For a bug fix, the test fails without the fix.
+- **Performance does not get worse.** `python3 Benchmarks/run.py` compares the working copy with a release
+  (see `Benchmarks/README.md`); run it for changes to the connection, parser, socket and response code.
 - **Public API is documented** with `///` comments. Examples in the documentation are compiled
   (`python3 Scripts/check_doc_examples.py`), and the documentation has to build without warnings
   (`python3 Scripts/check_docs.py`).

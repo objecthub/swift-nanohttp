@@ -43,7 +43,6 @@ import FoundationNetworking
 extension NanoHTTPServer {
   class func pingServer() -> NanoHTTPServer {
     let server = NanoHTTPServer()
-    server.listenAddressIPv4 = "127.0.0.1"
     server.get["/ping"] = { _ in
       return .ok(.text("pong!"))
     }

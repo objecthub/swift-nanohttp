@@ -127,6 +127,53 @@ final class WebSocketIntegrationTests: XCTestCase {
     }
   }
 
+  /// The idle and read timeouts are for requests; a WebSocket may be silent for as long as it likes.
+  func testWebSocketMayStaySilentLongerThanTheRequestTimeouts() throws {
+    try withTestServer(configure: { server in
+      server.configuration.idleTimeout = 0.3
+      server.configuration.readTimeout = 0.3
+      server["/ws"] = websocket(text: { session, text in session.writeText(text) })
+    }) { _, port in
+      let client = try WS.connect(port: port)
+      usleep(1_200_000)
+      client.send(WS.text("still here"))
+      XCTAssertEqual(String(decoding: WS.readFrame(client)?.payload ?? [], as: UTF8.self), "still here")
+    }
+  }
+
+  func testWebSocketWorksOnASingleThreadServer() throws {
+    try withTestServer(configure: { server in
+      server.configuration.threading = .singleThread
+      server["/ws"] = websocket(text: { session, text in session.writeText(text) })
+      server.get["/ping"] = { _ in .ok(.text("pong")) }
+    }) { _, port in
+      let client = try WS.connect(port: port)
+      client.send(WS.text("one thread"))
+      XCTAssertEqual(String(decoding: WS.readFrame(client)?.payload ?? [], as: UTF8.self), "one thread")
+      client.send(WS.frame(.close, [0x03, 0xE8]))
+      _ = WS.readFrame(client)
+      XCTAssertTrue(client.waitForClose(timeout: 2))
+      XCTAssertEqual(try RawClient.get("/ping", port: port).status, 200) // served again after the session
+    }
+  }
+
+  /// A WebSocket session reads its connection in a loop, and on the only thread nothing else runs while
+  /// it does. Sessions that the server drives, one message at a time, would not have this limit.
+  func testRequestsAreServedWhileAWebSocketIsOpenOnASingleThreadServer() throws {
+    try withTestServer(configure: { server in
+      server.configuration.threading = .singleThread
+      server["/ws"] = websocket(text: { session, text in session.writeText(text) })
+      server.get["/ping"] = { _ in .ok(.text("pong")) }
+    }) { _, port in
+      let client = try WS.connect(port: port)
+      defer { client.close() }
+      let response = try? RawClient.get("/ping", port: port, timeout: 1)
+      expectKnownIssue("W3", "a WebSocket session occupies the only thread of a single-thread server") {
+        XCTAssertEqual(response?.status, 200)
+      }
+    }
+  }
+
   func testHandshakeReturnsTheRFCAcceptKey() throws {
     try serve { port in
       let client = try RawClient(port: port)

@@ -56,7 +56,7 @@ final class DemoServerContainer: ObservableObject {
         super.stop()
       }
     }
-    public override func listen(priority: DispatchQoS.QoSClass?) {
+    public override func listen() {
       do {
         let port = try self.port()
         self.log("Server has started (port = \(port))")
@@ -64,7 +64,7 @@ final class DemoServerContainer: ObservableObject {
           self.log("Try to connect now at http://\(ip):\(port)")
         }
       } catch {}
-      super.listen(priority: priority)
+      super.listen()
     }
   }
   
@@ -80,6 +80,8 @@ final class DemoServerContainer: ObservableObject {
                                                                 in: .userDomainMask).first?.path ??
                                        (try? String.File.currentWorkingDirectory()) ??
                                        "/")
-    try? server.start(9080, forceIPv4: true)
+    // This app is meant to be reached from other devices.
+    server.configuration.listenAddress = .allInterfaces
+    try? server.start(9080)
   }
 }

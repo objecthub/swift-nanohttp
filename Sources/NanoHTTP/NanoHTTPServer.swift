@@ -53,8 +53,7 @@ import Foundation
 /// shares state with others has to protect it.
 ///
 /// The server is a subclass of ``NanoHTTPServerIO``, which provides the listening socket, the
-/// connections and the lifecycle (``NanoHTTPServerIO/start(_:forceIPv4:priority:handlerPriority:)``,
-/// ``NanoHTTPServerIO/stop()``); this class adds routing, middleware and a handler for unknown paths.
+/// connections and the lifecycle (``NanoHTTPServerIO/start(_:)``, ``NanoHTTPServerIO/stop()``); this class adds routing, middleware and a handler for unknown paths.
 open class NanoHTTPServer: NanoHTTPServerIO {
   
   /// Registers handlers for one HTTP method: `server.get["/a", "/b"] = handler` registers `handler` for
@@ -121,8 +120,10 @@ open class NanoHTTPServer: NanoHTTPServerIO {
     return NanoHTTPSegmentRouter()
   }
   
-  /// Creates a server that is not running yet; see ``NanoHTTPServerIO/start(_:forceIPv4:priority:handlerPriority:)``.
-  public override init() {
+  /// Creates a server that is not running yet; see ``NanoHTTPServerIO/start(_:)``.
+  ///
+  /// - Parameter configuration: How the server listens and what it accepts.
+  public override init(configuration: Configuration = Configuration()) {
     self.router = Swift.type(of: self).initialRouter()
     self.delete = MethodRoute(method: "DELETE", router: self.router)
     self.patch = MethodRoute(method: "PATCH", router: self.router)
@@ -130,6 +131,7 @@ open class NanoHTTPServer: NanoHTTPServerIO {
     self.post = MethodRoute(method: "POST", router: self.router)
     self.get = MethodRoute(method: "GET", router: self.router)
     self.put = MethodRoute(method: "PUT", router: self.router)
+    super.init(configuration: configuration)
   }
   
   /// The registered route patterns (`/users/:id`, `/files/::path`), for diagnostics or an index page.

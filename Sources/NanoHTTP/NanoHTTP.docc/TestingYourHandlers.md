@@ -25,14 +25,14 @@ This is fast and needs no network. It does not test routing, headers that the se
 
 ### Run a server on a free port
 
-To test everything, start a server on port `0` (the system chooses a free port) and listen on the loopback address
-only, so that tests neither collide with each other nor open your machine to the network:
+To test everything, start a server on port `0` (the system chooses a free port). A server listens on the loopback
+address only unless you configure it otherwise, so tests neither collide with each other nor open your machine to the
+network:
 
 ```swift
 let server = NanoHTTPServer()
-server.listenAddressIPv4 = "127.0.0.1"
 server.get["/ping"] = { _ in .ok(.text("pong")) }
-try server.start(0, forceIPv4: true)
+try server.start(0)
 defer { server.stop() }
 let url = URL(string: "http://127.0.0.1:\(try server.port())/ping")!
 let (data, response) = try await URLSession.shared.data(from: url)
@@ -49,5 +49,5 @@ Start a new server for each test and stop it at the end (`tearDown`, or `defer`)
   this with a small client (`RawClient` in `Tests/NanoHTTPTests/Support`), which you can copy.
 - Handlers run on other threads than the test. Collect results in thread-safe variables, and wait for them with an
   `XCTestExpectation`.
-- Set ``NanoHTTPServerIO/limits`` to small values to test how your handlers cope with the answers `413`, `414` and
+- Set ``NanoHTTPServerIO/Configuration/limits`` to small values to test how your handlers cope with the answers `413`, `414` and
   `431` of the server.

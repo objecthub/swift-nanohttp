@@ -40,7 +40,7 @@ server.get["/search"] = { request in
 ### The body
 
 The body is available as bytes once the request has been read completely, up to the limit of the server
-(64 MiB unless you change ``NanoHTTPServerIO/limits``; larger requests are answered with `413`).
+(64 MiB unless you change ``NanoHTTPServerIO/Configuration/limits``; larger requests are answered with `413`).
 
 ```swift
 // file scope

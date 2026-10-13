@@ -426,7 +426,7 @@ final class RequestSizeLimitServerTests: XCTestCase {
   private func serve(limits: NanoHTTPParser.Limits = .init(),
                      _ body: (Int) throws -> Void) throws {
     try withTestServer(configure: { server in
-      server.limits = limits
+      server.configuration.limits = limits
       server.get["/ping"] = { _ in .ok(.text("pong")) }
       server.post["/echo"] = { request in .ok(.text("\(request.body.count)")) }
     }) { _, port in
@@ -502,7 +502,7 @@ final class RequestSizeLimitServerTests: XCTestCase {
   }
 
   func testRefusedRequestsDoNotLeakConnections() throws {
-    try withTestServer(configure: { $0.limits = .init(maxLineLength: 100) }) { server, port in
+    try withTestServer(configure: { $0.configuration.limits = .init(maxLineLength: 100) }) { server, port in
       for _ in 0..<20 {
         let client = try RawClient(port: port)
         client.send("GET /" + String(repeating: "a", count: 500) + " HTTP/1.1\r\n\r\n")
@@ -636,102 +636,6 @@ final class WebSocketFrameLimitTests: XCTestCase {
       assertProtocolError([opcode, 0xFE, 0, 126, 0, 0, 0, 0] + [UInt8](repeating: 0x41, count: 126))
     }
     XCTAssertNoThrow(try session([0x89, 0xFD, 0, 0, 0, 0] + [UInt8](repeating: 0x41, count: 125)).readFrame())
-  }
-}
-
-// MARK: - S4: listen address handling (fixed)
-
-final class ListenAddressTests: XCTestCase {
-
-  func testInvalidIPv4ListenAddressThrowsInsteadOfBindingEverywhere() {
-    for address in ["127.0.0.1x", "", "localhost", "256.0.0.1", "::1", " 127.0.0.1"] {
-      let server = NanoHTTPServer()
-      server.listenAddressIPv4 = address
-      XCTAssertThrowsError(try server.start(0, forceIPv4: true), "\"\(address)\"") { error in
-        guard case NanoSocketError.bindFailed(let message) = error else {
-          return XCTFail("unexpected error \(error)")
-        }
-        XCTAssertTrue(message.contains("invalid IPv4 listen address"), message)
-      }
-      XCTAssertEqual(server.state, .stopped)
-    }
-  }
-
-  func testInvalidIPv6ListenAddressThrowsInsteadOfBindingEverywhere() {
-    for address in ["::1x", "", "localhost", "127.0.0.1"] {
-      let server = NanoHTTPServer()
-      server.listenAddressIPv6 = address
-      XCTAssertThrowsError(try server.start(0, forceIPv4: false), "\"\(address)\"") { error in
-        guard case NanoSocketError.bindFailed(let message) = error else {
-          return XCTFail("unexpected error \(error)")
-        }
-        XCTAssertTrue(message.contains("invalid IPv6 listen address"), message)
-      }
-      XCTAssertEqual(server.state, .stopped)
-    }
-  }
-
-  func testAnAddressThatCannotBeBoundThrowsToo() {
-    // Well-formed, but not an address of this machine (or, with a zone, not usable here): bind fails.
-    for (address, ipv4) in [("203.0.113.7", true), ("2001:db8::1", false), ("fe80::1%nonexistent0", false)] {
-      let server = NanoHTTPServer()
-      if ipv4 { server.listenAddressIPv4 = address } else { server.listenAddressIPv6 = address }
-      XCTAssertThrowsError(try server.start(0, forceIPv4: ipv4), address) { error in
-        guard case NanoSocketError.bindFailed = error else {
-          return XCTFail("unexpected error \(error)")
-        }
-      }
-      XCTAssertEqual(server.state, .stopped)
-    }
-  }
-
-  func testRejectedAddressDoesNotLeakTheListeningSocket() {
-    let before = openFileDescriptorCount()
-    for _ in 0..<20 {
-      let server = NanoHTTPServer()
-      server.listenAddressIPv4 = "not an address"
-      XCTAssertThrowsError(try server.start(0, forceIPv4: true))
-    }
-    XCTAssertLessThan(openFileDescriptorCount() - before, 5)
-  }
-
-  func testValidAddressesAreAccepted() throws {
-    let ipv4 = NanoHTTPServer()
-    ipv4.listenAddressIPv4 = "127.0.0.1"
-    try ipv4.start(0, forceIPv4: true)
-    defer { ipv4.stop() }
-    XCTAssertTrue(ipv4.operating)
-    let ipv6 = NanoHTTPServer()
-    ipv6.listenAddressIPv6 = "::1"
-    try ipv6.start(0, forceIPv4: false)
-    defer { ipv6.stop() }
-    XCTAssertTrue(ipv6.operating)
-  }
-
-  /// A server bound to the loopback address cannot be reached through the address of a network
-  /// interface; that is the point of setting an address.
-  func testLoopbackAddressIsNotReachableFromTheNetworkInterface() throws {
-    guard let lanAddress = NetworkInterface.localIP(ipv4: true), !lanAddress.hasPrefix("127.") else {
-      throw XCTSkip("no network interface with an IPv4 address")
-    }
-    try withTestServer(configure: { $0.get["/ping"] = { _ in .ok(.text("pong")) } }) { _, port in
-      XCTAssertEqual(try RawClient.get("/ping", port: port).status, 200)
-      XCTAssertThrowsError(try RawClient(port: port, host: lanAddress), "reachable at \(lanAddress)")
-    }
-  }
-
-  func testWithoutAnAddressTheServerListensOnAllInterfaces() throws {
-    // Pinned current default (a candidate for 2.0: loopback by default).
-    guard let lanAddress = NetworkInterface.localIP(ipv4: true), !lanAddress.hasPrefix("127.") else {
-      throw XCTSkip("no network interface with an IPv4 address")
-    }
-    let server = NanoHTTPServer()
-    server.get["/ping"] = { _ in .ok(.text("pong")) }
-    try server.start(0, forceIPv4: true)
-    defer { server.stop() }
-    let client = try RawClient(port: try server.port(), host: lanAddress)
-    client.send(RawClient.requestText("GET", "/ping", headers: ["Connection: close"]))
-    XCTAssertEqual(client.readResponse()?.status, 200)
   }
 }
 

@@ -19,9 +19,8 @@ import Darwin
 func withTestServer<T>(configure: (NanoHTTPServer) -> Void = { _ in },
                        _ body: (NanoHTTPServer, Int) throws -> T) throws -> T {
   let server = NanoHTTPServer()
-  server.listenAddressIPv4 = "127.0.0.1"
   configure(server)
-  try server.start(0, forceIPv4: true, priority: .userInitiated)
+  try server.start(0)
   defer {
     server.stop()
   }
@@ -177,4 +176,55 @@ final class FileFixture {
   func remove() {
     try? FileManager.default.removeItem(atPath: self.root)
   }
+}
+
+/// Waits until `condition` holds, for at most `timeout` seconds.
+@discardableResult
+func eventually(timeout: TimeInterval = 5, _ condition: () -> Bool) -> Bool {
+  let end = Date(timeIntervalSinceNow: timeout)
+  while Date() < end {
+    if condition() {
+      return true
+    }
+    usleep(20_000)
+  }
+  return condition()
+}
+
+/// The id of the calling thread.
+func currentThreadID() -> UInt64 {
+  var id: UInt64 = 0
+  pthread_threadid_np(nil, &id)
+  return id
+}
+
+/// The number of threads of this process.
+func processThreadCount() -> Int {
+  var list: thread_act_array_t?
+  var count = mach_msg_type_number_t(0)
+  guard task_threads(mach_task_self_, &list, &count) == KERN_SUCCESS, let list else {
+    return -1
+  }
+  for index in 0..<Int(count) {
+    mach_port_deallocate(mach_task_self_, list[index])
+  }
+  vm_deallocate(mach_task_self_,
+                vm_address_t(UInt(bitPattern: list)),
+                vm_size_t(Int(count) * MemoryLayout<thread_t>.size))
+  return Int(count)
+}
+
+/// The number of threads of this process once it has stopped changing: threads of earlier tests (pools
+/// that were closed, dispatch workers) need a moment to end, and would make a baseline too high.
+func settledThreadCount() -> Int {
+  var last = processThreadCount()
+  var unchanged = 0
+  let end = Date(timeIntervalSinceNow: 3)
+  while unchanged < 4 && Date() < end {
+    usleep(50_000)
+    let now = processThreadCount()
+    unchanged = now == last ? unchanged + 1 : 0
+    last = now
+  }
+  return last
 }

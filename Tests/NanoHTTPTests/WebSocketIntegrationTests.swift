@@ -12,7 +12,7 @@ import XCTest
 
 // MARK: - Client side of the protocol
 
-private enum WS {
+enum WS {
   static let key = "dGhlIHNhbXBsZSBub25jZQ=="                 // example from RFC 6455 §1.3
   static let accept = "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="           // its required accept value
 
@@ -154,23 +154,6 @@ final class WebSocketIntegrationTests: XCTestCase {
       _ = WS.readFrame(client)
       XCTAssertTrue(client.waitForClose(timeout: 2))
       XCTAssertEqual(try RawClient.get("/ping", port: port).status, 200) // served again after the session
-    }
-  }
-
-  /// A WebSocket session reads its connection in a loop, and on the only thread nothing else runs while
-  /// it does. Sessions that the server drives, one message at a time, would not have this limit.
-  func testRequestsAreServedWhileAWebSocketIsOpenOnASingleThreadServer() throws {
-    try withTestServer(configure: { server in
-      server.configuration.threading = .singleThread
-      server["/ws"] = websocket(text: { session, text in session.writeText(text) })
-      server.get["/ping"] = { _ in .ok(.text("pong")) }
-    }) { _, port in
-      let client = try WS.connect(port: port)
-      defer { client.close() }
-      let response = try? RawClient.get("/ping", port: port, timeout: 1)
-      expectKnownIssue("W3", "a WebSocket session occupies the only thread of a single-thread server") {
-        XCTAssertEqual(response?.status, 200)
-      }
     }
   }
 

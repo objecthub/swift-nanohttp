@@ -100,19 +100,50 @@ open class NanoHTTPServer: NanoHTTPServerIO {
   /// The handler for requests that no route matches. Without one, such requests are answered with
   /// `404 Not Found` and an empty body.
   public var notFoundHandler: NanoHTTPRequestHandler? = nil
-  /// Functions that see every request before it is routed, in the order of the array. The first function
-  /// that returns a response answers the request: the router and the handlers are not consulted. A
-  /// function returns `nil` to let the request pass.
+  /// Decides how the errors of handlers and middleware are answered. It receives the error and the request and
+  /// returns the response, or `nil` to leave the error to the default: the response of a
+  /// ``NanoHTTPError``, or `500 Internal Server Error` for other errors (see
+  /// ``NanoHTTPServerIO/response(for:to:)``). Errors that middleware catches do not get here.
   ///
   /// ```swift
   /// let server = NanoHTTPServer()
-  /// server.middleware.append { request in
-  ///   request.header("x-api-key") == "secret" ? nil : .unauthorized(.text("API key required"))
+  /// server.errorHandler = { error, request in
+  ///   guard let error = error as? NanoHTTPError else {
+  ///     return nil // everything else: 500, as usual
+  ///   }
+  ///   return NanoHTTPResponse(statusCode: error.status, body: .json(["error": error.message ?? ""]))
   /// }
   /// ```
   ///
+  /// It runs on the threads of the connections. Set it before starting the server.
+  public var errorHandler: ((Error, NanoHTTPRequest) -> NanoHTTPResponse?)? = nil
+  /// Functions that wrap the handling of every request, in the order of the array: the first one is the
+  /// outermost. A middleware receives the request and `next`, the rest of the chain: the middleware after it,
+  /// and finally the router and the handler. It lets the request through by calling `next`, and can
+  ///
+  /// - answer the request itself and not call `next` (a check that fails),
+  /// - change the request before it calls `next` (add `request.custom["user"]`, rewrite the path: the request
+  ///   is routed after the middleware has run),
+  /// - change the response that `next` returns (add a header, measure how long it took), and
+  /// - catch an error that `next` throws, or throw one itself.
+  ///
+  /// ```swift
+  /// let server = NanoHTTPServer()
+  /// server.middleware.append { request, next in
+  ///   guard request.header("x-api-key") == "secret" else {
+  ///     throw NanoHTTPError.unauthorized("API key required")
+  ///   }
+  ///   var response = try next(request)
+  ///   response.headers["X-Served-By"] = "nano"
+  ///   return response
+  /// }
+  /// ```
+  ///
+  /// Middleware sees every request, including those that no route matches. It runs before the request is
+  /// routed, so the variables of the route (`request.params`) are known only after `next` has returned.
+  ///
   /// Middleware runs on the threads of the connections. Configure it before starting the server.
-  public var middleware: [(NanoHTTPRequest) -> NanoHTTPResponse?] = []
+  public var middleware: [NanoHTTPMiddleware] = []
   
   /// Creates the router of a new server: a ``NanoHTTPSegmentRouter``. Override in a subclass to use a
   /// different ``NanoHTTPRouter``.
@@ -164,15 +195,29 @@ open class NanoHTTPServer: NanoHTTPServerIO {
     try self.router.merge(router, withPrefix: prefix)
   }
   
-  /// Finds the handler for a request: the first middleware that answers, else the route that matches
-  /// the method and path, else ``notFoundHandler``, else a `404`. Returns the variables of the route
-  /// (`request.params`) and the handler.
+  /// Finds the handler for a request. Without middleware: the route that matches the method and path, else
+  /// ``notFoundHandler``, else a `404`. With middleware, the handler is the chain of the middleware around
+  /// that: the router is asked when the last middleware calls `next`. Returns the variables of the route
+  /// (`request.params`; they are set by the chain when there is middleware) and the handler.
   override open func dispatch(request: NanoHTTPRequest) -> ([String: String], NanoHTTPRequestHandler) {
-    for layer in middleware {
-      if let response = layer(request) {
-        return ([:], { _ in response })
-      }
+    let layers = self.middleware
+    guard !layers.isEmpty else {
+      return self.route(request)
     }
+    var chain: NanoHTTPRequestHandler = { request in
+      let (params, handler) = self.route(request)
+      request.params = params
+      return try handler(request)
+    }
+    for layer in layers.reversed() {
+      let next = chain
+      chain = { request in try layer(request, next) }
+    }
+    return ([:], chain)
+  }
+  
+  /// The router, the not-found handler, and finally the `404` of ``NanoHTTPServerIO``.
+  private func route(_ request: NanoHTTPRequest) -> ([String: String], NanoHTTPRequestHandler) {
     if let result = router.route(request.method, path: request.path) {
       return result
     }
@@ -180,5 +225,14 @@ open class NanoHTTPServer: NanoHTTPServerIO {
       return ([:], notFoundHandler)
     }
     return super.dispatch(request: request)
+  }
+  
+  /// The response for an error of a handler or middleware: the ``errorHandler`` decides, and if there is
+  /// none or it returns `nil`, the default of ``NanoHTTPServerIO/response(for:to:)`` applies.
+  override open func response(for error: Error, to request: NanoHTTPRequest) -> NanoHTTPResponse {
+    if let response = self.errorHandler?(error, request) {
+      return response
+    }
+    return super.response(for: error, to: request)
   }
 }

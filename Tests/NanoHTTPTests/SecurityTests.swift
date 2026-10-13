@@ -643,28 +643,28 @@ final class WebSocketFrameLimitTests: XCTestCase {
 
 final class HTMLEscapingTests: XCTestCase {
 
-  private func render(_ scope: @escaping NanoHTMLClosure) -> String {
-    return htmlHandler(scope)(NanoHTTPRequest(method: "GET", path: "/")).capturedBody()
+  private func render(_ scope: @escaping NanoHTMLClosure) throws -> String {
+    return try htmlHandler(scope)(NanoHTTPRequest(method: "GET", path: "/")).capturedBody()
   }
 
-  func testAttributeValueCannotBreakOutOfTheAttribute() {
-    let html = self.render {
+  func testAttributeValueCannotBreakOutOfTheAttribute() throws {
+    let html = try self.render {
       a { href = "x\" onclick=\"evil()"; inner = "link" }
     }
     XCTAssertFalse(html.contains("\" onclick=\""), html)
     XCTAssertEqual(html, "<!DOCTYPE html><a href=\"x&quot; onclick=&quot;evil()\">link</a>")
   }
 
-  func testOrdinaryAttributeValuesAreUnchanged() {
-    let html = self.render {
+  func testOrdinaryAttributeValuesAreUnchanged() throws {
+    let html = try self.render {
       a { href = "/search?q=a&b=c#top"; title = "it's <fine>"; inner = "x" }
     }
     XCTAssertTrue(html.contains("href=\"/search?q=a&b=c#top\""), html)
     XCTAssertTrue(html.contains("title=\"it's <fine>\""), html)
   }
 
-  func testCustomAttributesAreEscapedToo() {
-    let html = self.render {
+  func testCustomAttributesAreEscapedToo() throws {
+    let html = try self.render {
       element("div", ["data-x": "1\" onmouseover=\"evil()"]) { inner = "x" }
     }
     XCTAssertFalse(html.contains("\" onmouseover=\""), html)
@@ -672,16 +672,16 @@ final class HTMLEscapingTests: XCTestCase {
 
   /// `inner` is HTML: it is inserted as it is, so that markup can be passed. Untrusted text has to
   /// be escaped by the caller (a safe-by-default builder is planned for 2.0).
-  func testInnerIsInsertedVerbatim() {
-    let html = self.render {
+  func testInnerIsInsertedVerbatim() throws {
+    let html = try self.render {
       p { inner = "<b>bold</b>" }
     }
     XCTAssertEqual(html, "<!DOCTYPE html><p><b>bold</b></p>")
   }
 
-  func testEscapedTextCannotInjectMarkup() {
+  func testEscapedTextCannotInjectMarkup() throws {
     let hostile = "<script>alert(\"x\")</script> & 'friends'"
-    let html = self.render {
+    let html = try self.render {
       p { inner = hostile.htmlEscaped }
     }
     XCTAssertFalse(html.contains("<script>"), html)

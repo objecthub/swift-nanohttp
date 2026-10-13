@@ -1,5 +1,7 @@
 // A small load generator: N blocking client threads, each doing request after request.
-//   loadgen PORT PATH [-c N] [-d SECONDS] [-w WARMUP] [-k] [--post BYTES] [--idle N] [--timeout SECONDS]
+//   loadgen PORT PATH [-c N] [-d SECONDS] [-w WARMUP] [-k] [--post BYTES] [--idle N] [--timeout SECONDS] [--ws]
+// With --ws every client opens a WebSocket at PATH and sends 16-byte text messages one after the other, each
+// of which the server echoes; a request is one message and its echo.
 // Prints one JSON object: requests per second, MB/s, latency percentiles in microseconds, errors.
 import Foundation
 
@@ -12,6 +14,7 @@ var keepAlive = false
 var postBytes = 0
 var idleConnections = 0
 var timeout = 3.0
+var webSocket = false
 
 var rest = Array(CommandLine.arguments.dropFirst())
 port = UInt16(rest.removeFirst())!
@@ -25,6 +28,7 @@ while !rest.isEmpty {
     case "--post": postBytes = Int(rest.removeFirst())!
     case "--idle": idleConnections = Int(rest.removeFirst())!
     case "--timeout": timeout = Double(rest.removeFirst())!
+    case "--ws": webSocket = true
     default: fatalError("bad argument")
   }
 }
@@ -121,7 +125,66 @@ final class Worker {
   var bytes = 0
   var errors = 0
   var requests = 0
+  /// One WebSocket: handshake, then messages and their echoes until the end of the measurement.
+  func runWebSocket() {
+    var buffer = [UInt8](repeating: 0, count: 64 * 1024)
+    guard let fd = connectToServer() else {
+      errors += 1
+      return
+    }
+    defer { close(fd) }
+    let handshake = "GET \(path) HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" +
+                    "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n"
+    guard sendAll(fd, Array(handshake.utf8)) else {
+      errors += 1
+      return
+    }
+    var head = [UInt8]()
+    while head.firstRange(of: [13, 10, 13, 10]) == nil {
+      let n = buffer.withUnsafeMutableBytes { read(fd, $0.baseAddress, $0.count) }
+      if n <= 0 {
+        errors += 1
+        return
+      }
+      head.append(contentsOf: buffer[0..<n])
+    }
+    guard String(decoding: head.prefix(12), as: UTF8.self).contains("101") else {
+      errors += 1
+      return
+    }
+    let mask: [UInt8] = [1, 2, 3, 4]
+    let payload = Array("0123456789abcdef".utf8)
+    let frame: [UInt8] = [0x81, 0x80 | UInt8(payload.count)] + mask + payload.enumerated().map { $0.element ^ mask[$0.offset % 4] }
+    let expected = 2 + payload.count
+    while now() < end {
+      let begin = now()
+      guard sendAll(fd, frame) else {
+        errors += 1
+        return
+      }
+      var got = 0
+      while got < expected {
+        let n = buffer.withUnsafeMutableBytes { read(fd, $0.baseAddress! + got, expected - got) }
+        if n <= 0 {
+          errors += 1
+          return
+        }
+        got += n
+      }
+      let finish = now()
+      if begin >= measureFrom && finish <= end {
+        latencies.append(finish - begin)
+        bytes += payload.count
+        requests += 1
+      }
+    }
+  }
+  
   func run() {
+    if webSocket {
+      runWebSocket()
+      return
+    }
     var buffer = [UInt8](repeating: 0, count: 256 * 1024)
     var fd: Int32? = nil
     while now() < end {

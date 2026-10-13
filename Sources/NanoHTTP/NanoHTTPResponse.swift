@@ -75,6 +75,9 @@ public struct NanoHTTPResponse {
     case custom((NanoHTTPResponseBodyWriter) throws -> Void, contentType: String? = nil)
     /// The connection becomes something else than HTTP, see ``NanoHTTPResponse/switchProtocols(_:_:)``.
     case socket((NanoSocket) -> Void)
+    /// The connection becomes something else than HTTP, and the server drives a session,
+    /// see ``NanoHTTPResponse/switchProtocols(_:session:)``.
+    case session(NanoSocketSession)
     
     /// A string literal is a `.text` body.
     public init(stringLiteral value: String) {
@@ -103,7 +106,7 @@ public struct NanoHTTPResponse {
           return contentType ?? "application/octet-stream"
         case .custom(_, let contentType):
           return contentType
-        case .socket(_):
+        case .socket(_), .session(_):
           return nil
       }
     }
@@ -130,7 +133,7 @@ public struct NanoHTTPResponse {
           return (data.count, { try $0.write(data) })
         case .custom(let content, _):
           return (nil, content)
-        case .socket(_):
+        case .socket(_), .session(_):
           return (nil, nil)
       }
     }
@@ -177,10 +180,22 @@ public struct NanoHTTPResponse {
   
   /// A `101 Switching Protocols` response. After the response was sent, `socketSession` runs on the
   /// thread of the connection and owns the socket until it returns; the connection is closed afterwards.
-  /// This is how ``websocket(text:binary:pong:connected:disconnected:maxMessageSize:)`` upgrades a connection.
+  ///
+  /// On a server that has only one thread, nothing else is served while `socketSession` runs. Use
+  /// ``switchProtocols(_:session:)`` for a session that the server can drive between other work.
   public static func switchProtocols(_ headers: [String : String],
                                      _ socketSession: @escaping (NanoSocket) -> Void) -> NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 101, headers: headers, body: .socket(socketSession))
+  }
+  
+  /// A `101 Switching Protocols` response for a session that the server drives. After the response was sent,
+  /// the server calls the functions of `session` when the socket has something to read, see
+  /// ``NanoSocketSession``. Unlike the other variant, this does not hold the thread of a server that has only one
+  /// thread: this is how ``websocket(text:binary:pong:connected:disconnected:maxMessageSize:)`` upgrades a
+  /// connection.
+  public static func switchProtocols(_ headers: [String : String],
+                                     session: NanoSocketSession) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 101, headers: headers, body: .session(session))
   }
   
   /// A `301 Moved Permanently` response that points to `location`.
@@ -318,6 +333,15 @@ public struct NanoHTTPResponse {
       headers["Content-Type"] = contentType
     }
     return headers
+  }
+  
+  func eventSession() -> NanoSocketSession? {
+    switch self.body {
+      case .session(let session):
+        return session
+      default:
+        return nil
+    }
   }
   
   func socketSession() -> ((NanoSocket) -> Void)? {

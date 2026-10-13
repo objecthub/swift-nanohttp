@@ -52,14 +52,16 @@ grouped and mounted below a prefix, and `server["/path"]` answers every method.
   the directory.
 - **WebSockets** (RFC 6455): fragmented messages, ping/pong, close codes, thread-safe sending, size limits.
 - **A small HTML builder** for status and admin pages.
-- **Middleware** and subclassing for everything else: how requests are dispatched, how connections are handled,
-  logging.
+- **Errors**: a handler can `throw NanoHTTPError.notFound("No such item")`, which becomes the response; other
+  errors become a `500` without details.
+- **Middleware** that wraps requests (check, change, log, catch errors), and subclassing for everything else:
+  how requests are dispatched, how connections are handled, logging.
 - **Limits** for lines, headers and bodies, timeouts for idle and stalled connections, a limit for the number of
   connections, and answers (`400`, `408`, `413`, `414`, `431`, `503`) for requests that exceed them.
 
 By default a thread serves each connection, so handlers of different connections run at the same time. Or the
-server runs on **one thread** (`server.configuration.threading = .singleThread`): requests are served one at a time
-and handlers need no locks.
+server runs on **one thread** (`server.configuration.threading = .singleThread`): requests and WebSocket messages
+are handled one at a time and handlers need no locks.
 
 ## Serving files
 

@@ -34,15 +34,15 @@ that in middleware:
 ```swift
 let server = NanoHTTPServer()
 let allowedHosts: Set<String> = ["localhost:8080", "127.0.0.1:8080"]
-server.middleware.append { request in
+server.middleware.append { request, next in
   guard let host = request.header("host")?.lowercased(), allowedHosts.contains(host) else {
-    return .forbidden(.text("Unexpected Host header"))
+    throw NanoHTTPError.forbidden("Unexpected Host header")
   }
   // Browsers send `Origin` with WebSocket handshakes and with cross-site POSTs.
   if let origin = request.header("origin"), !allowedHosts.contains(where: { origin == "http://\($0)" }) {
-    return .forbidden(.text("Unexpected Origin"))
+    throw NanoHTTPError.forbidden("Unexpected Origin")
   }
-  return nil
+  return try next(request)
 }
 ```
 

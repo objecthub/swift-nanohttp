@@ -68,6 +68,34 @@ server["/chat"] = websocket(
 Always remove a session in `disconnected`. Writing to a session whose connection has ended does nothing harmful (it
 logs an error), but a collection that keeps such sessions grows forever.
 
+### On a server with one thread
+
+A server that runs on one thread (``NanoHTTPServerIO/Configuration/Threading/singleThread``) serves WebSockets on that
+thread as well: it waits for all sockets together, and handles the messages of the sessions one at a time between the
+requests of the other connections. A session does not hold the thread while it waits for the next message. The
+closures of all sessions, the handlers and the middleware therefore never run at the same time, and the collection
+of sessions needs **no lock**, also when HTTP handlers write to the sessions:
+
+```swift
+let server = NanoHTTPServer()
+server.configuration.threading = .singleThread
+var sessions = [WebSocketSession]()           // used by all closures and handlers: they all run on one thread
+server["/chat"] = websocket(
+  text: { _, message in sessions.forEach { $0.writeText(message) } },
+  connected: { session in sessions.append(session) },
+  disconnected: { session in sessions.removeAll { $0 === session } })
+server.post["/announce"] = { request in
+  let message = String(decoding: request.body, as: UTF8.self)
+  sessions.forEach { $0.writeText(message) }  // an HTTP handler can send to the sessions, too
+  return .ok(.text("sent to \(sessions.count) clients"))
+}
+```
+
+What the one thread cannot do is more than one thing at a time: a closure that takes a second delays all other
+messages and requests by a second, and a client that sends the beginning of a message and then stops delays the server
+until the ``NanoHTTPServerIO/Configuration/readTimeout`` has passed, after which its session is closed. Sessions are not
+subject to the idle timeout, but they count towards ``NanoHTTPServerIO/Configuration/maxConnections``.
+
 ### Messages and limits
 
 - Messages may arrive in several frames; the closures receive complete messages. Text must be valid UTF-8.

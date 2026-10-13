@@ -135,7 +135,7 @@ class SwifterTestsNanoHTTPRouter: XCTestCase {
     XCTAssertNotNil(router.route("GET", path: "/a/%3C%3E/%5E"))
   }
   
-  func testNanoHTTPRouterHandlesOverlappingPaths() {
+  func testNanoHTTPRouterHandlesOverlappingPaths() throws {
     let request = NanoHTTPRequest(method: "", path: "")
     let staticRouteExpectation = expectation(description: "Static Route")
     var foundStaticRoute = false
@@ -154,17 +154,17 @@ class SwifterTestsNanoHTTPRouter: XCTestCase {
     let staticRouteResult = router.route("GET", path: "a/b")
     let staticRouterHandler = staticRouteResult?.1
     XCTAssertNotNil(staticRouteResult)
-    _ = staticRouterHandler?(request)
+    _ = try staticRouterHandler?(request)
     let variableRouteResult = router.route("GET", path: "a/b/c")
     let variableRouterHandler = variableRouteResult?.1
     XCTAssertNotNil(variableRouteResult)
-    _ = variableRouterHandler?(request)
+    _ = try variableRouterHandler?(request)
     waitForExpectations(timeout: 10, handler: nil)
     XCTAssertTrue(foundStaticRoute)
     XCTAssertTrue(foundVariableRoute)
   }
   
-  func testNanoHTTPRouterHandlesOverlappingPathsInDynamicRoutes() {
+  func testNanoHTTPRouterHandlesOverlappingPathsInDynamicRoutes() throws {
     let request = NanoHTTPRequest(method: "", path: "")
     let firstVariableRouteExpectation = expectation(description: "First Variable Route")
     var foundFirstVariableRoute = false
@@ -183,17 +183,17 @@ class SwifterTestsNanoHTTPRouter: XCTestCase {
     let firstRouteResult = router.route("GET", path: "a/b")
     let firstRouterHandler = firstRouteResult?.1
     XCTAssertNotNil(firstRouteResult)
-    _ = firstRouterHandler?(request)
+    _ = try firstRouterHandler?(request)
     let secondRouteResult = router.route("GET", path: "a/b/c")
     let secondRouterHandler = secondRouteResult?.1
     XCTAssertNotNil(secondRouteResult)
-    _ = secondRouterHandler?(request)
+    _ = try secondRouterHandler?(request)
     waitForExpectations(timeout: 10, handler: nil)
     XCTAssertTrue(foundFirstVariableRoute)
     XCTAssertTrue(foundSecondVariableRoute)
   }
   
-  func testNanoHTTPRouterShouldHandleOverlappingRoutesInTrail() {
+  func testNanoHTTPRouterShouldHandleOverlappingRoutesInTrail() throws {
     let request = NanoHTTPRequest(method: "", path: "")
     let firstVariableRouteExpectation = expectation(description: "First Variable Route")
     var foundFirstVariableRoute = false
@@ -219,22 +219,22 @@ class SwifterTestsNanoHTTPRouter: XCTestCase {
     let firstRouteResult = router.route("GET", path: "/a")
     let firstRouterHandler = firstRouteResult?.1
     XCTAssertNotNil(firstRouteResult)
-    _ = firstRouterHandler?(request)
+    _ = try firstRouterHandler?(request)
     let secondRouteResult = router.route("GET", path: "/a/b")
     let secondRouterHandler = secondRouteResult?.1
     XCTAssertNotNil(secondRouteResult)
-    _ = secondRouterHandler?(request)
+    _ = try secondRouterHandler?(request)
     let thirdRouteResult = router.route("GET", path: "/a/b/b")
     let thirdRouterHandler = thirdRouteResult?.1
     XCTAssertNotNil(thirdRouteResult)
-    _ = thirdRouterHandler?(request)
+    _ = try thirdRouterHandler?(request)
     waitForExpectations(timeout: 10, handler: nil)
     XCTAssertTrue(foundFirstVariableRoute)
     XCTAssertTrue(foundSecondVariableRoute)
     XCTAssertTrue(foundThirdVariableRoute)
   }
   
-  func testNanoHTTPRouterHandlesOverlappingPathsInDynamicRoutesInTheMiddle() {
+  func testNanoHTTPRouterHandlesOverlappingPathsInDynamicRoutesInTheMiddle() throws {
     let request = NanoHTTPRequest(method: "", path: "")
     let firstVariableRouteExpectation = expectation(description: "First Variable Route")
     var foundFirstVariableRoute = false
@@ -253,11 +253,11 @@ class SwifterTestsNanoHTTPRouter: XCTestCase {
     let firstRouteResult = router.route("GET", path: "/a/b/c/d/e")
     let firstRouterHandler = firstRouteResult?.1
     XCTAssertNotNil(firstRouteResult)
-    _ = firstRouterHandler?(request)
+    _ = try firstRouterHandler?(request)
     let secondRouteResult = router.route("GET", path: "/a/b/f/g")
     let secondRouterHandler = secondRouteResult?.1
     XCTAssertNotNil(secondRouteResult)
-    _ = secondRouterHandler?(request)
+    _ = try secondRouterHandler?(request)
     waitForExpectations(timeout: 10, handler: nil)
     XCTAssertTrue(foundFirstVariableRoute)
     XCTAssertTrue(foundSecondVariableRoute)

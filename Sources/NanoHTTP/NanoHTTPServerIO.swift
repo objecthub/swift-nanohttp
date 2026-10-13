@@ -125,8 +125,10 @@ open class NanoHTTPServerIO {
       /// - A request that stalls half way (the pause is limited by ``readTimeout``), and a client that
       ///   does not read its response (``writeTimeout``), hold up the server up to that long. Choose
       ///   shorter timeouts than the defaults.
-      /// - A WebSocket session (or another socket session of ``NanoHTTPResponse/switchProtocols(_:_:)``)
-      ///   runs on the only thread until it ends: nothing else is served meanwhile.
+      /// - A message of a WebSocket (or of another ``NanoSocketSession``) is handled by the one thread, between
+      ///   other work, like a request: a closure that takes long delays everything, and a message that
+      ///   stalls half way delays the others up to the ``readTimeout``. A socket session in the form of a
+      ///   function (``NanoHTTPResponse/switchProtocols(_:_:)``) is different: it has the thread until it returns.
       ///
       /// ``connectionQoS`` has no effect.
       case singleThread
@@ -539,11 +541,33 @@ open class NanoHTTPServerIO {
     return false
   }
   
-  /// A connection of a single-thread server that waits for its next request.
+  /// A connection of a single-thread server that waits for its next request, or a session that waits for its
+  /// next message.
   private struct Waiting {
     let socket: NanoSocket
     /// When the connection is closed if it has not sent a request by then (uptime in nanoseconds).
-    let deadline: UInt64?
+    var deadline: UInt64?
+    /// The session that the connection has been turned over to, if it is not a connection that sends requests.
+    var session: NanoSocketSession?
+    /// Has the connection ended during this round of the loop?
+    var finished = false
+  }
+  
+  /// What happened to a connection that the single thread has served.
+  private enum Served {
+    case closed
+    case waiting
+    case session(NanoSocketSession)
+  }
+  
+  /// The session that a response has just turned a connection over to, until the loop of the single thread
+  /// has taken it over. Only used by the one thread.
+  private var adoptedSession: (socket: NanoSocket, session: NanoSocketSession)?
+  
+  /// Called by a connection of a server with one thread when its response switches to a session: the loop
+  /// waits for the socket and calls the session.
+  func adopt(session: NanoSocketSession, on socket: NanoSocket) {
+    self.adoptedSession = (socket, session)
   }
   
   private static func uptime() -> UInt64 {
@@ -568,9 +592,22 @@ open class NanoHTTPServerIO {
     // A connection that is gone before it is accepted must not make `accept` wait.
     listener.setNonBlocking(true)
     var waiting = [Waiting]()
+    defer {
+      // The server has stopped: the sessions are over, and are told so.
+      for entry in waiting where entry.session != nil && !entry.finished {
+        entry.session?.end()
+        entry.socket.close()
+        self.forget(socket: entry.socket)
+      }
+    }
     var failures = AcceptFailures()
     var refusing = false
     var acceptAgainAt: UInt64 = 0 // when to look at the listening socket again after a shortage
+    // What `poll` waits for: the listening socket first, then the sockets of `waiting`, in their order. It is
+    // built again only when connections have come or gone, not for every message.
+    let listenerDescriptor = listener.socketFileDescriptor
+    var pollers = [pollfd]()
+    var rebuild = true
     func deadline() -> UInt64? {
       guard let idle = configuration.idleTimeout, idle > 0 else {
         return nil
@@ -581,36 +618,62 @@ open class NanoHTTPServerIO {
       let begin = NanoHTTPServerIO.uptime()
       let accepting = begin >= acceptAgainAt
       // At most a tenth of a second, so that a stop is noticed, and not longer than the next deadline.
-      var wait = 0.1
+      var wait = 100_000_000 as UInt64 // nanoseconds
       for entry in waiting {
         if let due = entry.deadline {
-          wait = min(wait, due > begin ? Double(due - begin) / 1_000_000_000 : 0)
+          wait = min(wait, due > begin ? due - begin : 0)
         }
       }
       if !accepting {
-        wait = min(wait, Double(acceptAgainAt - begin) / 1_000_000_000)
+        wait = min(wait, acceptAgainAt - begin)
       }
-      let sockets = (accepting ? [listener] : []) + waiting.map { $0.socket }
-      let ready = NanoSocket.waitUntilReadable(sockets, timeout: wait)
-      let first = accepting ? 1 : 0
-      var stillWaiting = [Waiting]()
-      for (index, entry) in waiting.enumerated() {
-        if !self.isRunning(listener) {
-          break
-        }
-        if ready[first + index] {
-          if self.serve(entry.socket) {
-            stillWaiting.append(Waiting(socket: entry.socket, deadline: deadline()))
+      if rebuild {
+        pollers = [pollfd(fd: listenerDescriptor, events: Int16(POLLIN), revents: 0)]
+        pollers.append(contentsOf: waiting.map { pollfd(fd: $0.socket.socketFileDescriptor, events: Int16(POLLIN), revents: 0) })
+        rebuild = false
+      }
+      pollers[0].fd = accepting ? listenerDescriptor : -1 // a negative descriptor is ignored
+      // The sockets can be closed by other threads meanwhile (`stop`): at worst `poll` reports a socket that
+      // has nothing to read, and the read that follows fails.
+      let result = poll(&pollers, nfds_t(pollers.count), Int32(min(UInt64(Int32.max), (wait + 999_999) / 1_000_000)))
+      var removed = false
+      var index = 0
+      while index < waiting.count && self.isRunning(listener) {
+        let socket = waiting[index].socket
+        if (result > 0 && pollers[index + 1].revents != 0) || socket.isClosed {
+          if let session = waiting[index].session {
+            if !session.receive() {
+              session.end()
+              socket.close()
+              self.forget(socket: socket)
+              waiting[index].finished = true
+              removed = true
+            }
+          } else {
+            switch self.serve(socket) {
+              case .closed:
+                waiting[index].finished = true
+                removed = true
+              case .waiting:
+                waiting[index].deadline = deadline()
+              case .session(let session):
+                waiting[index].session = session
+                waiting[index].deadline = nil
+            }
           }
-        } else if let due = entry.deadline, NanoHTTPServerIO.uptime() >= due {
-          entry.socket.close() // sent nothing for too long
-          self.forget(socket: entry.socket)
-        } else {
-          stillWaiting.append(entry)
+        } else if let due = waiting[index].deadline, NanoHTTPServerIO.uptime() >= due {
+          socket.close() // sent nothing for too long
+          self.forget(socket: socket)
+          waiting[index].finished = true
+          removed = true
         }
+        index += 1
       }
-      waiting = stillWaiting
-      guard accepting && ready[0] && self.isRunning(listener) else {
+      if removed {
+        waiting.removeAll { $0.finished }
+        rebuild = true
+      }
+      guard accepting && result > 0 && pollers[0].revents != 0 && self.isRunning(listener) else {
         continue
       }
       acceptNew: for _ in 0..<64 {
@@ -619,7 +682,8 @@ open class NanoHTTPServerIO {
           case .accepted(let socket):
             self.acceptSucceeded(&failures)
             if self.admit(socket, configuration, refusing: &refusing, inline: true) {
-              waiting.append(Waiting(socket: socket, deadline: deadline()))
+              waiting.append(Waiting(socket: socket, deadline: deadline(), session: nil))
+              rebuild = true
             }
           case .wouldBlock:
             break acceptNew // nothing more to accept
@@ -638,13 +702,36 @@ open class NanoHTTPServerIO {
     }
   }
   
-  /// Reads the request that has arrived on `socket` and answers it. Returns whether the connection
-  /// stays open to wait for its next request.
-  private func serve(_ socket: NanoSocket) -> Bool {
+  /// Reads the request that has arrived on `socket` and answers it. Tells whether the connection stays open
+  /// to wait for its next request, or has been turned over to a session.
+  private func serve(_ socket: NanoSocket) -> Served {
     if let connection = NanoHTTPConnection(server: self, socket: socket) {
       self.handle(connection: connection)
     }
-    return !socket.isClosed
+    if let adopted = self.adoptedSession {
+      self.adoptedSession = nil
+      if adopted.socket === socket && !socket.isClosed {
+        return .session(adopted.session)
+      }
+      adopted.session.end() // its connection did not survive its start
+    }
+    return socket.isClosed ? .closed : .waiting
+  }
+  
+  /// The response for a request whose handler (or middleware) threw `error`.
+  ///
+  /// A ``NanoHTTPError`` is answered with its status code, headers and message. Every other error is
+  /// answered with `500 Internal Server Error` and no details, which are logged with the method and path of
+  /// the request: the description of an error (a database error, a file path) is nothing for the client.
+  /// Override to answer errors differently; ``NanoHTTPServer/errorHandler`` does that without subclassing.
+  ///
+  /// Called on the thread of the connection.
+  open func response(for error: Error, to request: NanoHTTPRequest) -> NanoHTTPResponse {
+    if let error = error as? NanoHTTPError {
+      return error.response
+    }
+    self.log("\(request.method) \(request.path) failed: \(error)")
+    return NanoHTTPError.internalServerError("Internal Server Error").response
   }
   
   /// Waits for `seconds`, but wakes up early when the server stops operating.
@@ -675,7 +762,7 @@ open class NanoHTTPServerIO {
   /// Override to wrap the handling (to measure the time of requests, for example) and call `super`.
   open func handle(connection: NanoHTTPConnection) {
     var connection = connection
-    while let next = connection.send(connection.handler(connection.request)) {
+    while let next = connection.send(connection.response()) {
       connection = next
     }
   }

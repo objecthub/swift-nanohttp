@@ -6,27 +6,58 @@ Look at every request before it is routed, and replace parts of the server by su
 
 ### Middleware
 
-``NanoHTTPServer/middleware`` is an array of functions that see every request before it is routed. A function
-that returns a response answers the request: the router and the handlers are not consulted. A function that
-returns `nil` lets the request pass to the next one, and finally to the router.
+``NanoHTTPServer/middleware`` is an array of functions that wrap the handling of every request. Each receives the
+request and `next`, which stands for the rest of the chain: the middleware after it, and finally the router and the
+handler. Calling `next(request)` lets the request through and returns the response, so a middleware can do something
+before and after the handler:
 
 ```swift
 let server = NanoHTTPServer()
-server.middleware.append { request in
+server.middleware.append { request, next in
   // Only requests with the right key get any further.
-  request.header("x-api-key") == "secret" ? nil : .unauthorized(.text("An API key is required"))
+  guard request.header("x-api-key") == "secret" else {
+    throw NanoHTTPError.unauthorized("An API key is required")
+  }
+  return try next(request)
 }
-server.middleware.append { request in
-  print("\(request.method) \(request.path) from \(request.address ?? "?")")   // logging
-  return nil
+server.middleware.append { request, next in
+  let start = Date()
+  var response = try next(request)                     // the rest of the chain
+  response.headers["X-Served-By"] = "nano"              // change the response
+  print("\(request.method) \(request.path) -> \(response.statusCode) in \(Date().timeIntervalSince(start)) s")
+  return response
 }
 ```
 
-Middleware runs on the threads of the connections, so it has to be thread-safe, and the array should be set up
-before the server starts. Middleware cannot change a response afterwards: it sees requests, not responses. To add
-a header to *all* responses, wrap the handlers you register or subclass the server (below).
+The first middleware of the array is the outermost: it sees the request first and the response last. A middleware can
 
-Information can be passed from middleware to handlers in ``NanoHTTPRequest/custom``.
+- answer the request itself and not call `next`, or throw a ``NanoHTTPError``,
+- change the request before it calls `next`: pass information to the handlers in ``NanoHTTPRequest/custom`` (the
+  user that a token belongs to), or rewrite ``NanoHTTPRequest/path``, because the request is routed after the middleware
+  has run,
+- change the response that `next` returns, and
+- catch the errors that the handler or later middleware throw.
+
+Middleware sees every request, also the ones that no route matches (and which get their `404` from the
+``NanoHTTPServer/notFoundHandler`` or the server). Because it runs before routing, the variables of the route
+(``NanoHTTPRequest/params``) are known only after `next` has returned.
+
+An error that is not caught is answered as for a handler (see <doc:HandlersAndResponses#Errors>). To turn the
+errors into a JSON response in one place, catch them in a middleware, or set ``NanoHTTPServer/errorHandler``:
+
+```swift
+let server = NanoHTTPServer()
+server.middleware.insert({ request, next in
+  do {
+    return try next(request)
+  } catch let error as NanoHTTPError {
+    return NanoHTTPResponse(statusCode: error.status, body: .json(["error": error.message ?? ""]))
+  }
+}, at: 0)
+```
+
+Middleware runs on the threads of the connections (on one thread if the server has only one), so it has to be
+thread-safe, and the array should be set up before the server starts.
 
 ### Subclassing
 
@@ -36,6 +67,7 @@ The server is built to be subclassed. These methods are `open`:
 |---|---|---|
 | ``NanoHTTPServerIO/dispatch(request:)`` | for every request | change how handlers are found (``NanoHTTPServer`` overrides it to run the middleware and the router) |
 | ``NanoHTTPServerIO/handle(connection:)`` | once per connection | wrap the handling of a connection, for example to measure its duration |
+| ``NanoHTTPServerIO/response(for:to:)`` | when a handler or middleware throws | decide how an error is answered (``NanoHTTPServer/errorHandler`` does this without subclassing) |
 | ``NanoHTTPServerIO/log(_:)`` | when the server reports something | send messages to your logger instead of the console |
 | ``NanoHTTPServerIO/listen()`` | when the server starts accepting | do something when the server is up (call `super`) |
 | ``NanoHTTPServerIO/stop()`` | when the server stops | do something when it stops (call `super`) |
@@ -74,6 +106,50 @@ final class ExampleHelloServer: NanoHTTPServerIO {
 }
 ```
 
+### Other protocols
+
+A response can turn a connection over to something that is not HTTP. ``NanoHTTPResponse/switchProtocols(_:session:)``
+takes a ``NanoSocketSession``, which the server drives: it calls the session when the socket has something to
+read, so that a server with one thread can serve many sessions and its other connections. That is how
+``websocket(text:binary:pong:connected:disconnected:maxMessageSize:)`` works, and the same is available for protocols of
+your own:
+
+```swift
+// file scope
+/// Answers every line with the same line in upper case, until it receives "bye".
+final class ExampleShoutingSession: NanoSocketSession {
+  private var socket: NanoSocket?
+
+  func start(socket: NanoSocket, drainTimeout: TimeInterval) {
+    self.socket = socket
+    try? socket.writeUTF8("HELLO\n")
+  }
+
+  func receive() -> Bool {
+    guard let socket, let line = try? socket.readLine() else {
+      return false                                  // the connection has ended
+    }
+    try? socket.writeUTF8(line.uppercased() + "\n")
+    return line != "bye"
+  }
+
+  func end() {
+    self.socket = nil
+  }
+}
+```
+
+```swift
+let server = NanoHTTPServer()
+server["/shout"] = { _ in
+  .switchProtocols(["Upgrade": "shout", "Connection": "Upgrade"], session: ExampleShoutingSession())
+}
+```
+
+``NanoHTTPResponse/switchProtocols(_:_:)`` with a function is the simpler variant, for a session that is written as a
+function that owns the connection until it returns. It occupies the thread of its connection; on a server with one
+thread, nothing else is served meanwhile.
+
 ### A delegate
 
 A ``NanoHTTPServerDelegate`` set as ``NanoHTTPServerIO/delegate`` is told when a connection has received its
@@ -87,6 +163,8 @@ for something else, for instance to match on patterns of another form. Routers h
 
 ## Topics
 
+- ``NanoHTTPMiddleware``
+- ``NanoSocketSession``
 - ``NanoHTTPServerIO``
 - ``NanoHTTPServerDelegate``
 - ``NanoHTTPConnection``

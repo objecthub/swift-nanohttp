@@ -29,6 +29,8 @@ SCENARIOS = {
   "10 MB response c=1":       ["/blob/10m", "-c", "1"],
   "POST 1 MB c=4":            ["/upload", "-c", "4", "--post", "1048576"],
   "close c=1, 50 idle conns": ["/ping", "-c", "1", "--idle", "50"],
+  "websocket echo c=1":       ["/ws", "-c", "1", "--ws"],
+  "websocket echo c=16":      ["/ws", "-c", "16", "--ws"],
 }
 
 COMMON = """
@@ -50,6 +52,7 @@ for name in ["1k", "100k", "1m", "10m"] {
   server.get["/blob/\\(name)"] = { _ in .ok(.data(blob, contentType: "application/octet-stream")) }
 }
 server.post["/upload"] = { request in .ok(.text("\\(request.body.count)")) }
+server["/ws"] = websocket(text: { session, text in session.writeText(text) })
 """
 
 # NanoHTTP 1.x: listenAddressIPv4 and the parameters of start(); "serial" is handlerPriority: nil
@@ -219,8 +222,16 @@ if __name__ == "__main__":
     for scenario in scenario_names:
         results = {name: [] for name in servers}
         for repeat in range(options.repeats):
-            for name, server in servers.items():
-                results[name].append(run_once(server, scenario, options.duration, options.warmup))
+            # The order alternates: a machine that slows down (or speeds up) during a repeat would otherwise
+            # favor the server that always runs first.
+            order = list(servers.items())
+            if repeat % 2 == 1:
+                order.reverse()
+            runs = {}
+            for name, server in order:
+                runs[name] = run_once(server, scenario, options.duration, options.warmup)
+            for name in servers:
+                results[name].append(runs[name])
         all_results[scenario] = results
         print_summary(scenario, results)
         sys.stdout.flush()

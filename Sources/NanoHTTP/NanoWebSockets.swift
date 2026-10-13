@@ -82,165 +82,221 @@ public func websocket(text: ((WebSocketSession, String) -> Void)? = nil,
                               headers: ["Sec-WebSocket-Version": "13"],
                               body: .text("Unsupported WebSocket version: \(request.header("sec-websocket-version") ?? "none")"))
     }
-    let protocolSessionClosure: ((NanoSocket) -> Void) = { socket in
-      let session = WebSocketSession(socket)
-      session.maxPayloadSize = maxMessageSize
-      var fragmentedOpCode = WebSocketSession.OpCode.close
-      var payload = [UInt8]() // Used for fragmented frames.
-      var closeCode: UInt16? = nil // The status code of the close frame of the client, if it has one.
-      
-      func ensureMessageFits(adding frame: WebSocketSession.Frame) throws {
-        if payload.count + frame.payload.count > maxMessageSize {
-          throw WebSocketSession.WsError.messageTooBig("Message exceeds \(maxMessageSize) bytes.")
-        }
-      }
-      
-      func handleTextPayload(_ frame: WebSocketSession.Frame) throws {
-        if let handleText = text {
-          if frame.fin {
-            if payload.count > 0 {
-              throw WebSocketSession.WsError.protocolError("Continuing fragmented frame cannot have an operation code.")
-            }
-            // Not `String(validatingUTF8:)`: that reads a C string and stops at the first NUL.
-            if let text = String(bytes: frame.payload, encoding: .utf8) {
-              handleText(session, text)
-            } else {
-              throw WebSocketSession.WsError.invalidUTF8("")
-            }
-          } else {
-            try ensureMessageFits(adding: frame)
-            payload.append(contentsOf: frame.payload)
-            fragmentedOpCode = .text
-          }
-        }
-      }
-      
-      func handleBinaryPayload(_ frame: WebSocketSession.Frame) throws {
-        if let handleBinary = binary {
-          if frame.fin {
-            if payload.count > 0 {
-              throw WebSocketSession.WsError.protocolError("Continuing fragmented frame cannot have an operation code.")
-            }
-            handleBinary(session, frame.payload)
-          } else {
-            try ensureMessageFits(adding: frame)
-            payload.append(contentsOf: frame.payload)
-            fragmentedOpCode = .binary
-          }
-        }
-      }
-      
-      func handleOperationCode(_ frame: WebSocketSession.Frame) throws {
-        switch frame.opcode {
-          case .continue:
-            // There is no message to continue, failed immediatelly.
-            if fragmentedOpCode == .close {
-              socket.close()
-            }
-            frame.opcode = fragmentedOpCode
-            if frame.fin {
-              try ensureMessageFits(adding: frame)
-              payload.append(contentsOf: frame.payload)
-              frame.payload = payload
-              // Clean the buffer.
-              payload = []
-              // Reset the OpCode.
-              fragmentedOpCode = WebSocketSession.OpCode.close
-            }
-            try handleOperationCode(frame)
-          case .text:
-            try handleTextPayload(frame)
-          case .binary:
-            try handleBinaryPayload(frame)
-          case .close:
-            // https://tools.ietf.org/html/rfc6455#section-5.5.1: no payload, or a status code (two
-            // bytes) with an optional reason.
-            if frame.payload.count == 1 {
-              throw WebSocketSession.WsError.protocolError("A close frame cannot have a payload of one byte.")
-            }
-            if frame.payload.count >= 2 {
-              let code = UInt16(frame.payload[0]) << 8 | UInt16(frame.payload[1])
-              guard WebSocketSession.isValidCloseCode(code) else {
-                throw WebSocketSession.WsError.protocolError("Invalid close code \(code).")
-              }
-              closeCode = code
-            }
-            throw WebSocketSession.Control.close
-          case .ping:
-            if frame.payload.count > 125 {
-              throw WebSocketSession.WsError.protocolError("Payload gretter than 125 octets.")
-            } else {
-              session.writeFrame(ArraySlice(frame.payload), .pong)
-            }
-          case .pong:
-            if let handlePong = pong {
-              handlePong(session, frame.payload)
-            }
-        }
-      }
-      
-      func read() throws {
-        while true {
-          let frame = try session.readFrame()
-          try handleOperationCode(frame)
-        }
-      }
-      
-      connected?(session)
-      
-      var failed = false
-      do {
-        try read()
-      } catch let error {
-        // The close frame tells the client why the connection ends (RFC 6455 7.4).
-        var code: UInt16? = nil
-        switch error {
-          case WebSocketSession.Control.close:
-            // Normal close: answer with the status code of the client.
-            code = closeCode
-          case WebSocketSession.WsError.unknownOpCode:
-            print("Unknown Op Code: \(error)")
-            code = WebSocketSession.CloseCode.protocolError
-          case WebSocketSession.WsError.unMaskedFrame:
-            print("Unmasked frame: \(error)")
-            code = WebSocketSession.CloseCode.protocolError
-          case WebSocketSession.WsError.invalidUTF8:
-            print("Invalid UTF8 character: \(error)")
-            code = WebSocketSession.CloseCode.invalidPayload
-          case WebSocketSession.WsError.messageTooBig:
-            print("Message too big: \(error)")
-            code = WebSocketSession.CloseCode.messageTooBig
-          case WebSocketSession.WsError.protocolError:
-            print("Protocol error: \(error)")
-            code = WebSocketSession.CloseCode.protocolError
-          default:
-            print("Unkown error \(error)")
-        }
-        // If an error occurs, send the close handshake.
-        if let code {
-          session.writeCloseFrame(code: code)
-        } else {
-          session.writeCloseFrame()
-        }
-        if case WebSocketSession.Control.close = error {} else {
-          failed = true
-        }
-      }
-      
-      disconnected?(session)
-      if failed {
-        // The client may still be sending (e.g. the rest of a refused frame): let it read our close
-        // frame instead of resetting the connection.
-        socket.closeAfterDraining()
-      }
-    }
+    let driver = WebSocketSessionDriver(text: text,
+                                        binary: binary,
+                                        pong: pong,
+                                        connected: connected,
+                                        disconnected: disconnected,
+                                        maxMessageSize: maxMessageSize)
     let secWebSocketAccept = String.toBase64((secWebSocketKey + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").sha1())
     let headers = [
       "Upgrade": "WebSocket",
       "Connection": "Upgrade",
       "Sec-WebSocket-Accept": secWebSocketAccept
     ]
-    return NanoHTTPResponse.switchProtocols(headers, protocolSessionClosure)
+    return NanoHTTPResponse.switchProtocols(headers, session: driver)
+  }
+}
+
+/// The part of a WebSocket connection that reads the frames of the client and calls the closures of
+/// ``websocket(text:binary:pong:connected:disconnected:maxMessageSize:)``: one message at a time, as the
+/// server tells it that the socket has something to read.
+final class WebSocketSessionDriver: NanoSocketSession {
+  private let text: ((WebSocketSession, String) -> Void)?
+  private let binary: ((WebSocketSession, [UInt8]) -> Void)?
+  private let pong: ((WebSocketSession, [UInt8]) -> Void)?
+  private let connected: ((WebSocketSession) -> Void)?
+  private let disconnected: ((WebSocketSession) -> Void)?
+  private let maxMessageSize: Int
+  
+  private var session: WebSocketSession?
+  private var drainTimeout: TimeInterval = 1
+  private var fragmentedOpCode = WebSocketSession.OpCode.close
+  private var payload = [UInt8]() // Used for fragmented frames.
+  private var closeCode: UInt16? = nil // The status code of the close frame of the client, if it has one.
+  private var failed = false
+  private var ended = false
+  
+  init(text: ((WebSocketSession, String) -> Void)?,
+       binary: ((WebSocketSession, [UInt8]) -> Void)?,
+       pong: ((WebSocketSession, [UInt8]) -> Void)?,
+       connected: ((WebSocketSession) -> Void)?,
+       disconnected: ((WebSocketSession) -> Void)?,
+       maxMessageSize: Int) {
+    self.text = text
+    self.binary = binary
+    self.pong = pong
+    self.connected = connected
+    self.disconnected = disconnected
+    self.maxMessageSize = maxMessageSize
+  }
+  
+  func start(socket: NanoSocket, drainTimeout: TimeInterval) {
+    let session = WebSocketSession(socket)
+    session.maxPayloadSize = self.maxMessageSize
+    self.session = session
+    self.drainTimeout = drainTimeout
+    self.connected?(session)
+  }
+  
+  /// Reads one frame (waiting for the rest of it for at most the read timeout) and handles it.
+  func receive() -> Bool {
+    guard let session, !self.ended else {
+      return false
+    }
+    do {
+      try self.handleOperationCode(try session.readFrame())
+      return true
+    } catch {
+      self.finish(with: error)
+      return false
+    }
+  }
+  
+  func end() {
+    guard let session, !self.ended else {
+      return
+    }
+    self.ended = true
+    self.disconnected?(session)
+    if self.failed {
+      // The client may still be sending (e.g. the rest of a refused frame): let it read our close
+      // frame instead of resetting the connection.
+      session.socket.closeAfterDraining(timeout: self.drainTimeout)
+    }
+  }
+  
+  private func ensureMessageFits(adding frame: WebSocketSession.Frame) throws {
+    if self.payload.count + frame.payload.count > self.maxMessageSize {
+      throw WebSocketSession.WsError.messageTooBig("Message exceeds \(self.maxMessageSize) bytes.")
+    }
+  }
+  
+  private func handleTextPayload(_ frame: WebSocketSession.Frame, _ session: WebSocketSession) throws {
+    if let handleText = self.text {
+      if frame.fin {
+        if self.payload.count > 0 {
+          throw WebSocketSession.WsError.protocolError("Continuing fragmented frame cannot have an operation code.")
+        }
+        // Not `String(validatingUTF8:)`: that reads a C string and stops at the first NUL.
+        if let text = String(bytes: frame.payload, encoding: .utf8) {
+          handleText(session, text)
+        } else {
+          throw WebSocketSession.WsError.invalidUTF8("")
+        }
+      } else {
+        try self.ensureMessageFits(adding: frame)
+        self.payload.append(contentsOf: frame.payload)
+        self.fragmentedOpCode = .text
+      }
+    }
+  }
+  
+  private func handleBinaryPayload(_ frame: WebSocketSession.Frame, _ session: WebSocketSession) throws {
+    if let handleBinary = self.binary {
+      if frame.fin {
+        if self.payload.count > 0 {
+          throw WebSocketSession.WsError.protocolError("Continuing fragmented frame cannot have an operation code.")
+        }
+        handleBinary(session, frame.payload)
+      } else {
+        try self.ensureMessageFits(adding: frame)
+        self.payload.append(contentsOf: frame.payload)
+        self.fragmentedOpCode = .binary
+      }
+    }
+  }
+  
+  private func handleOperationCode(_ frame: WebSocketSession.Frame) throws {
+    guard let session else {
+      return
+    }
+    switch frame.opcode {
+      case .continue:
+        // There is no message to continue, failed immediatelly.
+        if self.fragmentedOpCode == .close {
+          session.socket.close()
+        }
+        frame.opcode = self.fragmentedOpCode
+        if frame.fin {
+          try self.ensureMessageFits(adding: frame)
+          self.payload.append(contentsOf: frame.payload)
+          frame.payload = self.payload
+          // Clean the buffer.
+          self.payload = []
+          // Reset the OpCode.
+          self.fragmentedOpCode = WebSocketSession.OpCode.close
+        }
+        try self.handleOperationCode(frame)
+      case .text:
+        try self.handleTextPayload(frame, session)
+      case .binary:
+        try self.handleBinaryPayload(frame, session)
+      case .close:
+        // https://tools.ietf.org/html/rfc6455#section-5.5.1: no payload, or a status code (two
+        // bytes) with an optional reason.
+        if frame.payload.count == 1 {
+          throw WebSocketSession.WsError.protocolError("A close frame cannot have a payload of one byte.")
+        }
+        if frame.payload.count >= 2 {
+          let code = UInt16(frame.payload[0]) << 8 | UInt16(frame.payload[1])
+          guard WebSocketSession.isValidCloseCode(code) else {
+            throw WebSocketSession.WsError.protocolError("Invalid close code \(code).")
+          }
+          self.closeCode = code
+        }
+        throw WebSocketSession.Control.close
+      case .ping:
+        if frame.payload.count > 125 {
+          throw WebSocketSession.WsError.protocolError("Payload gretter than 125 octets.")
+        } else {
+          session.writeFrame(ArraySlice(frame.payload), .pong)
+        }
+      case .pong:
+        if let handlePong = self.pong {
+          handlePong(session, frame.payload)
+        }
+    }
+  }
+  
+  /// Tells the client why the connection ends (RFC 6455 7.4): the error decides the status code of the close
+  /// frame.
+  private func finish(with error: Error) {
+    guard let session else {
+      return
+    }
+    var code: UInt16? = nil
+    switch error {
+      case WebSocketSession.Control.close:
+        // Normal close: answer with the status code of the client.
+        code = self.closeCode
+      case WebSocketSession.WsError.unknownOpCode:
+        print("Unknown Op Code: \(error)")
+        code = WebSocketSession.CloseCode.protocolError
+      case WebSocketSession.WsError.unMaskedFrame:
+        print("Unmasked frame: \(error)")
+        code = WebSocketSession.CloseCode.protocolError
+      case WebSocketSession.WsError.invalidUTF8:
+        print("Invalid UTF8 character: \(error)")
+        code = WebSocketSession.CloseCode.invalidPayload
+      case WebSocketSession.WsError.messageTooBig:
+        print("Message too big: \(error)")
+        code = WebSocketSession.CloseCode.messageTooBig
+      case WebSocketSession.WsError.protocolError:
+        print("Protocol error: \(error)")
+        code = WebSocketSession.CloseCode.protocolError
+      default:
+        print("Unkown error \(error)")
+    }
+    // If an error occurs, send the close handshake.
+    if let code {
+      session.writeCloseFrame(code: code)
+    } else {
+      session.writeCloseFrame()
+    }
+    if case WebSocketSession.Control.close = error {} else {
+      self.failed = true
+    }
   }
 }
 

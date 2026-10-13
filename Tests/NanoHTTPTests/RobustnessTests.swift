@@ -90,12 +90,12 @@ final class DescriptorLeakTests: XCTestCase {
   /// A handler opens the file when it *builds* the response; the descriptor used to be closed only
   /// when the response was actually written. If the response is dropped (header write failed,
   /// server stopping, ...) the descriptor leaked because `String.File` had no `deinit`.
-  func testShareFileDoesNotLeakWhenResponseIsNeverWritten() {
+  func testShareFileDoesNotLeakWhenResponseIsNeverWritten() throws {
     let handler = share(file: self.fixture.helloFile)
     let request = NanoHTTPRequest(method: "GET", path: "/")
     let before = openFileDescriptorCount()
     for _ in 0..<50 {
-      _ = handler(request)
+      _ = try handler(request)
     }
     XCTAssertLessThan(openFileDescriptorCount() - before, 5)
   }
@@ -107,7 +107,7 @@ final class DescriptorLeakTests: XCTestCase {
     let before = openFileDescriptorCount()
     for _ in 0..<50 {
       for handler in handlers {
-        XCTAssertEqual(handler(request).statusCode, 200)
+        XCTAssertEqual(try handler(request).statusCode, 200)
       }
     }
     XCTAssertLessThan(openFileDescriptorCount() - before, 5)
@@ -118,7 +118,7 @@ final class DescriptorLeakTests: XCTestCase {
     let request = NanoHTTPRequest(method: "GET", path: "/")
     let before = openFileDescriptorCount()
     for _ in 0..<50 {
-      XCTAssertEqual(handler(request).capturedBody(), "hello")
+      XCTAssertEqual(try handler(request).capturedBody(), "hello")
     }
     XCTAssertLessThan(openFileDescriptorCount() - before, 5)
   }

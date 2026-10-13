@@ -64,9 +64,13 @@ pool): connections have threads of their own now, and there are idle/read/write 
 (`TimeoutTests.swift`: `RequestTimeoutTests`, `WriteTimeoutTests`, `ConnectionLimitTests`; the idle-connection test in
 `RobustnessTests.swift` is a plain test again). `SingleThreadTests.swift` covers the one-thread mode: all code runs on
 one thread, handlers need no locks (plain variables; the thread sanitizer is the judge), the process gets no thread
-per connection, idle and keep-alive connections do not block others, timeouts, limits, `run(_:)`; **W3** (a WebSocket
-session occupies the only thread) is a known issue. The tests of `ConfigurationTests.swift` cover the listen address
-(loopback by default) and the `Configuration` object. The timeout tests wait for real time (the suite takes ~25 s). `ThreadPoolTests.swift` covers the pool that reuses the
+per connection, idle and keep-alive connections do not block others, timeouts, limits, `run(_:)`.
+`SocketSessionTests.swift` covers WebSockets on the one thread (**W3**, fixed: sessions are driven by the server;
+chat and broadcast without locks, close handshake, protocol errors, stalls, `stop()`, limits) and the
+`NanoSocketSession` protocol in both modes. The tests of `ConfigurationTests.swift` cover the listen address
+(loopback by default) and the `Configuration` object. The timeout tests wait for real time (the suite takes ~25 s). `HandlerErrorTests.swift` (`NanoHTTPError`, the `500` without details, `errorHandler`, errors on a one-thread server) and
+`MiddlewareTests.swift` (order, short-circuit, response changes, errors, requests without a route, rewriting the
+path, one thread) cover step 2 of the 2.0 plan. `ThreadPoolTests.swift` covers the pool that reuses the
 threads of connections (reuse, no limit for the number of threads, idle lifetime, `close`, exactly-once execution).
 Performance is not tested by the suite: `Benchmarks/` is the tool for that.
 

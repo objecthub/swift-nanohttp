@@ -56,7 +56,7 @@ final class SingleThreadTests: XCTestCase {
   func testMiddlewareHandlersAndTheNotFoundHandlerRunOnTheSameThread() throws {
     let log = ThreadLog()
     try serve(configure: { server in
-      server.middleware.append { _ in log.record(); return nil }
+      server.middleware.append { request, next in log.record(); return try next(request) }
       server.get["/ping"] = { _ in log.record(); return .ok(.text("pong")) }
       server.notFoundHandler = { _ in log.record(); return .notFound() }
       server.post["/echo"] = { request in log.record(); return .ok(.data(Data(request.body), contentType: "text/plain")) }

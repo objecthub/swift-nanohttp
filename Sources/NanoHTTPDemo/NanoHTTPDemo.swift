@@ -72,7 +72,7 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
     return .ok(headers: ["XXX-Custom-Header" : "value"], .htmlBody("You asked for " + $0.path.htmlEscaped))
   }
   server["/test/:param1/:param2", "/pathTest/::param/end"] = { request in
-    htmlHandler {
+    try htmlHandler {
       html {
         body {
           h3 { inner = "Address: \(request.address ?? "unknown")".htmlEscaped }
@@ -221,9 +221,9 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
   server.notFoundHandler = { _ in
     return .movedPermanently("https://github.com/404")
   }
-  server.middleware.append { request in
+  server.middleware.append { request, next in
     server.log("Middleware: \(request.address ?? "unknown address") -> \(request.method) \(request.path)")
-    return nil
+    return try next(request)
   }
   return server
 }

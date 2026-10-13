@@ -11,19 +11,19 @@ import XCTest
 
 final class HTMLDSLTests: XCTestCase {
 
-  private func render(_ scope: @escaping NanoHTMLClosure) -> String {
-    return htmlHandler(scope)(NanoHTTPRequest(method: "GET", path: "/")).capturedBody()
+  private func render(_ scope: @escaping NanoHTMLClosure) throws -> String {
+    return try htmlHandler(scope)(NanoHTTPRequest(method: "GET", path: "/")).capturedBody()
   }
 
-  func testResponseIsAnHTMLDocument() {
-    let response = htmlHandler { body { p { inner = "x" } } }(NanoHTTPRequest(method: "GET", path: "/"))
+  func testResponseIsAnHTMLDocument() throws {
+    let response = try htmlHandler { body { p { inner = "x" } } }(NanoHTTPRequest(method: "GET", path: "/"))
     XCTAssertEqual(response.statusCode, 200)
     XCTAssertEqual(response.allHeaders()["Content-Type"], "text/html; charset=utf-8")
     XCTAssertTrue(response.capturedBody().hasPrefix("<!DOCTYPE html>"))
   }
 
-  func testNestedElementsAndInnerText() {
-    let html = render {
+  func testNestedElementsAndInnerText() throws {
+    let html = try render {
       html {
         body {
           h1 { inner = "Title" }
@@ -34,8 +34,8 @@ final class HTMLDSLTests: XCTestCase {
     XCTAssertEqual(html, "<!DOCTYPE html><html><body><h1>Title</h1><div><p>one</p><p>two</p></div></body></html>")
   }
 
-  func testAttributesAreRenderedOnTheirOwnElementOnly() {
-    let html = render {
+  func testAttributesAreRenderedOnTheirOwnElementOnly() throws {
+    let html = try render {
       div {
         a { href = "/x"; inner = "link" }
         p { inner = "plain" } // must not inherit href from the sibling
@@ -44,8 +44,8 @@ final class HTMLDSLTests: XCTestCase {
     XCTAssertEqual(html, "<!DOCTYPE html><div><a href=\"/x\">link</a><p>plain</p></div>")
   }
 
-  func testAttributesDoNotLeakIntoNestedOrFollowingElements() {
-    let html = render {
+  func testAttributesDoNotLeakIntoNestedOrFollowingElements() throws {
+    let html = try render {
       div {
         classs = "outer"
         span { inner = "inside" }
@@ -55,8 +55,8 @@ final class HTMLDSLTests: XCTestCase {
     XCTAssertEqual(html, "<!DOCTYPE html><div class=\"outer\"><span>inside</span></div><p>after</p>")
   }
 
-  func testSequenceHelpers() {
-    let html = render {
+  func testSequenceHelpers() throws {
+    let html = try render {
       ul(["a", "b", "c"]) { item in
         li { inner = item }
       }
@@ -64,15 +64,15 @@ final class HTMLDSLTests: XCTestCase {
     XCTAssertEqual(html, "<!DOCTYPE html><ul><li>a</li><li>b</li><li>c</li></ul>")
   }
 
-  func testCustomAttributesViaElement() {
-    let html = render {
+  func testCustomAttributesViaElement() throws {
+    let html = try render {
       element("section", ["data-id": "7", "hidden": nil]) { inner = "s" }
     }
     XCTAssertEqual(html, "<!DOCTYPE html><section data-id=\"7\">s</section>")
   }
 
-  func testVoidElementsHaveNoClosingTag() {
-    let html = render {
+  func testVoidElementsHaveNoClosingTag() throws {
+    let html = try render {
       p { inner = "a" }
       br {}
     }
@@ -82,8 +82,8 @@ final class HTMLDSLTests: XCTestCase {
   }
 
   /// Output must not depend on dictionary iteration order.
-  func testAttributeOrderIsDeterministic() {
-    let outputs = Set((0..<20).map { _ in renderInputWithManyAttributes() })
+  func testAttributeOrderIsDeterministic() throws {
+    let outputs = Set(try (0..<20).map { _ in try renderInputWithManyAttributes() })
     expectKnownIssue("N3", "attributes are emitted in Dictionary order, which differs between runs", strict: false) {
       XCTAssertEqual(outputs.count, 1, "got \(outputs.count) different renderings")
     }
@@ -95,9 +95,9 @@ final class HTMLDSLTests: XCTestCase {
     let lock = NSLock()
     var mismatches = 0
     DispatchQueue.concurrentPerform(iterations: 4000) { index in
-      let html = render {
+      let html = (try? render {
         div { a { href = "/u/\(index)"; inner = "link-\(index)" } }
-      }
+      }) ?? ""
       if html != "<!DOCTYPE html><div><a href=\"/u/\(index)\">link-\(index)</a></div>" {
         lock.lock(); mismatches += 1; lock.unlock()
       }
@@ -109,7 +109,7 @@ final class HTMLDSLTests: XCTestCase {
     try withTestServer(configure: { server in
       server.get["/page/:n"] = { request in
         let number = request.params["n"] ?? "?"
-        return htmlHandler {
+        return try htmlHandler {
           div {
             h1 { inner = "page \(number)" }
             a { href = "/page/\(number)"; classs = "c\(number)"; inner = "link \(number)" }
@@ -134,13 +134,13 @@ final class HTMLDSLTests: XCTestCase {
   func testNestedRenderingOnTheSameThreadDoesNotDeadlock() {
     let outer = htmlHandler {
       div {
-        _ = htmlHandler { p { inner = "nested" } }(NanoHTTPRequest(method: "GET", path: "/"))
+        _ = try? htmlHandler { p { inner = "nested" } }(NanoHTTPRequest(method: "GET", path: "/"))
         inner = "outer"
       }
     }
     // The lock is recursive: this must return. (What the nested call does to the outer document
     // is not specified.)
-    XCTAssertEqual(outer(NanoHTTPRequest(method: "GET", path: "/")).statusCode, 200)
+    XCTAssertEqual(try outer(NanoHTTPRequest(method: "GET", path: "/")).statusCode, 200)
   }
 }
 
@@ -148,8 +148,8 @@ final class HTMLDSLTests: XCTestCase {
 /// `name` and `value` resolve to `XCTestCase.name` / `NSObject.value(forKey:)` and do not even
 /// compile (finding N2: the DSL's ~150 module-level variables clash with member names of any
 /// enclosing type, e.g. a SwiftUI `View` with a `title`, or an `NSObject` subclass).
-private func renderInputWithManyAttributes() -> String {
-  return htmlHandler {
+private func renderInputWithManyAttributes() throws -> String {
+  return try htmlHandler {
     input { type = "text"; name = "n"; placeholder = "p"; value = "v" }
   }(NanoHTTPRequest(method: "GET", path: "/")).capturedBody()
 }

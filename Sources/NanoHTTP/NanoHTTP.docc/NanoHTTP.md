@@ -42,6 +42,8 @@ many hostile clients; <doc:SecurityAndLimits> says what to take care of.
 - ``NanoHTTPRequest``
 - ``NanoHTTPResponse``
 - ``NanoHTTPRequestHandler``
+- ``NanoHTTPMiddleware``
+- ``NanoHTTPError``
 - ``NanoHTTPResponseBodyWriter``
 - ``NanoHTTPParser``
 - ``NanoHTTPParserError``
@@ -64,6 +66,7 @@ many hostile clients; <doc:SecurityAndLimits> says what to take care of.
 - <doc:WebSockets>
 - ``websocket(text:binary:pong:connected:disconnected:maxMessageSize:)``
 - ``WebSocketSession``
+- ``NanoSocketSession``
 
 ### Web pages
 

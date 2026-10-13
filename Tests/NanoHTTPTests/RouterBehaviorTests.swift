@@ -24,64 +24,64 @@ final class RouterBehaviorTests: XCTestCase {
   }
 
   /// Routes `path` and returns the label of the matched handler plus the captured parameters.
-  private func match(_ method: String, _ path: String) -> (label: String, params: [String: String])? {
+  private func match(_ method: String, _ path: String) throws -> (label: String, params: [String: String])? {
     guard let (params, handler) = self.router.route(method, path: path) else {
       return nil
     }
-    return (handler(NanoHTTPRequest(method: method, path: path)).capturedBody(), params)
+    return (try handler(NanoHTTPRequest(method: method, path: path)).capturedBody(), params)
   }
 
   func testMethodSpecificRouteWinsOverAnyMethodRoute() {
     self.router.register(nil, path: "/x", handler: handler("any"))
     self.router.register("POST", path: "/x", handler: handler("post"))
-    XCTAssertEqual(match("POST", "/x")?.label, "post")
-    XCTAssertEqual(match("GET", "/x")?.label, "any")
-    XCTAssertEqual(match("DELETE", "/x")?.label, "any")
+    XCTAssertEqual(try match("POST", "/x")?.label, "post")
+    XCTAssertEqual(try match("GET", "/x")?.label, "any")
+    XCTAssertEqual(try match("DELETE", "/x")?.label, "any")
   }
 
   func testMethodSpecificRouteDoesNotAnswerOtherMethods() {
     self.router.register("GET", path: "/x", handler: handler("get"))
-    XCTAssertNil(match("POST", "/x"))
+    XCTAssertNil(try match("POST", "/x"))
   }
 
   func testStaticSegmentBeatsVariableAndRoutingBacktracks() {
     self.router.register(nil, path: "/a/b/c", handler: handler("static"))
     self.router.register(nil, path: "/a/:v/d", handler: handler("variable"))
-    XCTAssertEqual(match("GET", "/a/b/c")?.label, "static")
-    XCTAssertEqual(match("GET", "/a/b/d")?.label, "variable") // static branch fails, backtrack
-    XCTAssertEqual(match("GET", "/a/b/d")?.params, ["v": "b"])
+    XCTAssertEqual(try match("GET", "/a/b/c")?.label, "static")
+    XCTAssertEqual(try match("GET", "/a/b/d")?.label, "variable") // static branch fails, backtrack
+    XCTAssertEqual(try match("GET", "/a/b/d")?.params, ["v": "b"])
   }
 
   func testNamedVariableValuesArePercentDecoded() {
     self.router.register(nil, path: "/u/:name", handler: handler("u"))
-    XCTAssertEqual(match("GET", "/u/J%C3%BCrgen%20M")?.params["name"], "Jürgen M")
+    XCTAssertEqual(try match("GET", "/u/J%C3%BCrgen%20M")?.params["name"], "Jürgen M")
   }
 
   func testPathVariableCapturesRemainingSegmentsUndecoded() {
     self.router.register(nil, path: "/files/::rest", handler: handler("files"))
-    XCTAssertEqual(match("GET", "/files/a/b%20c/d.txt")?.params["rest"], "a/b%20c/d.txt")
+    XCTAssertEqual(try match("GET", "/files/a/b%20c/d.txt")?.params["rest"], "a/b%20c/d.txt")
   }
 
   func testPathVariableMayBeEmpty() {
     self.router.register(nil, path: "/files/::rest", handler: handler("files"))
-    XCTAssertEqual(match("GET", "/files")?.params["rest"], "")
-    XCTAssertEqual(match("GET", "/files/")?.params["rest"], "")
+    XCTAssertEqual(try match("GET", "/files")?.params["rest"], "")
+    XCTAssertEqual(try match("GET", "/files/")?.params["rest"], "")
   }
 
   func testTrailingAndDuplicateSlashesAreIgnored() {
     self.router.register(nil, path: "/a/b", handler: handler("ab"))
-    XCTAssertNotNil(match("GET", "/a/b/"))
-    XCTAssertNotNil(match("GET", "//a///b"))
+    XCTAssertNotNil(try match("GET", "/a/b/"))
+    XCTAssertNotNil(try match("GET", "//a///b"))
   }
 
   func testUndecodablePercentSequenceDoesNotMatch() {
     self.router.register(nil, path: "/a/:v", handler: handler("v"))
-    XCTAssertNil(match("GET", "/a/%zz"))
+    XCTAssertNil(try match("GET", "/a/%zz"))
   }
 
   func testQueryStringInRoutedPathIsIgnored() {
     self.router.register(nil, path: "/a", handler: handler("a"))
-    XCTAssertNotNil(match("GET", "/a?x=1"))
+    XCTAssertNotNil(try match("GET", "/a?x=1"))
   }
 
   /// DECISION (finding H8): a `:var` / `*` placeholder also matches a *missing* trailing segment.
@@ -89,8 +89,8 @@ final class RouterBehaviorTests: XCTestCase {
   /// Pinned as-is; decide when the router is touched.
   func testSingleSegmentVariableMatchesMissingTrailingSegment_currentBehavior() {
     self.router.register(nil, path: "/users/:id", handler: handler("user"))
-    XCTAssertEqual(match("GET", "/users")?.params, ["id": ""])
-    XCTAssertEqual(match("GET", "/users/")?.params, ["id": ""])
+    XCTAssertEqual(try match("GET", "/users")?.params, ["id": ""])
+    XCTAssertEqual(try match("GET", "/users/")?.params, ["id": ""])
   }
 
   func testRoutesListsRegisteredPatterns() {
@@ -104,7 +104,7 @@ final class RouterBehaviorTests: XCTestCase {
   func testUnregisteringAHandler() {
     self.router.register(nil, path: "/a", handler: handler("a"))
     self.router.register(nil, path: "/a", handler: nil)
-    XCTAssertNil(match("GET", "/a"))
+    XCTAssertNil(try match("GET", "/a"))
   }
 
   func testMergeMountsASubRouterUnderAPrefix() throws {
@@ -112,9 +112,9 @@ final class RouterBehaviorTests: XCTestCase {
     sub.register("GET", path: "/items/:id", handler: handler("item"))
     sub.register(nil, path: "/", handler: handler("root"))
     try self.router.merge(sub, withPrefix: "/api/v1")
-    XCTAssertEqual(match("GET", "/api/v1/items/7")?.params, ["id": "7"])
-    XCTAssertEqual(match("GET", "/api/v1")?.label, "root")
-    XCTAssertNil(match("GET", "/items/7"))
+    XCTAssertEqual(try match("GET", "/api/v1/items/7")?.params, ["id": "7"])
+    XCTAssertEqual(try match("GET", "/api/v1")?.label, "root")
+    XCTAssertNil(try match("GET", "/items/7"))
   }
 
   func testMergeCopiesInsteadOfSharingSubRouterState() throws {
@@ -122,7 +122,7 @@ final class RouterBehaviorTests: XCTestCase {
     sub.register(nil, path: "/a", handler: handler("first"))
     try self.router.merge(sub, withPrefix: "/p")
     sub.register(nil, path: "/a", handler: handler("second")) // later change to the sub-router
-    XCTAssertEqual(match("GET", "/p/a")?.label, "first")
+    XCTAssertEqual(try match("GET", "/p/a")?.label, "first")
   }
 
   func testServerUseMountsSubRouter() throws {

@@ -5,7 +5,8 @@ Answer requests with text, JSON, bytes, redirects or streamed content.
 ## Overview
 
 A handler is a function ``NanoHTTPRequestHandler``: it takes a ``NanoHTTPRequest`` and returns a
-``NanoHTTPResponse``, which consists of a status code, headers and a body.
+``NanoHTTPResponse``, which consists of a status code, headers and a body. A handler can throw, see
+<doc:HandlersAndResponses#Errors>.
 
 ### Creating responses
 
@@ -24,6 +25,46 @@ server.get["/teapot"] = { _ in NanoHTTPResponse(statusCode: 418, body: "short an
 
 `.ok`, `.badRequest`, `.notFound` and the other helpers take optional `headers` and a body; a string literal
 is a text body. ``NanoHTTPResponse/init(statusCode:headers:body:)`` creates a response with any status.
+
+### Errors
+
+A handler that cannot answer a request can throw instead of building an error response. A ``NanoHTTPError``
+becomes the response with its status code, its headers and, as a plain text body, its message:
+
+```swift
+let server = NanoHTTPServer()
+server.get["/items/:id"] = { request in
+  guard let id = Int(request.params["id"] ?? "") else {
+    throw NanoHTTPError.badRequest("The id is not a number")           // 400
+  }
+  guard id < 100 else {
+    throw NanoHTTPError.notFound("There is no item \(id)")            // 404
+  }
+  return .ok(.text("Item \(id)"))
+}
+server.get["/admin"] = { _ in
+  throw NanoHTTPError.unauthorized(wwwAuthenticate: "Basic realm=\"admin\"")
+}
+server.get["/limit"] = { _ in throw NanoHTTPError.tooManyRequests("Slow down", retryAfter: 30) }
+server.get["/other"] = { _ in throw NanoHTTPError(status: 418, message: "short and stout") }
+```
+
+Every other error that a handler throws is answered with `500 Internal Server Error` and the text
+`Internal Server Error`. The details of the error are logged (with the method and path of the request), not sent to
+the client: the description of a database error or of a missing file tells an attacker more than it should. To
+decide differently, set ``NanoHTTPServer/errorHandler``, for example to answer all errors as JSON:
+
+```swift
+let server = NanoHTTPServer()
+server.errorHandler = { error, request in
+  guard let error = error as? NanoHTTPError else {
+    return nil                                      // leave all other errors to the default
+  }
+  return NanoHTTPResponse(statusCode: error.status, body: .json(["error": error.message ?? ""]))
+}
+```
+
+Middleware can catch errors as well, see <doc:MiddlewareAndExtending>.
 
 ### Bodies
 
@@ -101,4 +142,5 @@ a file); otherwise it closes the connection after the response, without announci
 - ``NanoHTTPResponse``
 - ``NanoHTTPResponse/Body``
 - ``NanoHTTPRequestHandler``
+- ``NanoHTTPError``
 - ``NanoHTTPResponseBodyWriter``

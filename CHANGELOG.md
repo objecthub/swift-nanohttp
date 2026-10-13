@@ -9,6 +9,15 @@ All notable changes to this project are documented in this file. The format is b
 Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says how to move from 1.x.
 
 ### Changed
+- **Breaking: handlers can throw.** `NanoHTTPRequestHandler` is `(NanoHTTPRequest) throws -> NanoHTTPResponse`.
+  Closures that do not throw still work; code that calls a handler needs `try`. A server whose
+  `handle(connection:)` calls `connection.handler(connection.request)` has to call `try` or use the new
+  `connection.response()`.
+- **Breaking: middleware wraps the handling of requests.** `server.middleware` is `[NanoHTTPMiddleware]`, functions
+  `(request, next) throws -> response` that can change the request, the response and the errors, or answer without
+  calling `next`. A 1.x middleware `{ request in cond ? nil : response }` becomes
+  `{ request, next in cond ? try next(request) : response }`. Middleware still runs before routing; it sees every
+  request, including those without a route, and the responses.
 - **Breaking: servers listen at the loopback address (`127.0.0.1`) by default.** They accepted connections on all
   network interfaces. A server that other devices are meant to reach needs
   `server.configuration.listenAddress = .allInterfaces`. The command-line demo is reachable from this machine only
@@ -32,6 +41,21 @@ Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says 
   "connection closed by peer" instead of "Undefined error: 0".
 
 ### Added
+- **`NanoSocketSession`**: a conversation over a connection that has been switched away from HTTP, which the
+  server drives: it calls `start`, then `receive()` whenever the socket has something to read, and `end`.
+  `NanoHTTPResponse.switchProtocols(_:session:)` (and the new case `NanoHTTPResponse.Body.session`) turns a
+  connection over to one. A server with threads per connection runs the session on the thread of the connection; a
+  server with one thread waits for the sockets of all sessions together with all its other connections, so
+  `websocket(...)` and sessions of your own no longer occupy the only thread (W3). The WebSocket protocol logic of
+  `websocket(...)` is such a session now. `switchProtocols(_:_:)` with a function still exists; on a server with
+  one thread, the function has the thread until it returns.
+- **Errors** (step 2 of 2.0): `NanoHTTPError`, which a handler or middleware throws to answer with a status code,
+  headers and a message (`throw NanoHTTPError.notFound("No such item")`), with a function for every usual status.
+  Any other error becomes `500 Internal Server Error` without details; the details are logged with the method and
+  path. `NanoHTTPServer.errorHandler` decides how errors are answered (for JSON errors, say), and
+  `NanoHTTPServerIO.response(for:to:)` can be overridden. `NanoHTTPConnection.response()` calls the handler and
+  answers its errors.
+- `NanoHTTPMiddleware`: the type of middleware, see below.
 - `Benchmarks/`: `python3 Benchmarks/run.py` compares the throughput, latency and CPU use of the working copy
   with a release (default: 1.0.2), with paired runs so that machine noise does not decide; see
   `Benchmarks/README.md`.
@@ -41,8 +65,10 @@ Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says 
   and returns when the server is stopped (it is also available with threads per connection, where it accepts
   connections on the calling thread). The thread waits for the listening socket and all connections together, so
   idle and keep-alive connections do not block anything, and idle connections are closed after the idle timeout.
-  Limits: a slow handler delays everything, a stalled request or a client that does not read delays the server up to
-  the read or write timeout, and a WebSocket session occupies the thread until it ends.
+  WebSockets work on the one thread too (see `NanoSocketSession` below): their closures, the handlers and the
+  middleware never run at the same time, so a chat needs no lock, not even when HTTP handlers write to the sessions.
+  Limits: a slow handler or closure delays everything, and a stalled request or message, or a client that does
+  not read, delays the server up to the read or write timeout.
 - **Timeouts and a limit for connections** (R3), in `NanoHTTPServerIO.Configuration`: `idleTimeout` (60 s; a
   connection that sends no request is closed), `readTimeout` (30 s; a request that stalls is answered with
   `408 Request Timeout`), `writeTimeout` (30 s; a peer that does not read is dropped) and `maxConnections` (128;

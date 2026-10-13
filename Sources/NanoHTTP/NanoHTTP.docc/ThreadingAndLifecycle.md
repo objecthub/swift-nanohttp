@@ -94,8 +94,9 @@ What blocks the thread does block the server:
 - A slow handler delays every other request.
 - A request that stalls half way delays the others for up to the `readTimeout`, and a client that does not read its
   response for up to the `writeTimeout` (30 seconds each by default): lower them for a server like this.
-- A WebSocket session runs on the only thread until it ends, and nothing else is served meanwhile. Servers that use
-  WebSockets next to other requests need threads per connection.
+- The messages of WebSockets are handled by the one thread as well, one at a time between other work: a closure that
+  takes long delays everything, and a message that stalls half way delays the server up to the `readTimeout`. See
+  <doc:WebSockets#On-a-server-with-one-thread>.
 
 ```swift
 let server = NanoHTTPServer()

@@ -53,8 +53,8 @@ final class HTTPProtocolTests: XCTestCase {
   func testMiddlewareCanShortCircuitTheRequest() throws {
     try withTestServer(configure: { server in
       server.get["/secret"] = { _ in .ok(.text("secret")) }
-      server.middleware.append { request in
-        request.header("x-token") == "ok" ? nil : .unauthorized(.text("denied"))
+      server.middleware.append { request, next in
+        request.header("x-token") == "ok" ? try next(request) : .unauthorized(.text("denied"))
       }
     }) { _, port in
       XCTAssertEqual(try RawClient.get("/secret", port: port).status, 401)

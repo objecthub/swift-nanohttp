@@ -35,9 +35,19 @@ import Foundation
 
 /// A function that answers a request. It runs on the thread of the connection that sent the request,
 /// one request at a time per connection, and many handlers run at the same time for different
-/// connections. A handler may block (a slow handler delays only its own connection) but must protect
-/// state that it shares with other handlers.
-public typealias NanoHTTPRequestHandler = (NanoHTTPRequest) -> NanoHTTPResponse
+/// connections (unless the server has only one thread). A handler may block (a slow handler delays only
+/// its own connection) but must protect state that it shares with other handlers.
+///
+/// A handler can throw. A ``NanoHTTPError`` becomes the response with its status code; every other error
+/// becomes `500 Internal Server Error`, see ``NanoHTTPServerIO/response(for:to:)``.
+public typealias NanoHTTPRequestHandler = (NanoHTTPRequest) throws -> NanoHTTPResponse
+
+/// A function that wraps the handling of requests, see ``NanoHTTPServer/middleware``. It receives the
+/// request and `next`, which stands for the rest of the chain: the following middleware, the router and
+/// the handler. Calling `next(request)` lets the request through and gives the response; a middleware
+/// may change the request before, change the response afterwards, catch an error that `next` throws, or
+/// answer the request itself and never call `next`.
+public typealias NanoHTTPMiddleware = (NanoHTTPRequest, NanoHTTPRequestHandler) throws -> NanoHTTPResponse
 
 /// A request that has been read from a connection, together with the handler that will answer it.
 /// ``NanoHTTPServerIO/handle(connection:)`` drives the connection with it: `send(_:)` writes the
@@ -101,6 +111,20 @@ public struct NanoHTTPConnection {
     return self.parser.socket
   }
   
+  /// Calls the handler of the request, and returns its response. If the handler throws an error, the
+  /// server decides what the response is (``NanoHTTPServerIO/response(for:to:)``): the response of a
+  /// ``NanoHTTPError``, or `500 Internal Server Error`.
+  public func response() -> NanoHTTPResponse {
+    do {
+      return try self.handler(self.request)
+    } catch {
+      guard let server else {
+        return NanoHTTPError.internalServerError("Internal Server Error").response
+      }
+      return server.response(for: error, to: self.request)
+    }
+  }
+  
   /// Writes `response`, then waits for the next request of the connection.
   ///
   /// The connection stays open if the client asked for it with `Connection: keep-alive`, the response
@@ -127,11 +151,24 @@ public struct NanoHTTPConnection {
     } catch {
       server.log("Failed to send response: \(error)")
     }
-    if let session = response.socketSession() {
+    if let session = response.eventSession() {
+      // A WebSocket may be silent for hours: the server waits for the next message without a limit, and the
+      // session reads what has begun to arrive with the read timeout.
+      socket.setReceiveTimeout(self.configuration.readTimeout)
+      server.delegate?.connectionReceived(server: server, socket: socket)
+      if self.configuration.threading == .singleThread {
+        // The server waits for the socket together with all other sockets, and calls the session when there
+        // is something to read: this thread has more to do than to wait for one session.
+        server.adopt(session: session, on: socket)
+        session.start(socket: socket, drainTimeout: 0.1)
+        return nil
+      }
+      self.run(session: session, on: server)
+    } else if let session = response.socketSession() {
       // The session decides how long it waits for data: a WebSocket may be silent for hours.
       socket.setReceiveTimeout(nil)
       if self.configuration.threading == .singleThread {
-        server.log("A socket session (WebSocket) runs on the only thread of the server; nothing else is served until it ends")
+        server.log("A socket session in the form of a function runs on the only thread of the server; nothing else is served until it returns (a NanoSocketSession does not have this problem)")
       }
       server.delegate?.connectionReceived(server: server, socket: socket)
       session(socket)
@@ -154,6 +191,22 @@ public struct NanoHTTPConnection {
     }
     self.close()
     return nil
+  }
+  
+  /// Drives a session on the thread of the connection, until it ends: waits for the socket, and calls the
+  /// session when there is something to read. The wait ends after the read timeout (the receive timeout of the
+  /// socket) without anything to read, and then goes on: a session may be silent for as long as it likes.
+  private func run(session: NanoSocketSession, on server: NanoHTTPServerIO) {
+    session.start(socket: self.socket, drainTimeout: 1)
+    while server.operating {
+      guard let dataIsThere = try? self.socket.awaitData() else {
+        break // the socket has been closed
+      }
+      if dataIsThere && !session.receive() {
+        break
+      }
+    }
+    session.end()
   }
   
   /// Thrown when a connection that was expected to send a request stayed silent.

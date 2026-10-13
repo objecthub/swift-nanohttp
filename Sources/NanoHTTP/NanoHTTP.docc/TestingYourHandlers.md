@@ -14,10 +14,28 @@ let handler: NanoHTTPRequestHandler = { request in
 }
 let request = NanoHTTPRequest(method: "GET", path: "/hello/Ada")
 request.params = ["name": "Ada"]                         // what the router would have set
-let response = handler(request)
+let response = try handler(request)
 assert(response.statusCode == 200)
 if case .text(let text) = response.body {
   assert(text == "Hello, Ada!")
+}
+```
+
+A handler that throws a ``NanoHTTPError`` is tested by catching it; the server turns it into a response, which
+a test of a running server sees as a status code:
+
+```swift
+let handler: NanoHTTPRequestHandler = { request in
+  guard request.params["id"] != nil else {
+    throw NanoHTTPError.badRequest("No id")
+  }
+  return .ok(.text("fine"))
+}
+do {
+  _ = try handler(NanoHTTPRequest(method: "GET", path: "/items"))
+} catch let error as NanoHTTPError {
+  assert(error.status == 400)
+  assert(error.response.statusCode == 400)
 }
 ```
 

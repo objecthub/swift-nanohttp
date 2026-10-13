@@ -320,22 +320,28 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     }
   }
   
-  /// Waits until one of `sockets` can be read without blocking, or `timeout` seconds have passed, and
-  /// tells which can: a listening socket that has a connection to accept, a connection that has data
-  /// or has been closed by the peer. A socket that is closed counts as readable, so that the caller finds
-  /// out when it tries to read it.
+  /// Waits until there is something to read, without reading it: data, or the end of the connection, which
+  /// the next read reports. Waits for as long as the receive timeout (see ``setReceiveTimeout(_:)``), and
+  /// forever without one.
   ///
-  /// This is how a server that has only one thread waits for many connections at once. The sockets
-  /// can be closed by other threads meanwhile; that is harmless, at worst a socket is reported as
-  /// readable although it is not, and the following read fails.
-  static func waitUntilReadable(_ sockets: [NanoSocket], timeout: TimeInterval) -> [Bool] {
-    var pollers = sockets.map { socket in
-      pollfd(fd: socket.isClosed ? -1 : socket.socketFileDescriptor, events: Int16(POLLIN), revents: 0)
-    }
-    let milliseconds = Int32(min(Double(Int32.max), max(0, (timeout * 1000).rounded(.up))))
-    let result = poll(&pollers, nfds_t(pollers.count), milliseconds)
-    return sockets.indices.map { index in
-      sockets[index].isClosed || (result > 0 && pollers[index].revents != 0)
+  /// This is how a thread that serves one connection waits for the next message of a session: in contrast to
+  /// ``waitUntilReadable(timeout:)`` it takes no system call more than a read would, and does not need the timeout
+  /// to be changed.
+  ///
+  /// - Returns: `true` if a read will not wait; `false` if the receive timeout has passed.
+  /// - Throws: `NanoSocketError.recvFailed` if the socket is closed or fails.
+  func awaitData() throws -> Bool {
+    return try self.withDescriptor(closedError: .recvFailed(Self.closedDescription)) { descriptor in
+      var byte: UInt8 = 0
+      while true {
+        if recv(descriptor, &byte, 1, MSG_PEEK) >= 0 {
+          return true
+        } else if errno == EAGAIN || errno == EWOULDBLOCK {
+          return false
+        } else if errno != EINTR {
+          throw NanoSocketError.recvFailed(Self.errnoDescription)
+        }
+      }
     }
   }
   

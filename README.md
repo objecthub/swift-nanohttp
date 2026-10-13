@@ -51,7 +51,7 @@ grouped and mounted below a prefix, and `server["/path"]` answers every method.
   status code.
 - **HTTP/1.1 as clients expect it**: persistent connections, chunked request bodies, `Expect: 100-continue`, `HEAD`,
   `405` with `Allow`, `OPTIONS`, a `Date` header.
-- **Files**: `share(file:)`, `share(directory:)` and `browse(directory:)`, which do not serve anything from outside
+- **Files**: `NanoFiles.share(file:)`, `NanoFiles.share(directory:)` and `NanoFiles.browse(directory:)`, which do not serve anything from outside
   the directory, with `ETag`, `Last-Modified`, `304 Not Modified` and byte ranges (`206`).
 - **WebSockets** (RFC 6455): fragmented messages, ping/pong, close codes, thread-safe sending, size limits.
 - **A small HTML builder** for status and admin pages.
@@ -71,8 +71,8 @@ are handled one at a time and handlers need no locks.
 ```swift
 let server = NanoHTTPServer()
 let directory = NSHomeDirectory() + "/Public"
-server["/files/::path"] = share(directory: directory)       // GET /files/photos/cat.jpg
-server["/browse/::path"] = browse(directory: directory)     // a listing of the directory
+server["/files/::path"] = NanoFiles.share(directory: directory)       // GET /files/photos/cat.jpg
+server["/browse/::path"] = NanoFiles.browse(directory: directory)     // a listing of the directory
 ```
 
 Requests with `..`, NUL characters or symbolic links that lead out of the directory are refused with `403`.
@@ -81,7 +81,7 @@ Requests with `..`, NUL characters or symbolic links that lead out of the direct
 
 ```swift
 let server = NanoHTTPServer()
-server["/chat"] = websocket(
+server["/chat"] = NanoWebSocket.handler(
   text: { session, message in session.writeText("You said: \(message)") },
   connected: { session in session.writeText("Welcome!") })
 ```

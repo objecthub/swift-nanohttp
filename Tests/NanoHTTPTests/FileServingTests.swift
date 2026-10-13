@@ -93,9 +93,9 @@ final class FileServingTests: XCTestCase {
                      _ body: (NanoHTTPServer, Int) throws -> Void) throws {
     try withTestServer(configure: { server in
       server.configuration.threading = threading
-      server["/site/::path"] = share(directory: self.root + "/site")
-      server["/browse/::path"] = browse(directory: self.root + "/site")
-      server["/single"] = share(file: self.root + "/site/ten.txt")
+      server["/site/::path"] = NanoFiles.share(directory: self.root + "/site")
+      server["/browse/::path"] = NanoFiles.browse(directory: self.root + "/site")
+      server["/single"] = NanoFiles.share(file: self.root + "/site/ten.txt")
     }, body)
   }
 
@@ -383,5 +383,90 @@ final class FileServingTests: XCTestCase {
       XCTAssertEqual(try RawClient.get("/site/none.txt", port: port).status, 404)
       XCTAssertEqual(try RawClient.get("/browse/none.txt", port: port).status, 404)
     }
+  }
+}
+
+// MARK: - NanoFile and NanoFiles
+
+final class NanoFileTests: XCTestCase {
+
+  private var directory = ""
+
+  override func setUpWithError() throws {
+    self.directory = NSTemporaryDirectory() + "NanoFileTests-" + UUID().uuidString
+    try FileManager.default.createDirectory(atPath: self.directory, withIntermediateDirectories: true)
+  }
+
+  override func tearDown() {
+    try? FileManager.default.removeItem(atPath: self.directory)
+  }
+
+  private func readAll(_ file: NanoFile) throws -> String {
+    var block = [UInt8](repeating: 0, count: 64)
+    let count = try file.read(&block)
+    return String(decoding: block[0..<count], as: UTF8.self)
+  }
+
+  func testReadsAnExistingFile() throws {
+    let path = self.directory + "/a.txt"
+    try "hello".write(toFile: path, atomically: true, encoding: .utf8)
+    let file = try NanoFile(path: path)
+    XCTAssertEqual(try self.readAll(file), "hello")
+    XCTAssertTrue(file.seek(1))
+    XCTAssertEqual(try self.readAll(file), "ello")
+  }
+
+  func testAMissingFileThrowsTheSystemError() {
+    XCTAssertThrowsError(try NanoFile(path: self.directory + "/none.txt")) { error in
+      guard case NanoFileError.error(let code) = error else {
+        return XCTFail("\(error)")
+      }
+      XCTAssertEqual(code, ENOENT)
+    }
+  }
+
+  func testCreateEmptiesAnExistingFileAndUpdateKeepsIt() throws {
+    let path = self.directory + "/b.txt"
+    try "old content".write(toFile: path, atomically: true, encoding: .utf8)
+    let updated = try NanoFile(path: path, mode: .update)
+    XCTAssertEqual(try self.readAll(updated), "old content", "update does not empty the file")
+    updated.close()
+    let created = try NanoFile(path: path, mode: .create)
+    try created.write(Array("new".utf8))
+    created.close()
+    XCTAssertEqual(try String(contentsOfFile: path, encoding: .utf8), "new")
+    let fresh = try NanoFile(path: self.directory + "/c.txt", mode: .create)
+    fresh.close()
+    XCTAssertTrue(FileManager.default.fileExists(atPath: self.directory + "/c.txt"), "create makes a missing file")
+  }
+
+  func testFilesThatAreOpenedByPathAreWrittenToTheConnectionByTheBodyWriter() throws {
+    let path = self.directory + "/d.txt"
+    try "0123456789".write(toFile: path, atomically: true, encoding: .utf8)
+    let writer = CapturingWriter()
+    try writer.write(try NanoFile(path: path))
+    XCTAssertEqual(writer.text, "0123456789")
+    let part = CapturingWriter()
+    try part.write(try NanoFile(path: path), offset: 3, length: 4)
+    XCTAssertEqual(part.text, "3456")
+  }
+}
+
+final class NanoFilesTests: XCTestCase {
+
+  func testMimeTypeOfAPath() {
+    XCTAssertEqual(NanoFiles.mimeType(forPath: "/var/www/index.html"), "text/html")
+    XCTAssertEqual(NanoFiles.mimeType(forPath: "no-extension"), "application/octet-stream")
+  }
+
+  func testDirectoryEntriesDoNotHaveDotAndDotDot() throws {
+    let fixture = try FileFixture()
+    defer { fixture.remove() }
+    let entries = NanoFiles.entries(ofDirectory: fixture.publicDir)
+    XCTAssertTrue(entries.contains("hello.txt"))
+    XCTAssertTrue(entries.contains("sub"))
+    XCTAssertFalse(entries.contains("."))
+    XCTAssertFalse(entries.contains(".."))
+    XCTAssertEqual(NanoFiles.entries(ofDirectory: fixture.root + "/missing"), [])
   }
 }

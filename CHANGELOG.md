@@ -9,6 +9,12 @@ All notable changes to this project are documented in this file. The format is b
 Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says how to move from 1.x.
 
 ### Changed
+- **Breaking: general names got a `Nano` prefix or a namespace.** `share(file:)`, `share(directory:...)` and
+  `browse(directory:...)` are `NanoFiles.share(...)` and `NanoFiles.browse(...)`, `websocket(...)` is
+  `NanoWebSocket.handler(...)`, `WebSocketSession` is `NanoWebSocketSession`, `NetworkInterface` is
+  `NanoNetworkInterface`, `String.File` is `NanoFile` and `String.mimeType()` is `NanoFiles.mimeType(forPath:)`. The old
+  names are kept as unavailable declarations in 2.x so that the compiler says what to use (`MIGRATION-2.0.md`, *Names
+  and namespaces*).
 - **Faster** (R8): sockets read in blocks of 16 KB (it was a system call for every byte), the head and the body of a
   response are written together (one system call), the parser reads lines faster, and `TCP_NODELAY` is set. A request on a
   kept connection costs less than half of the CPU time (1.4x requests per second for one client, 4x for sixteen).
@@ -62,6 +68,8 @@ Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says 
   "connection closed by peer" instead of "Undefined error: 0".
 
 ### Added
+- `NanoFile(path:mode:)` opens a file (`.read`, `.create`, `.update`) for a response body writer, and
+  `NanoFiles.mimeType(forPath:)` is the public way to look up a MIME type.
 - **HTTP/1.1 behavior** (batch 2 of 2.0):
   - Keep-alive by default (H4): connections are persistent unless `Connection: close` (HTTP/1.0: unless
     `keep-alive`); the server answers `Connection: close` when it closes; `Date` on every response; no
@@ -121,6 +129,10 @@ Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says 
   `waitUntilReadable(timeout:)`.
 
 ### Removed
+- The helpers that Swifter had left on `String` are not public any more: `exists()`, `directory()`, `files()`,
+  `openForReading()`, `openNewForWriting()`, `openForWritingAndReading()`, `openFileForMode(_:_:)`, `pathSeparator`,
+  `File.currentWorkingDirectory()`, `unquote()`, `sha1()` and `toBase64(_:)`. `NanoFile(path:mode:)` and `FileManager`
+  replace the first ones.
 - The GitHub Actions workflow (`.github/workflows/ci.yml`): the project has no continuous integration. The checks it ran
   are scripts and commands that are run by hand, listed in `CONTRIBUTING.md`.
 

@@ -36,19 +36,19 @@ and a stopped server can be started again, so both calls are safe to repeat.
 
 ### Finding the address
 
-`NetworkInterface.localIP` is the address of the device on the local network, to show to the user (for example as
+`NanoNetworkInterface.localIP` is the address of the device on the local network, to show to the user (for example as
 `http://192.168.1.20:8080`):
 
 ```swift
 let server = NanoHTTPServer()
 server.configuration.listenAddress = .allInterfaces   // the default, loopback, cannot be reached by other devices
 try server.start(8080)
-if let address = NetworkInterface.localIP {
+if let address = NanoNetworkInterface.localIP {
   print("Open http://\(address):\(try server.port()) on another device")
 }
 ```
 
-``NetworkInterface/available()`` lists all addresses of the interfaces that are up.
+``NanoNetworkInterface/available()`` lists all addresses of the interfaces that are up.
 
 ### Permissions
 

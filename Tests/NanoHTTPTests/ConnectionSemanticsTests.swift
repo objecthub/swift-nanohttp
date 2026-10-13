@@ -476,11 +476,12 @@ final class StreamingResponseTests: XCTestCase {
 
   func testAChunkArrivesWhileTheHandlerIsStillWriting() throws {
     for threading in bothModes {
-      let release = DispatchSemaphore(value: 0)
+      let release = Gate()
+      defer { release.open() }
       try serve(threading, configure: { server in
         server["/events"] = { _ in .custom(200, contentType: "text/event-stream") { writer in
           try writer.write(Array("data: first\n\n".utf8))
-          _ = release.wait(timeout: .now() + 5) // the client has received the first event meanwhile
+          release.wait(timeout: 5) // the client has received the first event meanwhile
           try writer.write(Array("data: second\n\n".utf8))
         } }
       }) { _, port in
@@ -489,7 +490,7 @@ final class StreamingResponseTests: XCTestCase {
         let head = client.readResponse(head: true)
         XCTAssertEqual(head?.header("content-type"), "text/event-stream")
         XCTAssertEqual(client.readChunk(), Array("data: first\n\n".utf8), "\(threading): not buffered until the end")
-        release.signal()
+        release.open()
         XCTAssertEqual(client.readChunk(), Array("data: second\n\n".utf8), "\(threading)")
         XCTAssertNil(client.readChunk())
       }
@@ -515,7 +516,7 @@ final class StreamingResponseTests: XCTestCase {
     try serve(.perConnection, configure: { server in
       server["/file"] = { _ in .custom(200) { writer in
         try writer.write(Array("before ".utf8))
-        try writer.write(try path.openForReading())
+        try writer.write(try NanoFile(path: path))
         try writer.write(Array(" after".utf8))
       } }
     }) { _, port in
@@ -607,7 +608,7 @@ final class StreamingResponseTests: XCTestCase {
     for threading in bothModes {
       try serve(threading, configure: { server in
         server["/file"] = { _ in .custom(200, headers: ["Content-Length": "10"]) { writer in
-          try writer.write(try path.openForReading())
+          try writer.write(try NanoFile(path: path))
         } }
       }) { _, port in
         let client = try RawClient(port: port)

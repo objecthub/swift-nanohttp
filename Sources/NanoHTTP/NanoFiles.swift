@@ -35,6 +35,7 @@
 //
 
 import Foundation
+import UniformTypeIdentifiers
 
 /// Maps the percent-decoded, client-supplied path `relativePath` to a file system path below
 /// `directory`. Returns `nil` if the request must be refused because the path could lead out of
@@ -64,7 +65,7 @@ private func locate(_ relativePath: String, in directory: String, followSymlinks
   }
   let candidate = components.isEmpty
                     ? directory
-                    : directory + String.pathSeparator + components.joined(separator: String.pathSeparator)
+                    : directory + "/" + components.joined(separator: "/")
   guard !followSymlinks, let root = realPath(directory), let resolved = realPath(candidate) else {
     return candidate
   }
@@ -191,7 +192,7 @@ private func ifRangeMatches(_ header: String, tag: String, modification: Int64) 
 /// Conditional requests are answered with `304` (`If-None-Match`, else `If-Modified-Since`), and a `Range` header
 /// that asks for one part of the file with `206` (`416` if the file has nothing there); `If-Range` can turn a
 /// range into the whole file. A file whose length changes while it is sent ends the connection.
-private func response(for file: String.File, named name: String, request: NanoHTTPRequest) -> NanoHTTPResponse {
+private func response(for file: NanoFile, named name: String, request: NanoHTTPRequest) -> NanoHTTPResponse {
   guard let info = file.status(), (info.st_mode & S_IFMT) == S_IFREG, info.st_size >= 0 else {
     return .notFound("Unable to open file")
   }
@@ -238,7 +239,7 @@ private func response(for file: String.File, named name: String, request: NanoHT
       headers["Content-Range"] = "bytes \(start)-\(end)/\(size)"
   }
   headers["Content-Length"] = String(length)
-  return .custom(status, headers: headers, contentType: name.mimeType()) { writer in
+  return .custom(status, headers: headers, contentType: NanoFiles.mimeType(forPath: name)) { writer in
     if length > 0 {
       try writer.write(file, offset: first, length: length)
     }
@@ -246,121 +247,175 @@ private func response(for file: String.File, named name: String, request: NanoHT
   }
 }
 
-/// Returns a handler that serves one file.
+/// The functions that serve files: single files, directories and listings of directories.
 ///
-/// The response carries the MIME type derived from the extension of `path`, the size of the file as
-/// `Content-Length`, and `ETag` and `Last-Modified`, which clients use to ask whether their copy is still good
-/// (`304 Not Modified`). The file can be requested in parts (`Range`). If the file cannot be opened, the response
-/// is `404 Not Found`.
-///
-/// - Parameter path: The file to serve.
-public func share(file path: String) -> NanoHTTPRequestHandler {
-  return { request in
-    if kind(of: path) == .file, let file = try? path.openForReading() {
-      return response(for: file, named: path, request: request)
-    }
-    return .notFound()
-  }
-}
-
-/// Returns a handler that serves the files of a directory.
-///
-/// Register the handler for a route that ends in a path variable, for example
-/// `server["/public/::path"] = share(directory: "/var/www")`. The value of that variable selects
-/// the file below `path`. A request for a directory is redirected to the same address with a `/` at the end (so
-/// that links in the files of the directory work), and then answers with the first existing file of `defaults`
-/// in it, or `404 Not Found`. Files are sent as by ``share(file:)``: with `ETag` and `Last-Modified`, and in parts.
-///
-/// Requests containing `..` segments or NUL characters are always answered with
-/// `403 Forbidden`. Symbolic links that stay inside the directory are always followed. By default,
-/// requests for paths that lead out of the directory through a symbolic link are refused with
-/// `403 Forbidden` as well; set `followSymlinks` to serve them. Missing files give
-/// `404 Not Found`.
-///
-/// - Parameters:
-///   - path: The directory to serve.
-///   - defaults: File names that are served for a directory.
-///   - followSymlinks: If `true`, symbolic links are followed even if their target lies outside
-///       of `path`. Only enable this if everyone who can create files in `path` is trusted.
-public func share(directory path: String,
-                  defaults: [String] = ["index.html", "default.html"],
-                  followSymlinks: Bool = false) -> NanoHTTPRequestHandler {
-  return { request in
-    guard let (_, relativePath) = request.params.first else { // decoded by the router, once
-      return NanoHTTPResponse.internalServerError("Internal Server Error")
-    }
-    guard let filePath = locate(relativePath, in: path, followSymlinks: followSymlinks) else {
-      return .forbidden("Forbidden")
-    }
-    switch kind(of: filePath) {
-      case .missing:
-        return .notFound("Unknown file/directory")
-      case .directory:
-        guard request.rawPath.hasSuffix("/") else {
-          return .movedPermanently(request.rawPath + "/" + (request.rawQuery.map { "?" + $0 } ?? ""))
-        }
-        for name in defaults {
-          if let defaultPath = locate(relativePath + "/" + name, in: path, followSymlinks: followSymlinks),
-             kind(of: defaultPath) == .file,
-             let file = try? defaultPath.openForReading() {
-            return response(for: file, named: name, request: request)
-          }
-        }
-        return .notFound("Unknown file/directory")
-      case .file:
-        if let file = try? filePath.openForReading() {
-          return response(for: file, named: relativePath, request: request)
-        }
-        return .notFound("Unknown file/directory")
+/// ```swift
+/// let server = NanoHTTPServer()
+/// server["/logo"] = NanoFiles.share(file: "/var/www/logo.png")
+/// server["/static/::path"] = NanoFiles.share(directory: "/var/www")
+/// ```
+public enum NanoFiles {
+  
+  /// The MIME type for the file extension of a path or file name (`"a.png"` gives
+  /// `image/png`); `application/octet-stream` if the extension is not known.
+  public static func mimeType(forPath path: String) -> String {
+    if let mimeType = UTType(filenameExtension: (path as NSString).pathExtension)?.preferredMIMEType {
+      return mimeType
+    } else {
+      return "application/octet-stream"
     }
   }
-}
-
-/// Returns a handler that lists the directories and serves the files below a directory.
-///
-/// Register the handler for a route that ends in a path variable, for example
-/// `server["/files/::path"] = browse(directory: "/var/www")`. The value of that variable selects
-/// the file or directory below `dir`. Directories are answered with an HTML list of links; files are sent as by
-/// ``share(file:)``.
-///
-/// Like `share(directory:defaults:followSymlinks:)`, the handler does not reach beyond `dir`:
-/// requests containing `..` segments or NUL characters are always answered with `403 Forbidden`,
-/// and so are paths that lead out of the directory through a symbolic link, unless
-/// `followSymlinks` is set. Symbolic links that stay inside the directory are always followed.
-///
-/// - Parameters:
-///   - dir: The directory to browse.
-///   - followSymlinks: If `true`, symbolic links are followed even if their target lies outside
-///       of `dir`. Only enable this if everyone who can create files in `dir` is trusted.
-public func browse(directory dir: String, followSymlinks: Bool = false) -> NanoHTTPRequestHandler {
-  return { request in
-    guard let (_, path) = request.params.first else { // decoded by the router, once
-      return NanoHTTPResponse.internalServerError("Internal Server Error")
+  
+  /// The names of the entries of the directory at `path`, without `.` and `..`, in no
+  /// particular order. Empty if the directory cannot be read.
+  static func entries(ofDirectory path: String) -> [String] {
+    guard let dir = path.withCString({ opendir($0) }) else {
+      return []
     }
-    var base = request.rawPath // the links are percent-encoded: so is what they start with
-    if base.last != "/" {
-      base.append("/")
+    defer {
+      closedir(dir)
     }
-    guard let filePath = locate(path, in: dir, followSymlinks: followSymlinks) else {
-      return .forbidden("Forbidden")
-    }
-    switch kind(of: filePath) {
-      case .missing:
-        return .notFound("Unknown file/directory")
-      case .directory:
-        var files = ((try? filePath.files()) ?? []).filter { $0 != "." && $0 != ".." }
-        files.sort(by: { $0.lowercased() < $1.lowercased() })
-        var res = ""
-        for f in files {
-          let link = base + (f.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? f)
-          res += "<li><a href=\"\(link.htmlEscaped)\">\(f.htmlEscaped)</a></li>"
+    var results = [String]()
+    while let ent = readdir(dir) {
+      var name = ent.pointee.d_name
+      let fileName = withUnsafePointer(to: &name) { (ptr) -> String? in
+        #if os(Linux)
+        return String(validatingUTF8:
+                        ptr.withMemoryRebound(to: CChar.self,
+                                              capacity: Int(ent.pointee.d_reclen)) { ptrc in
+                          return [CChar](UnsafeBufferPointer(start: ptrc, count: 256))
+                        })
+        #else
+        var buffer = ptr.withMemoryRebound(to: CChar.self, capacity: Int(ent.pointee.d_reclen)) { ptrc in
+          return [CChar](UnsafeBufferPointer(start: ptrc, count: Int(ent.pointee.d_namlen)))
         }
-        return .ok(.htmlBody("<ul style=\"list-style: none;\">\(res)</ul>"))
-      case .file:
-        guard let file = try? filePath.openForReading() else {
-          return .notFound("Unable to open file")
-        }
+        buffer.append(0)
+        return String(validatingUTF8: buffer)
+        #endif
+      }
+      if let fileName = fileName, fileName != ".", fileName != ".." {
+        results.append(fileName)
+      }
+    }
+    return results
+  }
+  
+  /// Returns a handler that serves one file.
+  ///
+  /// The response carries the MIME type derived from the extension of `path`, the size of the file as
+  /// `Content-Length`, and `ETag` and `Last-Modified`, which clients use to ask whether their copy is still good
+  /// (`304 Not Modified`). The file can be requested in parts (`Range`). If the file cannot be opened, the response
+  /// is `404 Not Found`.
+  ///
+  /// - Parameter path: The file to serve.
+  public static func share(file path: String) -> NanoHTTPRequestHandler {
+    return { request in
+      if kind(of: path) == .file, let file = try? NanoFile(path: path) {
         return response(for: file, named: path, request: request)
+      }
+      return .notFound()
+    }
+  }
+
+  /// Returns a handler that serves the files of a directory.
+  ///
+  /// Register the handler for a route that ends in a path variable, for example
+  /// `server["/public/::path"] = NanoFiles.share(directory: "/var/www")`. The value of that variable selects
+  /// the file below `path`. A request for a directory is redirected to the same address with a `/` at the end (so
+  /// that links in the files of the directory work), and then answers with the first existing file of `defaults`
+  /// in it, or `404 Not Found`. Files are sent as by ``NanoFiles/share(file:)``: with `ETag` and `Last-Modified`, and in parts.
+  ///
+  /// Requests containing `..` segments or NUL characters are always answered with
+  /// `403 Forbidden`. Symbolic links that stay inside the directory are always followed. By default,
+  /// requests for paths that lead out of the directory through a symbolic link are refused with
+  /// `403 Forbidden` as well; set `followSymlinks` to serve them. Missing files give
+  /// `404 Not Found`.
+  ///
+  /// - Parameters:
+  ///   - path: The directory to serve.
+  ///   - defaults: File names that are served for a directory.
+  ///   - followSymlinks: If `true`, symbolic links are followed even if their target lies outside
+  ///       of `path`. Only enable this if everyone who can create files in `path` is trusted.
+  public static func share(directory path: String,
+                           defaults: [String] = ["index.html", "default.html"],
+                           followSymlinks: Bool = false) -> NanoHTTPRequestHandler {
+    return { request in
+      guard let (_, relativePath) = request.params.first else { // decoded by the router, once
+        return NanoHTTPResponse.internalServerError("Internal Server Error")
+      }
+      guard let filePath = locate(relativePath, in: path, followSymlinks: followSymlinks) else {
+        return .forbidden("Forbidden")
+      }
+      switch kind(of: filePath) {
+        case .missing:
+          return .notFound("Unknown file/directory")
+        case .directory:
+          guard request.rawPath.hasSuffix("/") else {
+            return .movedPermanently(request.rawPath + "/" + (request.rawQuery.map { "?" + $0 } ?? ""))
+          }
+          for name in defaults {
+            if let defaultPath = locate(relativePath + "/" + name, in: path, followSymlinks: followSymlinks),
+               kind(of: defaultPath) == .file,
+               let file = try? NanoFile(path: defaultPath) {
+              return response(for: file, named: name, request: request)
+            }
+          }
+          return .notFound("Unknown file/directory")
+        case .file:
+          if let file = try? NanoFile(path: filePath) {
+            return response(for: file, named: relativePath, request: request)
+          }
+          return .notFound("Unknown file/directory")
+      }
+    }
+  }
+
+  /// Returns a handler that lists the directories and serves the files below a directory.
+  ///
+  /// Register the handler for a route that ends in a path variable, for example
+  /// `server["/files/::path"] = NanoFiles.browse(directory: "/var/www")`. The value of that variable selects
+  /// the file or directory below `dir`. Directories are answered with an HTML list of links; files are sent as by
+  /// ``NanoFiles/share(file:)``.
+  ///
+  /// Like `NanoFiles.share(directory:defaults:followSymlinks:)`, the handler does not reach beyond `dir`:
+  /// requests containing `..` segments or NUL characters are always answered with `403 Forbidden`,
+  /// and so are paths that lead out of the directory through a symbolic link, unless
+  /// `followSymlinks` is set. Symbolic links that stay inside the directory are always followed.
+  ///
+  /// - Parameters:
+  ///   - dir: The directory to browse.
+  ///   - followSymlinks: If `true`, symbolic links are followed even if their target lies outside
+  ///       of `dir`. Only enable this if everyone who can create files in `dir` is trusted.
+  public static func browse(directory dir: String, followSymlinks: Bool = false) -> NanoHTTPRequestHandler {
+    return { request in
+      guard let (_, path) = request.params.first else { // decoded by the router, once
+        return NanoHTTPResponse.internalServerError("Internal Server Error")
+      }
+      var base = request.rawPath // the links are percent-encoded: so is what they start with
+      if base.last != "/" {
+        base.append("/")
+      }
+      guard let filePath = locate(path, in: dir, followSymlinks: followSymlinks) else {
+        return .forbidden("Forbidden")
+      }
+      switch kind(of: filePath) {
+        case .missing:
+          return .notFound("Unknown file/directory")
+        case .directory:
+          var files = NanoFiles.entries(ofDirectory: filePath)
+          files.sort(by: { $0.lowercased() < $1.lowercased() })
+          var res = ""
+          for f in files {
+            let link = base + (f.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? f)
+            res += "<li><a href=\"\(link.htmlEscaped)\">\(f.htmlEscaped)</a></li>"
+          }
+          return .ok(.htmlBody("<ul style=\"list-style: none;\">\(res)</ul>"))
+        case .file:
+          guard let file = try? NanoFile(path: filePath) else {
+            return .notFound("Unable to open file")
+          }
+          return response(for: file, named: path, request: request)
+      }
     }
   }
 }

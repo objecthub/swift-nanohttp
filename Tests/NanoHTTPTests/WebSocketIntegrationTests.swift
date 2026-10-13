@@ -119,7 +119,7 @@ final class WebSocketIntegrationTests: XCTestCase {
 
   private func serve(_ body: (Int) throws -> Void) throws {
     try withTestServer(configure: { server in
-      server["/ws"] = websocket(
+      server["/ws"] = NanoWebSocket.handler(
         text: { session, text in session.writeText(text) },
         binary: { session, bytes in session.writeBinary(bytes) })
     }) { _, port in
@@ -132,7 +132,7 @@ final class WebSocketIntegrationTests: XCTestCase {
     try withTestServer(configure: { server in
       server.configuration.idleTimeout = 0.3
       server.configuration.readTimeout = 0.3
-      server["/ws"] = websocket(text: { session, text in session.writeText(text) })
+      server["/ws"] = NanoWebSocket.handler(text: { session, text in session.writeText(text) })
     }) { _, port in
       let client = try WS.connect(port: port)
       usleep(1_200_000)
@@ -144,7 +144,7 @@ final class WebSocketIntegrationTests: XCTestCase {
   func testWebSocketWorksOnASingleThreadServer() throws {
     try withTestServer(configure: { server in
       server.configuration.threading = .singleThread
-      server["/ws"] = websocket(text: { session, text in session.writeText(text) })
+      server["/ws"] = NanoWebSocket.handler(text: { session, text in session.writeText(text) })
       server.get["/ping"] = { _ in .ok(.text("pong")) }
     }) { _, port in
       let client = try WS.connect(port: port)
@@ -280,7 +280,7 @@ final class WebSocketIntegrationTests: XCTestCase {
     let connected = expectation(description: "connected")
     let disconnected = expectation(description: "disconnected")
     try withTestServer(configure: { server in
-      server["/ws"] = websocket(connected: { _ in connected.fulfill() },
+      server["/ws"] = NanoWebSocket.handler(connected: { _ in connected.fulfill() },
                                 disconnected: { _ in disconnected.fulfill() })
     }) { _, port in
       let client = try WS.connect(port: port)
@@ -318,10 +318,10 @@ final class WebSocketMessageLimitTests: XCTestCase {
 
   private func serve(maxMessageSize: Int? = nil, _ body: (Int) throws -> Void) throws {
     try withTestServer(configure: { server in
-      let echoText: (WebSocketSession, String) -> Void = { session, text in session.writeText(text) }
-      let echoBinary: (WebSocketSession, [UInt8]) -> Void = { session, bytes in session.writeBinary(bytes) }
-      server["/ws"] = maxMessageSize.map { websocket(text: echoText, binary: echoBinary, maxMessageSize: $0) }
-                                    ?? websocket(text: echoText, binary: echoBinary)
+      let echoText: (NanoWebSocketSession, String) -> Void = { session, text in session.writeText(text) }
+      let echoBinary: (NanoWebSocketSession, [UInt8]) -> Void = { session, bytes in session.writeBinary(bytes) }
+      server["/ws"] = maxMessageSize.map { NanoWebSocket.handler(text: echoText, binary: echoBinary, maxMessageSize: $0) }
+                                    ?? NanoWebSocket.handler(text: echoText, binary: echoBinary)
     }) { _, port in
       try body(port)
     }
@@ -428,7 +428,7 @@ final class WebSocketCloseCodeTests: XCTestCase {
 
   private func serve(maxMessageSize: Int = 1000, _ body: (Int) throws -> Void) throws {
     try withTestServer(configure: { server in
-      server["/ws"] = websocket(text: { session, text in session.writeText(text) },
+      server["/ws"] = NanoWebSocket.handler(text: { session, text in session.writeText(text) },
                                 binary: { session, bytes in session.writeBinary(bytes) },
                                 maxMessageSize: maxMessageSize)
     }) { _, port in
@@ -520,8 +520,8 @@ final class WebSocketCloseCodeTests: XCTestCase {
     XCTAssertEqual(socketpair(AF_UNIX, SOCK_STREAM, 0, &fds), 0)
     NanoSocket.setNoSigPipe(fds[0]); NanoSocket.setNoSigPipe(fds[1])
     defer { close(fds[1]) }
-    let session = WebSocketSession(NanoSocket(socketFileDescriptor: fds[0]))
-    session.writeCloseFrame(code: WebSocketSession.CloseCode.normal, reason: "bye")
+    let session = NanoWebSocketSession(NanoSocket(socketFileDescriptor: fds[0]))
+    session.writeCloseFrame(code: NanoWebSocketSession.CloseCode.normal, reason: "bye")
     session.writeCloseFrame(code: 1009)
     session.writeCloseFrame(code: 1000, reason: String(repeating: "r", count: 500)) // cut to 123 bytes
     session.writeCloseFrame()
@@ -539,7 +539,7 @@ final class WebSocketHandshakeTests: XCTestCase {
 
   private func handshake(_ request: [UInt8], _ body: (RawResponse?) -> Void) throws {
     try withTestServer(configure: { server in
-      server["/ws"] = websocket(text: { session, text in session.writeText(text) })
+      server["/ws"] = NanoWebSocket.handler(text: { session, text in session.writeText(text) })
     }) { _, port in
       let client = try RawClient(port: port)
       client.send(request)
@@ -604,7 +604,7 @@ final class WebSocketWriteTests: XCTestCase {
     let framesPerWriter = 400
     let payloadSize = 3000
     let letters = Array("ABCD".utf8)
-    let session = WebSocketSession(NanoSocket(socketFileDescriptor: fds[0]))
+    let session = NanoWebSocketSession(NanoSocket(socketFileDescriptor: fds[0]))
 
     let lock = NSLock()
     var corrupted = false
@@ -674,9 +674,9 @@ final class WebSocketPushTests: XCTestCase {
 
   private final class Box {
     private let lock = NSLock()
-    private var session: WebSocketSession?
-    func set(_ value: WebSocketSession) { lock.lock(); session = value; lock.unlock() }
-    var value: WebSocketSession? { lock.lock(); defer { lock.unlock() }; return session }
+    private var session: NanoWebSocketSession?
+    func set(_ value: NanoWebSocketSession) { lock.lock(); session = value; lock.unlock() }
+    var value: NanoWebSocketSession? { lock.lock(); defer { lock.unlock() }; return session }
   }
 
   /// The text of message `index` of thread `thread`: "thread:index:" and padding; the size depends
@@ -689,7 +689,7 @@ final class WebSocketPushTests: XCTestCase {
   func testMessagesPushedFromManyThreadsArriveIntactAndInOrderPerThread() throws {
     let box = Box()
     try withTestServer(configure: { server in
-      server["/ws"] = websocket(connected: { box.set($0) })
+      server["/ws"] = NanoWebSocket.handler(connected: { box.set($0) })
     }) { _, port in
       let client = try WS.connect(port: port)
       var waited = 0
@@ -729,7 +729,7 @@ final class WebSocketPushTests: XCTestCase {
   func testAPongReplyBetweenPushedMessagesDoesNotBreakThem() throws {
     let box = Box()
     try withTestServer(configure: { server in
-      server["/ws"] = websocket(connected: { box.set($0) })
+      server["/ws"] = NanoWebSocket.handler(connected: { box.set($0) })
     }) { _, port in
       let client = try WS.connect(port: port)
       while box.value == nil { usleep(10_000) }

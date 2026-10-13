@@ -138,7 +138,7 @@ final class PipeliningTests: XCTestCase {
       server.get["/b"] = { _ in .ok(.text("B")) }
       server.get["/c"] = { _ in .ok(.text("C")) }
       server.post["/echo"] = { request in .ok(.data(Data(request.body), contentType: "text/plain")) }
-      server["/ws"] = websocket(text: { session, text in session.writeText(text) })
+      server["/ws"] = NanoWebSocket.handler(text: { session, text in session.writeText(text) })
     }, body)
   }
 

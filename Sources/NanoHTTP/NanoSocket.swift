@@ -46,7 +46,7 @@ import Foundation
 /// reused while any of them is running. Operations on a closed socket throw an error.
 /// Several threads that write at the same time are not
 /// synchronized with each other: the bytes of their writes may be mixed, so serialize
-/// writes if a connection is written by more than one thread (``WebSocketSession``
+/// writes if a connection is written by more than one thread (``NanoWebSocketSession``
 /// does).
 ///
 /// Sockets are equal only if they are the same object.
@@ -599,7 +599,7 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   }
   
   /// Sends the content of a file, from its beginning to its end. Uses `sendfile` where the system has it.
-  public func writeFile(_ file: String.File) throws {
+  public func writeFile(_ file: NanoFile) throws {
     try self.withDescriptor(closedError: .writeFailed(Self.closedDescription)) { descriptor in
       var offset: off_t = 0
       var sf: sf_hdtr = sf_hdtr()
@@ -626,7 +626,7 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   /// - Throws: `NanoSocketError.timedOut` if the peer takes nothing for as long as the
   ///           send timeout, or another `NanoSocketError` if the connection fails.
   @discardableResult
-  public func writeFile(_ file: String.File, offset: Int64, length: Int64) throws -> Int64 {
+  public func writeFile(_ file: NanoFile, offset: Int64, length: Int64) throws -> Int64 {
     guard offset >= 0, length >= 0 else {
       throw NanoSocketError.writeFailed("negative offset or length")
     }
@@ -664,7 +664,7 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   /// The portable way to send a part of a file: read it in blocks and write them.
   /// Systems that have no `sendfile` use this; it is separate so that it can be
   /// tested on the others.
-  func writeFileByReading(_ file: String.File, offset: Int64, length: Int64) throws -> Int64 {
+  func writeFileByReading(_ file: NanoFile, offset: Int64, length: Int64) throws -> Int64 {
     guard fseeko(file.pointer, off_t(offset), SEEK_SET) == 0 else {
       throw NanoSocketError.writeFailed("seek: " + Self.errnoDescription)
     }
@@ -683,7 +683,7 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   }
   
   /// Sends a part of a file, see ``writeFile(_:offset:length:)``.
-  public func write(_ file: String.File, offset: Int64, length: Int64) throws {
+  public func write(_ file: NanoFile, offset: Int64, length: Int64) throws {
     try self.writeFile(file, offset: offset, length: length)
   }
   
@@ -691,9 +691,9 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   ///
   /// - Parameters:
   ///   - port: The port to listen at; `0` lets the system choose a free port (see ``port()``).
-  ///   - address: Where to listen: ``NanoListenAddress/loopback`` (an IPv4 socket for `127.0.0.1`),
-  ///       ``NanoListenAddress/allInterfaces`` (an IPv6 socket for `::` that also accepts IPv4
-  ///       connections), or one address, which also decides whether the socket is an IPv4 or an IPv6
+  ///   - address: Where to listen: ``NanoHTTPServerIO/NanoListenAddress/loopback`` (an IPv4
+  ///       socket for `127.0.0.1`), ``NanoHTTPServerIO/NanoListenAddress/allInterfaces`` (an
+  ///       IPv6 socket for `::` that also accepts IPv4 connections), or one address, which also decides whether the socket is an IPv4 or an IPv6
   ///       socket. An address that cannot be parsed, or cannot be bound on this machine, makes this
   ///       method throw `NanoSocketError.bindFailed`; it never falls back to another address.
   ///   - backlog: The length of the queue of connections that wait to be accepted.
@@ -878,7 +878,7 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   }
   
   /// Sends a file; see ``writeFile(_:)``.
-  public func write(_ file: String.File) throws {
+  public func write(_ file: NanoFile) throws {
     try self.writeFile(file)
   }
   

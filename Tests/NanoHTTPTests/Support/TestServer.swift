@@ -78,7 +78,7 @@ func exhaustFileDescriptors(leaving free: Int) -> () -> Void {
 }
 
 /// A `NanoSocket` that reads from an in-memory byte sequence (backed by an unlinked temp file).
-/// Reads past the end fail with EOF. Use it to feed bytes to `NanoHTTPParser` or `WebSocketSession`
+/// Reads past the end fail with EOF. Use it to feed bytes to `NanoHTTPParser` or `NanoWebSocketSession`
 /// without a real connection. Any size works (unlike a pipe, which caps at the pipe buffer).
 final class FileSocket: NanoSocket {
   init(_ bytes: [UInt8]) {
@@ -98,7 +98,7 @@ final class FileSocket: NanoSocket {
 final class CapturingWriter: NanoHTTPResponseBodyWriter {
   private(set) var bytes = [UInt8]()
 
-  func write(_ file: String.File) throws {
+  func write(_ file: NanoFile) throws {
     var chunk = [UInt8](repeating: 0, count: 4096)
     while case let count = try file.read(&chunk), count > 0 {
       self.bytes.append(contentsOf: chunk[0..<count])
@@ -175,6 +175,43 @@ final class FileFixture {
 
   func remove() {
     try? FileManager.default.removeItem(atPath: self.root)
+  }
+}
+
+/// Holds back work on a server or pool thread until the test lets it go. Use it instead of a
+/// `DispatchSemaphore` for that: Xcode's Thread Performance Checker takes a thread that waits on a semaphore
+/// for waiting on the thread that is going to signal it, which is the test thread, and reports a priority
+/// inversion because that thread has no quality-of-service class. A condition variable has no such owner.
+final class Gate {
+  private let condition = NSCondition()
+  private var isOpen = false
+
+  /// Waits until the gate is open; with a timeout, returns `false` if it passed first.
+  @discardableResult
+  func wait(timeout: TimeInterval? = nil) -> Bool {
+    let end = timeout.map { Date(timeIntervalSinceNow: $0) }
+    self.condition.lock()
+    defer {
+      self.condition.unlock()
+    }
+    while !self.isOpen {
+      if let end {
+        if !self.condition.wait(until: end) {
+          return self.isOpen
+        }
+      } else {
+        self.condition.wait()
+      }
+    }
+    return true
+  }
+
+  /// Opens the gate for everybody who waits now and later.
+  func open() {
+    self.condition.lock()
+    self.isOpen = true
+    self.condition.broadcast()
+    self.condition.unlock()
   }
 }
 

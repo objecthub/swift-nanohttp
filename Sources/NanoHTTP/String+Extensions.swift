@@ -33,7 +33,6 @@
 
 import Foundation
 import CryptoKit
-import UniformTypeIdentifiers
 
 extension String {
   
@@ -41,25 +40,16 @@ extension String {
     return self.split { $0 == separator }.map(String.init)
   }
   
-  /// The MIME type for the file extension of this file name (`"a.png"` gives `image/png`); `application/octet-stream` if it is not known.
-  public func mimeType() -> String {
-    if let mimeType = UTType(filenameExtension: (self as NSString).pathExtension)?.preferredMIMEType {
-      return mimeType
-    } else {
-      return "application/octet-stream"
-    }
-  }
-  
   /// This string without one pair of surrounding double quotes, if it has them.
-  public func unquote() -> String {
+  func unquote() -> String {
     if self.first == "\"" && self.count >= 2 && self.last == "\"" {
       return String(self[self.index(after: self.startIndex)..<self.index(before: self.endIndex)])
     }
     return self
   }
   
-  /// The SHA-1 hash of the UTF-8 bytes of this string. (The type of the result selects between this and the hexadecimal text.)
-  public func sha1() -> [UInt8] {
+  /// The SHA-1 hash of the UTF-8 bytes of this string.
+  func sha1Bytes() -> [UInt8] {
     guard let data = self.data(using: .utf8) else {
       return []
     }
@@ -68,14 +58,14 @@ extension String {
     digest.copyBytes(to: &res, count: digest.count)
     return res
   }
-
+  
   /// The SHA-1 hash of the UTF-8 bytes of this string as hexadecimal text.
-  public func sha1() -> String {
-    return self.sha1().reduce("") { $0 + String(format: "%02x", $1) }
+  func sha1Hex() -> String {
+    return self.sha1Bytes().reduce("") { $0 + String(format: "%02x", $1) }
   }
   
   /// The Base64 encoding of the bytes.
-  public static func toBase64(_ data: [UInt8]) -> String {
+  static func toBase64(_ data: [UInt8]) -> String {
     return Data(data).base64EncodedString()
   }
 }

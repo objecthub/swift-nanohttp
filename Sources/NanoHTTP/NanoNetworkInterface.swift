@@ -1,5 +1,5 @@
 //
-//  NetworkInterfaces.swift
+//  NanoNetworkInterface.swift
 //  NanoHTTP
 //
 //  Created by Matthias Zenger on 08/08/2024.
@@ -34,7 +34,7 @@
 import Foundation
 
 /// An IP address of a network interface of this machine.
-public struct NetworkInterface: Hashable {
+public struct NanoNetworkInterface: Hashable {
   /// The name of the interface, e.g. `en0`.
   public let name: String
   
@@ -70,8 +70,8 @@ public struct NetworkInterface: Hashable {
   /// Wi-Fi interfaces (`en0`, `en1`, ...) come first, in numeric order; link-local addresses
   /// (`169.254.x.x`, `fe80::`) come after all others. Among equals the name and address decide, so
   /// the result does not depend on the order in which the system lists the interfaces.
-  static func preferred(among interfaces: Set<NetworkInterface>) -> NetworkInterface? {
-    func rank(_ interface: NetworkInterface) -> (Int, Int, String, String) {
+  static func preferred(among interfaces: Set<NanoNetworkInterface>) -> NanoNetworkInterface? {
+    func rank(_ interface: NanoNetworkInterface) -> (Int, Int, String, String) {
       let linkLocal = interface.ip.hasPrefix("169.254.") || interface.ip.lowercased().hasPrefix("fe80:")
       var number = Int.max
       if interface.name.hasPrefix("en"), let n = Int(interface.name.dropFirst(2)) {
@@ -83,8 +83,8 @@ public struct NetworkInterface: Hashable {
   }
   
   /// All addresses of the interfaces that are up and running, except loopback.
-  public static func available() -> Set<NetworkInterface> {
-    var interfaces: Set<NetworkInterface> = []
+  public static func available() -> Set<NanoNetworkInterface> {
+    var interfaces: Set<NanoNetworkInterface> = []
     // Get list of all interfaces on the local machine.
     var ifaddr: UnsafeMutablePointer<ifaddrs>? = nil
     if getifaddrs(&ifaddr) == 0 {
@@ -93,7 +93,7 @@ public struct NetworkInterface: Hashable {
       }
       var cursor = ifaddr
       while let entry = cursor {
-        if let interface = NetworkInterface.interface(from: entry.pointee) {
+        if let interface = NanoNetworkInterface.interface(from: entry.pointee) {
           interfaces.insert(interface)
         }
         cursor = entry.pointee.ifa_next
@@ -105,7 +105,7 @@ public struct NetworkInterface: Hashable {
   /// The address that an entry of the list of `getifaddrs` stands for. `nil` for entries that are
   /// not usable: interfaces that are down or loopback, entries without an address, and addresses
   /// that are neither IPv4 nor IPv6 (link layer addresses, for example).
-  static func interface(from entry: ifaddrs) -> NetworkInterface? {
+  static func interface(from entry: ifaddrs) -> NanoNetworkInterface? {
     // Check for running IPv4, IPv6 interfaces. Skip the loopback interface.
     let flags = Int32(entry.ifa_flags)
     guard flags & (IFF_UP | IFF_RUNNING | IFF_LOOPBACK) == (IFF_UP | IFF_RUNNING),
@@ -124,7 +124,7 @@ public struct NetworkInterface: Hashable {
     guard getnameinfo(address, socklen_t(size), &host, socklen_t(host.count), nil, 0, NI_NUMERICHOST) == 0 else {
       return nil
     }
-    return NetworkInterface(name: String(cString: nameBytes),
+    return NanoNetworkInterface(name: String(cString: nameBytes),
                             ipv4: family == AF_INET,
                             ip: String(cString: host),
                             netmask: entry.ifa_netmask.map { Self.text(ofNetmask: $0, ipv4: family == AF_INET) } ?? "")

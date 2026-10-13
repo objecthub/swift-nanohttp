@@ -111,7 +111,7 @@ final class ExampleHelloServer: NanoHTTPServerIO {
 A response can turn a connection over to something that is not HTTP. ``NanoHTTPResponse/switchProtocols(_:session:)``
 takes a ``NanoSocketSession``, which the server drives: it calls the session when the socket has something to
 read, so that a server with one thread can serve many sessions and its other connections. That is how
-``websocket(text:binary:pong:connected:disconnected:maxMessageSize:)`` works, and the same is available for protocols of
+``NanoWebSocket/handler(text:binary:pong:connected:disconnected:maxMessageSize:)`` works, and the same is available for protocols of
 your own:
 
 ```swift

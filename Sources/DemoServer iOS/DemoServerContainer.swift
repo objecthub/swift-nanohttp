@@ -60,7 +60,7 @@ final class DemoServerContainer: ObservableObject {
       do {
         let port = try self.port()
         self.log("Server has started (port = \(port))")
-        if let ip = NetworkInterface.localIP {
+        if let ip = NanoNetworkInterface.localIP {
           self.log("Try to connect now at http://\(ip):\(port)")
         }
       } catch {}
@@ -78,8 +78,7 @@ final class DemoServerContainer: ObservableObject {
     _ = NanoHTTPServer.demo(server: server,
                             directory: FileManager.default.urls(for: .downloadsDirectory,
                                                                 in: .userDomainMask).first?.path ??
-                                       (try? String.File.currentWorkingDirectory()) ??
-                                       "/")
+                                       FileManager.default.currentDirectoryPath)
     // This app is meant to be reached from other devices.
     server.configuration.listenAddress = .allInterfaces
     try? server.start(9080)

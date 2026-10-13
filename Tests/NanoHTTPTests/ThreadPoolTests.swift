@@ -46,7 +46,10 @@ private final class Counter {
 final class ThreadPoolTests: XCTestCase {
 
   func testWorkRunsOnAThreadWithTheNameAndPriorityOfThePool() {
-    let pool = NanoThreadPool(name: "test pool", qos: .utility)
+    // Not `.utility`: the test waits for this thread, and Xcode's Thread Performance Checker reports a
+    // priority inversion when the (user-interactive) test thread waits for a thread of such a low class.
+    // `.userInitiated` is also different from what a new thread inherits from the test thread.
+    let pool = NanoThreadPool(name: "test pool", qos: .userInitiated)
     defer { pool.close() }
     let done = DispatchSemaphore(value: 0)
     var name: String?
@@ -58,7 +61,7 @@ final class ThreadPoolTests: XCTestCase {
     }
     XCTAssertEqual(done.wait(timeout: .now() + 3), .success)
     XCTAssertEqual(name, "test pool")
-    XCTAssertEqual(qos, .utility)
+    XCTAssertEqual(qos, .userInitiated)
   }
 
   func testSequentialWorkReusesTheThread() {
@@ -77,7 +80,8 @@ final class ThreadPoolTests: XCTestCase {
   func testBlockedWorkNeverDelaysOtherWork() {
     let pool = NanoThreadPool(name: "test pool", qos: .userInitiated)
     defer { pool.close() }
-    let release = DispatchSemaphore(value: 0)
+    let release = Gate()
+    defer { release.open() } // never leave threads blocked, also if the test fails early
     let started = Counter()
     for _ in 0..<100 {
       pool.submit {
@@ -90,7 +94,7 @@ final class ThreadPoolTests: XCTestCase {
     let finished = DispatchSemaphore(value: 0)
     pool.submit { finished.signal() }
     XCTAssertEqual(finished.wait(timeout: .now() + 3), .success)
-    for _ in 0..<100 { release.signal() }
+    release.open()
   }
 
   func testIdleThreadsEndAfterTheirLifetime() {
@@ -107,13 +111,14 @@ final class ThreadPoolTests: XCTestCase {
   func testOnlyAFewThreadsWaitForWork() {
     let pool = NanoThreadPool(name: "test pool", qos: .userInitiated, idleLifetime: 30, maxIdleThreads: 2)
     defer { pool.close() }
-    let release = DispatchSemaphore(value: 0)
+    let release = Gate()
+    defer { release.open() } // never leave threads blocked, also if the test fails early
     let started = Counter()
     for _ in 0..<8 {
       pool.submit { started.increment(); release.wait() }
     }
     XCTAssertTrue(eventually { started.count == 8 })
-    for _ in 0..<8 { release.signal() }
+    release.open()
     XCTAssertTrue(eventually { pool.threadCount <= 2 }, "\(pool.threadCount) threads wait for work")
     XCTAssertLessThanOrEqual(pool.idleThreadCount, 2)
   }
@@ -134,13 +139,14 @@ final class ThreadPoolTests: XCTestCase {
 
   func testWorkThatIsRunningWhenThePoolIsClosedFinishes() {
     let pool = NanoThreadPool(name: "test pool", qos: .userInitiated)
-    let release = DispatchSemaphore(value: 0)
+    let release = Gate()
+    defer { release.open() } // never leave threads blocked, also if the test fails early
     let started = DispatchSemaphore(value: 0)
     let done = DispatchSemaphore(value: 0)
     pool.submit { started.signal(); release.wait(); done.signal() }
     XCTAssertEqual(started.wait(timeout: .now() + 3), .success)
     pool.close()
-    release.signal()
+    release.open()
     XCTAssertEqual(done.wait(timeout: .now() + 3), .success)
     XCTAssertTrue(eventually { pool.threadCount == 0 })
   }
@@ -199,7 +205,8 @@ final class ConnectionThreadReuseTests: XCTestCase {
   }
 
   func testConnectionsAreServedConcurrentlyBeyondTheNumberOfIdleThreads() throws {
-    let release = DispatchSemaphore(value: 0)
+    let release = Gate()
+    defer { release.open() } // never leave threads blocked, also if the test fails early
     let started = Counter()
     try withTestServer(configure: { server in
       server.get["/block"] = { _ in
@@ -211,7 +218,7 @@ final class ConnectionThreadReuseTests: XCTestCase {
       let clients = try (0..<40).map { _ in try RawClient(port: port, timeout: 10) }
       clients.forEach { $0.send(RawClient.requestText("GET", "/block", headers: ["Connection: close"])) }
       XCTAssertTrue(eventually { started.count == 40 }, "only \(started.count) of 40 blocked requests started")
-      for _ in 0..<40 { release.signal() }
+      release.open()
       for client in clients {
         XCTAssertEqual(client.readResponse()?.status, 200)
       }

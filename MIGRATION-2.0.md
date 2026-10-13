@@ -61,8 +61,8 @@ thread.
 
 `NanoHTTPRequestHandler` is now `(NanoHTTPRequest) throws -> NanoHTTPResponse`. Handlers that you write as closures
 need no change: a closure that cannot throw is accepted where a throwing one is expected. What changes is the code
-that *calls* a handler, in tests for example, and the handlers that `htmlHandler`, `share`, `browse` and
-`websocket` return:
+that *calls* a handler, in tests for example, and the handlers that `htmlHandler`, `NanoFiles.share`, `NanoFiles.browse` and
+`NanoWebSocket.handler` return:
 
 ```swift
 let handler = htmlHandler { p { inner = "hi" } }
@@ -211,3 +211,27 @@ Under the hood, sockets read in blocks of 16 KB (a `NanoSocket` reads from a buf
 of a socket itself has to look at `NanoSocket.hasBufferedData` first, which `NanoSocket` subclasses of the framework
 and the sessions of `NanoSocketSession` need not do), and `TCP_NODELAY` is set on accepted connections.
 
+## Names and namespaces
+
+A few public names were too general for a framework that is imported into every file of a server. They got the `Nano`
+prefix or moved into a namespace. The old names still exist in 2.x, marked unavailable, so that the compiler says what
+to use instead (Xcode offers to make the change); they are removed in the next major version.
+
+| 1.x | 2.0 |
+|---|---|
+| `share(file:)`, `share(directory:defaults:followSymlinks:)` | `NanoFiles.share(file:)`, `NanoFiles.share(directory:defaults:followSymlinks:)` |
+| `browse(directory:followSymlinks:)` | `NanoFiles.browse(directory:followSymlinks:)` |
+| `websocket(text:binary:pong:connected:disconnected:maxMessageSize:)` | `NanoWebSocket.handler(text:binary:pong:connected:disconnected:maxMessageSize:)` |
+| `WebSocketSession` | `NanoWebSocketSession` |
+| `NetworkInterface` | `NanoNetworkInterface` |
+| `String.File`, `String.FileError` | `NanoFile`, `NanoFileError` |
+| `"a.png".mimeType()` | `NanoFiles.mimeType(forPath: "a.png")` |
+
+`NanoFile` is opened with `try NanoFile(path: path)` (it was `try path.openForReading()`); the modes `.create` and
+`.update` replace `openNewForWriting()` and `openForWritingAndReading()`.
+
+The helpers that the framework inherited from Swifter are not public any more, and have no replacement in the
+framework: `String.exists()`, `directory()`, `files()`, `openFileForMode(_:_:)`, `String.pathSeparator`,
+`String.File.currentWorkingDirectory()` (use `FileManager.default.currentDirectoryPath`), `String.unquote()`,
+`String.sha1()` and `String.toBase64(_:)`. `FileManager`, `CryptoKit` and `Data.base64EncodedString()` do the same
+jobs.

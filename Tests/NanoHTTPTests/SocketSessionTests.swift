@@ -56,7 +56,7 @@ final class WebSocketOneThreadTests: XCTestCase {
                          read: TimeInterval? = 30,
                          max: Int? = 128,
                          _ body: (NanoHTTPServer, Int) throws -> Void) throws {
-    var sessions = [WebSocketSession]()
+    var sessions = [NanoWebSocketSession]()
     var connectedCount = 0
     var disconnectedCount = 0
     try withTestServer(configure: { server in
@@ -64,7 +64,7 @@ final class WebSocketOneThreadTests: XCTestCase {
       server.configuration.idleTimeout = idle
       server.configuration.readTimeout = read
       server.configuration.maxConnections = max
-      server["/ws"] = websocket(
+      server["/ws"] = NanoWebSocket.handler(
         text: { _, message in sessions.forEach { $0.writeText(message) } },
         binary: { session, bytes in session.writeBinary(bytes) },
         connected: { session in sessions.append(session); connectedCount += 1 },
@@ -134,7 +134,7 @@ final class WebSocketOneThreadTests: XCTestCase {
     let log = ThreadLog()
     try withTestServer(configure: { server in
       server.configuration.threading = .singleThread
-      server["/ws"] = websocket(
+      server["/ws"] = NanoWebSocket.handler(
         text: { session, message in log.record(); session.writeText(message) },
         connected: { _ in log.record() },
         disconnected: { _ in log.record() })
@@ -235,7 +235,7 @@ final class WebSocketOneThreadTests: XCTestCase {
     let disconnected = Counter()
     let server = NanoHTTPServer()
     server.configuration.threading = .singleThread
-    server["/ws"] = websocket(text: { session, message in session.writeText(message) },
+    server["/ws"] = NanoWebSocket.handler(text: { session, message in session.writeText(message) },
                               disconnected: { _ in disconnected.increment() })
     try server.start(0)
     let port = try server.port()
@@ -304,7 +304,7 @@ final class WebSocketOneThreadTests: XCTestCase {
   func testAThreadPerConnectionServerTimesOutOnlyAStalledMessage() throws {
     try withTestServer(configure: { server in
       server.configuration.readTimeout = 0.4
-      server["/ws"] = websocket(text: { session, message in session.writeText(message) })
+      server["/ws"] = NanoWebSocket.handler(text: { session, message in session.writeText(message) })
     }) { _, port in
       let silent = try WS.connect(port: port)
       let stalling = try WS.connect(port: port)
@@ -318,7 +318,7 @@ final class WebSocketOneThreadTests: XCTestCase {
 
   func testAThreadPerConnectionServerStillWorksAsBefore() throws {
     try withTestServer(configure: { server in
-      server["/ws"] = websocket(text: { session, message in session.writeText(message) })
+      server["/ws"] = NanoWebSocket.handler(text: { session, message in session.writeText(message) })
       server.get["/ping"] = { _ in .ok(.text("pong")) }
     }) { _, port in
       let clients = try (0..<3).map { _ in try WS.connect(port: port) }

@@ -331,8 +331,8 @@ final class FileResponseTests: XCTestCase {
 
   private func serve(_ body: (Int) throws -> Void) throws {
     try withTestServer(configure: { server in
-      server["/file"] = share(file: self.fixture.helloFile)
-      server["/public/::path"] = share(directory: self.fixture.publicDir)
+      server["/file"] = NanoFiles.share(file: self.fixture.helloFile)
+      server["/public/::path"] = NanoFiles.share(directory: self.fixture.publicDir)
     }) { _, port in
       try body(port)
     }
@@ -350,7 +350,7 @@ final class FileResponseTests: XCTestCase {
 
   func testMissingSharedFileIs404() throws {
     try withTestServer(configure: { server in
-      server["/file"] = share(file: "/definitely/not/here.txt")
+      server["/file"] = NanoFiles.share(file: "/definitely/not/here.txt")
     }) { _, port in
       XCTAssertEqual(try RawClient.get("/file", port: port).status, 404)
     }
@@ -387,7 +387,7 @@ final class FileResponseTests: XCTestCase {
 
   func testBrowseFileResponseHasTypeAndLength() throws {
     try withTestServer(configure: { server in
-      server["/files/::path"] = browse(directory: self.fixture.publicDir)
+      server["/files/::path"] = NanoFiles.browse(directory: self.fixture.publicDir)
     }) { _, port in
       let response = try RawClient.get("/files/hello.txt", port: port)
       XCTAssertEqual(response.bodyString, "hello")

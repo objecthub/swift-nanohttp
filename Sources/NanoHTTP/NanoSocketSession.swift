@@ -47,7 +47,7 @@ import Foundation
 /// thread of the connection, which waits for the socket between the calls.
 ///
 /// Implement this protocol for a protocol of your own. For WebSockets, use
-/// ``websocket(text:binary:pong:connected:disconnected:maxMessageSize:)``.
+/// ``NanoWebSocket/handler(text:binary:pong:connected:disconnected:maxMessageSize:)``.
 ///
 /// ```swift
 /// // file scope

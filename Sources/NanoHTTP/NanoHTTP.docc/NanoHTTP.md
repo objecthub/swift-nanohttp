@@ -57,15 +57,18 @@ many hostile clients; <doc:SecurityAndLimits> says what to take care of.
 ### Files
 
 - <doc:ServingFiles>
-- ``share(file:)``
-- ``share(directory:defaults:followSymlinks:)``
-- ``browse(directory:followSymlinks:)``
+- ``NanoFiles``
+- ``NanoFiles/share(file:)``
+- ``NanoFiles/share(directory:defaults:followSymlinks:)``
+- ``NanoFiles/browse(directory:followSymlinks:)``
+- ``NanoFile``
 
 ### WebSockets
 
 - <doc:WebSockets>
-- ``websocket(text:binary:pong:connected:disconnected:maxMessageSize:)``
-- ``WebSocketSession``
+- ``NanoWebSocket``
+- ``NanoWebSocket/handler(text:binary:pong:connected:disconnected:maxMessageSize:)``
+- ``NanoWebSocketSession``
 - ``NanoSocketSession``
 
 ### Web pages
@@ -87,5 +90,5 @@ many hostile clients; <doc:SecurityAndLimits> says what to take care of.
 
 - ``NanoSocket``
 - ``NanoSocketError``
-- ``NetworkInterface``
+- ``NanoNetworkInterface``
 - ``NanoProcess``

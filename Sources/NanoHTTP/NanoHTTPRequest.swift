@@ -69,7 +69,7 @@ public final class NanoHTTPRequest: Hashable {
   ///
   /// The decoded path can contain anything, line breaks and NUL characters included (`%0A`, `%00`): do not
   /// write it to a log or into HTML as it is (`htmlEscaped`), and do not use it as a file path without
-  /// checking it (see `share(directory:)`). It is decoded **once**: decoding it again turns `%252e%252e`
+  /// checking it (see `NanoFiles.share(directory:)`). It is decoded **once**: decoding it again turns `%252e%252e`
   /// into `..`.
   ///
   /// Setting the path percent-encodes it into ``rawPath``.

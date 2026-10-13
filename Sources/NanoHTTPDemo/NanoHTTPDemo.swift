@@ -53,8 +53,8 @@ extension NanoHTTPServer {
 public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
                        directory publicDir: String) -> NanoHTTPServer {
   server.log("directory = \(publicDir)")
-  server["/public/::path"] = share(directory: publicDir)
-  server["/files/::path"] = browse(directory: publicDir)
+  server["/public/::path"] = NanoFiles.share(directory: publicDir)
+  server["/files/::path"] = NanoFiles.browse(directory: publicDir)
   server["/"] = htmlHandler {
     html {
       body {
@@ -211,7 +211,7 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
       }
     }
   }
-  server["/websocket-echo"] = websocket(
+  server["/websocket-echo"] = NanoWebSocket.handler(
     text: { (session, text) in session.writeText(text) },
     binary: { (session, binary) in session.writeBinary(binary) },
     pong: { (_, _) in /* Got a pong frame */ },

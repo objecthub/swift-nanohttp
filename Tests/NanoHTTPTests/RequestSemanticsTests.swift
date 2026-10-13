@@ -358,8 +358,8 @@ final class DecodedRoutingTests: XCTestCase {
   func testFileNamesWithSpecialCharactersAreServed() throws {
     try withDirectory { directory in
       try withTestServer(configure: { server in
-        server["/files/::path"] = share(directory: directory)
-        server["/browse/::path"] = browse(directory: directory)
+        server["/files/::path"] = NanoFiles.share(directory: directory)
+        server["/browse/::path"] = NanoFiles.browse(directory: directory)
       }) { _, port in
         XCTAssertEqual(try RawClient.get("/files/a%20b.txt", port: port).bodyString, "plain")
         XCTAssertEqual(try RawClient.get("/files/sub%20dir/%C3%A9.txt", port: port).bodyString, "inner")
@@ -372,8 +372,8 @@ final class DecodedRoutingTests: XCTestCase {
   func testAFileNameIsNotDecodedTwice() throws {
     try withDirectory { directory in
       try withTestServer(configure: { server in
-        server["/files/::path"] = share(directory: directory)
-        server["/browse/::path"] = browse(directory: directory)
+        server["/files/::path"] = NanoFiles.share(directory: directory)
+        server["/browse/::path"] = NanoFiles.browse(directory: directory)
       }) { _, port in
         // `%252e%252e` is the name "%2e%2e": the file that was created above, not a way out of the directory.
         XCTAssertEqual(try RawClient.get("/files/%252e%252e", port: port).bodyString, "%2e%2e")
@@ -389,7 +389,7 @@ final class DecodedRoutingTests: XCTestCase {
   func testTheLinksOfAListingAreEncodedAndRelativeToTheRawPath() throws {
     try withDirectory { directory in
       try withTestServer(configure: { server in
-        server["/browse/::path"] = browse(directory: directory)
+        server["/browse/::path"] = NanoFiles.browse(directory: directory)
       }) { _, port in
         let listing = try RawClient.get("/browse/sub%20dir", port: port).bodyString
         // (The file system may store the é as e and a combining accent, which the listing then shows.)

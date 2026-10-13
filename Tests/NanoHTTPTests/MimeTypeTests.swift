@@ -38,25 +38,21 @@ import XCTest
 
 class MimeTypeTests: XCTestCase {
   
-  func testTypeExtension() {
-    XCTAssertNotNil(String.mimeType, "Type String is extended with mimeType")
-  }
-  
   func testDefaultValue() {
-    XCTAssertEqual("file.null".mimeType(), "application/octet-stream")
+    XCTAssertEqual(NanoFiles.mimeType(forPath: "file.null"), "application/octet-stream")
   }
   
   func testCorrectTypes() {
-    XCTAssertEqual("file.html".mimeType(), "text/html")
-    XCTAssertEqual("file.css".mimeType(), "text/css")
-    XCTAssertEqual("file.mp4".mimeType(), "video/mp4")
-    XCTAssertEqual("file.pptx".mimeType(), "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+    XCTAssertEqual(NanoFiles.mimeType(forPath: "file.html"), "text/html")
+    XCTAssertEqual(NanoFiles.mimeType(forPath: "file.css"), "text/css")
+    XCTAssertEqual(NanoFiles.mimeType(forPath: "file.mp4"), "video/mp4")
+    XCTAssertEqual(NanoFiles.mimeType(forPath: "file.pptx"), "application/vnd.openxmlformats-officedocument.presentationml.presentation")
   }
   
   func testCaseInsensitivity() {
-    XCTAssertEqual("file.HTML".mimeType(), "text/html")
-    XCTAssertEqual("file.cSs".mimeType(), "text/css")
-    XCTAssertEqual("file.MP4".mimeType(), "video/mp4")
-    XCTAssertEqual("file.PPTX".mimeType(), "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+    XCTAssertEqual(NanoFiles.mimeType(forPath: "file.HTML"), "text/html")
+    XCTAssertEqual(NanoFiles.mimeType(forPath: "file.cSs"), "text/css")
+    XCTAssertEqual(NanoFiles.mimeType(forPath: "file.MP4"), "video/mp4")
+    XCTAssertEqual(NanoFiles.mimeType(forPath: "file.PPTX"), "application/vnd.openxmlformats-officedocument.presentationml.presentation")
   }
 }

@@ -4,18 +4,18 @@ Exchange messages with browsers and apps over a connection that stays open.
 
 ## Overview
 
-``websocket(text:binary:pong:connected:disconnected:maxMessageSize:)`` creates a handler that upgrades a request
+``NanoWebSocket/handler(text:binary:pong:connected:disconnected:maxMessageSize:)`` creates a handler that upgrades a request
 to a WebSocket connection (RFC 6455) and calls closures for what happens on it. Register it like any other handler:
 
 ```swift
 let server = NanoHTTPServer()
-server["/echo"] = websocket(
+server["/echo"] = NanoWebSocket.handler(
   text: { session, text in session.writeText(text) },
   binary: { session, bytes in session.writeBinary(bytes) })
 ```
 
-Each closure receives the ``WebSocketSession`` of the connection. A session sends text with
-``WebSocketSession/writeText(_:)`` and binary data with ``WebSocketSession/writeBinary(_:)-([UInt8])``. Pings are answered
+Each closure receives the ``NanoWebSocketSession`` of the connection. A session sends text with
+``NanoWebSocketSession/writeText(_:)`` and binary data with ``NanoWebSocketSession/writeBinary(_:)-([UInt8])``. Pings are answered
 automatically; the `pong` closure sees the pongs that the client sends.
 
 From a page, the server of the example is reached with:
@@ -39,13 +39,13 @@ lock, and write to all of them:
 // file scope
 final class ExampleChatRoom {
   private let lock = NSLock()
-  private var sessions = Set<WebSocketSession>()
+  private var sessions = Set<NanoWebSocketSession>()
 
-  func join(_ session: WebSocketSession) {
+  func join(_ session: NanoWebSocketSession) {
     lock.lock(); sessions.insert(session); lock.unlock()
   }
 
-  func leave(_ session: WebSocketSession) {
+  func leave(_ session: NanoWebSocketSession) {
     lock.lock(); sessions.remove(session); lock.unlock()
   }
 
@@ -59,7 +59,7 @@ final class ExampleChatRoom {
 ```swift
 let chat = ExampleChatRoom()
 let server = NanoHTTPServer()
-server["/chat"] = websocket(
+server["/chat"] = NanoWebSocket.handler(
   text: { _, message in chat.broadcast(message) },
   connected: { session in chat.join(session) },
   disconnected: { session in chat.leave(session) })
@@ -79,8 +79,8 @@ of sessions needs **no lock**, also when HTTP handlers write to the sessions:
 ```swift
 let server = NanoHTTPServer()
 server.configuration.threading = .singleThread
-var sessions = [WebSocketSession]()           // used by all closures and handlers: they all run on one thread
-server["/chat"] = websocket(
+var sessions = [NanoWebSocketSession]()           // used by all closures and handlers: they all run on one thread
+server["/chat"] = NanoWebSocket.handler(
   text: { _, message in sessions.forEach { $0.writeText(message) } },
   connected: { session in sessions.append(session) },
   disconnected: { session in sessions.removeAll { $0 === session } })
@@ -116,7 +116,7 @@ privileges of the user. Servers that are not meant for such pages should check t
 
 ## Topics
 
-- ``websocket(text:binary:pong:connected:disconnected:maxMessageSize:)``
-- ``WebSocketSession``
-- ``WebSocketSession/CloseCode``
-- ``WebSocketSession/WsError``
+- ``NanoWebSocket/handler(text:binary:pong:connected:disconnected:maxMessageSize:)``
+- ``NanoWebSocketSession``
+- ``NanoWebSocketSession/CloseCode``
+- ``NanoWebSocketSession/WsError``

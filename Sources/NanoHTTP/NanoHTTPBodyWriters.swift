@@ -71,13 +71,13 @@ final class ChunkedBodyWriter: NanoHTTPResponseBodyWriter {
     try self.write(ArraySlice([UInt8](data)))
   }
   
-  func write(_ file: String.File) throws {
+  func write(_ file: NanoFile) throws {
     try self.write(file, offset: 0, length: Int64(file.status()?.st_size ?? 0))
   }
   
   /// A part of a file is one chunk, which the system sends without the bytes passing through this process. If the
   /// file turns out shorter than it was a moment ago, the chunk cannot be completed: the error ends the connection.
-  func write(_ file: String.File, offset: Int64, length: Int64) throws {
+  func write(_ file: NanoFile, offset: Int64, length: Int64) throws {
     guard length > 0 else {
       return
     }
@@ -138,11 +138,11 @@ final class LengthLimitedBodyWriter: NanoHTTPResponseBodyWriter {
     try self.write(ArraySlice([UInt8](data)))
   }
   
-  func write(_ file: String.File) throws {
+  func write(_ file: NanoFile) throws {
     try self.write(file, offset: 0, length: Int64(file.status()?.st_size ?? 0))
   }
   
-  func write(_ file: String.File, offset: Int64, length: Int64) throws {
+  func write(_ file: NanoFile, offset: Int64, length: Int64) throws {
     let room = Int64(self.length - self.written)
     if length > room {
       self.overflowed = true

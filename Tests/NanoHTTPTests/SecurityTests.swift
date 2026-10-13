@@ -10,7 +10,7 @@
 import XCTest
 @testable import NanoHTTP
 
-// MARK: - S1: path traversal in share(directory:) / browse(directory:)
+// MARK: - S1: path traversal in NanoFiles.share(directory:) / NanoFiles.browse(directory:)
 
 final class FileServingSecurityTests: XCTestCase {
   var fixture: FileFixture!
@@ -26,8 +26,8 @@ final class FileServingSecurityTests: XCTestCase {
 
   private func serve(_ body: (Int) throws -> Void) throws {
     try withTestServer(configure: { server in
-      server["/public/::path"] = share(directory: self.fixture.publicDir)
-      server["/files/::path"] = browse(directory: self.fixture.publicDir)
+      server["/public/::path"] = NanoFiles.share(directory: self.fixture.publicDir)
+      server["/files/::path"] = NanoFiles.browse(directory: self.fixture.publicDir)
     }) { _, port in
       try body(port)
     }
@@ -111,7 +111,7 @@ final class FileServingSecurityTests: XCTestCase {
 
   func testSharedFileThatIsASymlinkSendsTheSizeOfItsTarget() throws {
     try withTestServer(configure: { server in
-      server["/alias"] = share(file: self.fixture.publicDir + "/alias.txt")
+      server["/alias"] = NanoFiles.share(file: self.fixture.publicDir + "/alias.txt")
     }) { _, port in
       let response = try RawClient.get("/alias", port: port)
       XCTAssertEqual(response.header("content-length"), "5")
@@ -121,8 +121,8 @@ final class FileServingSecurityTests: XCTestCase {
 
   func testSharedDirectoryMayBeGivenAsASymlink() throws {
     try withTestServer(configure: { server in
-      server["/public/::path"] = share(directory: self.fixture.root + "/public-link")
-      server["/files/::path"] = browse(directory: self.fixture.root + "/public-link")
+      server["/public/::path"] = NanoFiles.share(directory: self.fixture.root + "/public-link")
+      server["/files/::path"] = NanoFiles.browse(directory: self.fixture.root + "/public-link")
     }) { _, port in
       XCTAssertEqual(try RawClient.get("/public/hello.txt", port: port).bodyString, "hello")
       XCTAssertEqual(try RawClient.get("/public/alias.txt", port: port).bodyString, "hello")
@@ -242,8 +242,8 @@ final class FollowSymlinksTests: XCTestCase {
 
   private func serve(followSymlinks: Bool, _ body: (Int) throws -> Void) throws {
     try withTestServer(configure: { server in
-      server["/public/::path"] = share(directory: self.fixture.publicDir, followSymlinks: followSymlinks)
-      server["/files/::path"] = browse(directory: self.fixture.publicDir, followSymlinks: followSymlinks)
+      server["/public/::path"] = NanoFiles.share(directory: self.fixture.publicDir, followSymlinks: followSymlinks)
+      server["/files/::path"] = NanoFiles.browse(directory: self.fixture.publicDir, followSymlinks: followSymlinks)
     }) { _, port in
       try body(port)
     }
@@ -251,8 +251,8 @@ final class FollowSymlinksTests: XCTestCase {
 
   func testLinksLeavingTheDirectoryAreRefusedByDefault() throws {
     try withTestServer(configure: { server in // parameter omitted
-      server["/public/::path"] = share(directory: self.fixture.publicDir)
-      server["/files/::path"] = browse(directory: self.fixture.publicDir)
+      server["/public/::path"] = NanoFiles.share(directory: self.fixture.publicDir)
+      server["/files/::path"] = NanoFiles.browse(directory: self.fixture.publicDir)
     }) { _, port in
       for path in ["/public/escape.txt", "/public/outerdir/secret.txt", "/files/escape.txt", "/files/outerdir/"] {
         XCTAssertEqual(try RawClient.get(path, port: port).status, 403, path)
@@ -552,8 +552,8 @@ final class SocketReadTests: XCTestCase {
 
 final class WebSocketFrameLimitTests: XCTestCase {
 
-  private func session(_ bytes: [UInt8], maxPayloadSize: Int? = nil) -> WebSocketSession {
-    let session = WebSocketSession(FileSocket(bytes))
+  private func session(_ bytes: [UInt8], maxPayloadSize: Int? = nil) -> NanoWebSocketSession {
+    let session = NanoWebSocketSession(FileSocket(bytes))
     if let maxPayloadSize {
       session.maxPayloadSize = maxPayloadSize
     }
@@ -570,7 +570,7 @@ final class WebSocketFrameLimitTests: XCTestCase {
                                    file: StaticString = #filePath,
                                    line: UInt = #line) {
     XCTAssertThrowsError(try session(bytes, maxPayloadSize: maxPayloadSize).readFrame(), file: file, line: line) { error in
-      guard case WebSocketSession.WsError.protocolError = error else {
+      guard case NanoWebSocketSession.WsError.protocolError = error else {
         return XCTFail("expected a protocol error, got \(error)", file: file, line: line)
       }
     }
@@ -582,7 +582,7 @@ final class WebSocketFrameLimitTests: XCTestCase {
                             file: StaticString = #filePath,
                             line: UInt = #line) {
     XCTAssertThrowsError(try session(bytes, maxPayloadSize: maxPayloadSize).readFrame(), file: file, line: line) { error in
-      guard case WebSocketSession.WsError.messageTooBig = error else {
+      guard case NanoWebSocketSession.WsError.messageTooBig = error else {
         return XCTFail("expected messageTooBig, got \(error)", file: file, line: line)
       }
     }

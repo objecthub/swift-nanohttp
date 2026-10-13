@@ -52,7 +52,7 @@ final class MacOsHttpServer: NanoHTTPServer {
       self.log("Server has started (port = \(port))")
       if self.configuration.listenAddress == .loopback {
         self.log("Try to connect now at http://localhost:\(port)")
-      } else if let ip = NetworkInterface.localIP {
+      } else if let ip = NanoNetworkInterface.localIP {
         self.log("Try to connect now at http://\(ip):\(port)")
       }
     } catch {}
@@ -62,7 +62,7 @@ final class MacOsHttpServer: NanoHTTPServer {
 
 do {
   let path = try FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path ??
-             String.File.currentWorkingDirectory()
+             FileManager.default.currentDirectoryPath
   let server: NanoHTTPServer  = .demo(server: MacOsHttpServer(), directory: path)
   server["/testAfterBaseRoute"] = { request in
     print("Received request: \(request)")

@@ -9,17 +9,17 @@ Three handler factories serve files from disk:
 ```swift
 let server = NanoHTTPServer()
 let directory = NSHomeDirectory() + "/Public"
-server["/logo"] = share(file: directory + "/logo.png")
-server["/static/::path"] = share(directory: directory)
-server["/browse/::path"] = browse(directory: directory)
+server["/logo"] = NanoFiles.share(file: directory + "/logo.png")
+server["/static/::path"] = NanoFiles.share(directory: directory)
+server["/browse/::path"] = NanoFiles.browse(directory: directory)
 ```
 
-- ``share(file:)`` serves one file.
-- ``share(directory:defaults:followSymlinks:)`` serves the files below a directory. The route must end in a
+- ``NanoFiles/share(file:)`` serves one file.
+- ``NanoFiles/share(directory:defaults:followSymlinks:)`` serves the files below a directory. The route must end in a
   path variable (`::path`): its value selects the file. A request for a directory is redirected to the same
   address with a `/` at the end (so that the relative links of its pages work: `301`, the query is kept); with the `/`
   it serves the first existing file of `defaults` (`index.html`, `default.html`) in the directory, or answers `404`.
-- ``browse(directory:followSymlinks:)`` is like it, but answers requests for a directory with an HTML list of
+- ``NanoFiles/browse(directory:followSymlinks:)`` is like it, but answers requests for a directory with an HTML list of
   links (without the entries `.` and `..`). Everything in the directory is listed, hidden files included.
 
 The `Content-Type` comes from the extension of the file (`.html` gives `text/html`, an unknown extension gives
@@ -57,7 +57,7 @@ If you really want links that lead outside to be served, opt in:
 
 ```swift
 let server = NanoHTTPServer()
-server["/static/::path"] = share(directory: "/var/www", followSymlinks: true)
+server["/static/::path"] = NanoFiles.share(directory: "/var/www", followSymlinks: true)
 ```
 
 Only do this if everyone who can create files in the directory is trusted: a link in it can expose any file that
@@ -70,10 +70,10 @@ the process can read. `..` and NUL characters in the request are refused in eith
 - Requests for a byte range (`Range`), conditional requests (`If-Modified-Since`, `ETag`) and compression are not
   supported: the whole file is always sent.
 - A request for a directory that is not the route itself (`/static/sub`) opens the directory like a file and
-  produces an empty answer. Link to files, or use ``browse(directory:followSymlinks:)``.
+  produces an empty answer. Link to files, or use ``NanoFiles/browse(directory:followSymlinks:)``.
 
 ## Topics
 
-- ``share(file:)``
-- ``share(directory:defaults:followSymlinks:)``
-- ``browse(directory:followSymlinks:)``
+- ``NanoFiles/share(file:)``
+- ``NanoFiles/share(directory:defaults:followSymlinks:)``
+- ``NanoFiles/browse(directory:followSymlinks:)``

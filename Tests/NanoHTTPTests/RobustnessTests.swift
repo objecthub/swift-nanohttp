@@ -89,9 +89,9 @@ final class DescriptorLeakTests: XCTestCase {
 
   /// A handler opens the file when it *builds* the response; the descriptor used to be closed only
   /// when the response was actually written. If the response is dropped (header write failed,
-  /// server stopping, ...) the descriptor leaked because `String.File` had no `deinit`.
+  /// server stopping, ...) the descriptor leaked because `NanoFile` had no `deinit`.
   func testShareFileDoesNotLeakWhenResponseIsNeverWritten() throws {
-    let handler = share(file: self.fixture.helloFile)
+    let handler = NanoFiles.share(file: self.fixture.helloFile)
     let request = NanoHTTPRequest(method: "GET", path: "/")
     let before = openFileDescriptorCount()
     for _ in 0..<50 {
@@ -103,7 +103,7 @@ final class DescriptorLeakTests: XCTestCase {
   func testShareDirectoryAndBrowseDoNotLeakWhenResponseIsNeverWritten() {
     let request = NanoHTTPRequest(method: "GET", path: "/public/hello.txt")
     request.params = ["path": "hello.txt"]
-    let handlers = [share(directory: self.fixture.publicDir), browse(directory: self.fixture.publicDir)]
+    let handlers = [NanoFiles.share(directory: self.fixture.publicDir), NanoFiles.browse(directory: self.fixture.publicDir)]
     let before = openFileDescriptorCount()
     for _ in 0..<50 {
       for handler in handlers {
@@ -114,7 +114,7 @@ final class DescriptorLeakTests: XCTestCase {
   }
 
   func testShareFileClosesDescriptorAfterWriting() {
-    let handler = share(file: self.fixture.helloFile)
+    let handler = NanoFiles.share(file: self.fixture.helloFile)
     let request = NanoHTTPRequest(method: "GET", path: "/")
     let before = openFileDescriptorCount()
     for _ in 0..<50 {
@@ -126,7 +126,7 @@ final class DescriptorLeakTests: XCTestCase {
   func testAFileClosesItselfWhenItIsReleased() throws {
     let before = openFileDescriptorCount()
     for _ in 0..<50 {
-      _ = try self.fixture.helloFile.openForReading()
+      _ = try NanoFile(path: self.fixture.helloFile)
     }
     XCTAssertLessThan(openFileDescriptorCount() - before, 5)
   }
@@ -134,7 +134,7 @@ final class DescriptorLeakTests: XCTestCase {
   func testClosingAFileTwiceIsHarmless() throws {
     let before = openFileDescriptorCount()
     do {
-      let file = try self.fixture.helloFile.openForReading()
+      let file = try NanoFile(path: self.fixture.helloFile)
       XCTAssertEqual(openFileDescriptorCount(), before + 1)
       file.close()
       XCTAssertEqual(openFileDescriptorCount(), before)
@@ -276,7 +276,7 @@ final class SocketCloseTests: XCTestCase {
   func testAWebSocketSessionOfAClosedConnectionNeverWritesToAnUnrelatedSocket() throws {
     let (stale, _, peer, cleanup) = try closedSocketWithReusedDescriptor()
     defer { cleanup() }
-    let session = WebSocketSession(stale)
+    let session = NanoWebSocketSession(stale)
     session.writeText("broadcast to a client that is gone")
     var buffer = [UInt8](repeating: 0, count: 64)
     XCTAssertEqual(read(peer, &buffer, buffer.count), -1, "a stale session wrote into another connection")
@@ -546,7 +546,7 @@ final class EmptyBodyTests: XCTestCase {
     NanoSocket.setNoSigPipe(fds[1])
     defer { close(fds[1]) }
     do {
-      let session = WebSocketSession(NanoSocket(socketFileDescriptor: fds[0]))
+      let session = NanoWebSocketSession(NanoSocket(socketFileDescriptor: fds[0]))
       session.writeCloseFrame() // empty payload
       var received = [UInt8](repeating: 0, count: 2)
       XCTAssertEqual(read(fds[1], &received, 2), 2)
@@ -555,7 +555,7 @@ final class EmptyBodyTests: XCTestCase {
   }
 }
 
-// MARK: - R7: NetworkInterface (fixed)
+// MARK: - R7: NanoNetworkInterface (fixed)
 
 final class NetworkInterfaceTests: XCTestCase {
 
@@ -607,7 +607,7 @@ final class NetworkInterfaceTests: XCTestCase {
   }
 
   func testIPv4AddressesMatchTheOperatingSystem() {
-    let reported = Set(NetworkInterface.available().filter { $0.ipv4 }.map { $0.ip })
+    let reported = Set(NanoNetworkInterface.available().filter { $0.ipv4 }.map { $0.ip })
     XCTAssertEqual(reported, reference(ipv4: true))
   }
 
@@ -615,14 +615,14 @@ final class NetworkInterfaceTests: XCTestCase {
     let expected = reference(ipv4: false)
     try XCTSkipIf(expected.isEmpty, "no running non-loopback IPv6 interface on this machine")
     // Link-local addresses are reported with the zone of the interface: fe80::1%en0.
-    let reported = Set(NetworkInterface.available().filter { !$0.ipv4 }.map {
+    let reported = Set(NanoNetworkInterface.available().filter { !$0.ipv4 }.map {
       String($0.ip.split(separator: "%").first ?? "")
     })
     XCTAssertEqual(reported, expected)
   }
 
   func testAddressesAndNetmasksAreWellFormed() {
-    for interface in NetworkInterface.available() {
+    for interface in NanoNetworkInterface.available() {
       var storage = [UInt8](repeating: 0, count: 16)
       let address = String(interface.ip.split(separator: "%").first ?? "")
       XCTAssertEqual(inet_pton(interface.ipv4 ? AF_INET : AF_INET6, address, &storage), 1, "\(interface)")
@@ -631,44 +631,44 @@ final class NetworkInterfaceTests: XCTestCase {
   }
 
   func testLocalIPIsOneOfTheInterfaceAddressesAndStable() {
-    let first = NetworkInterface.localIP
+    let first = NanoNetworkInterface.localIP
     for _ in 0..<50 {
-      XCTAssertEqual(NetworkInterface.localIP, first)
-      XCTAssertEqual(NetworkInterface.localIP(ipv4: true), NetworkInterface.localIP(ipv4: true))
+      XCTAssertEqual(NanoNetworkInterface.localIP, first)
+      XCTAssertEqual(NanoNetworkInterface.localIP(ipv4: true), NanoNetworkInterface.localIP(ipv4: true))
     }
     if let ip = first {
-      XCTAssertTrue(NetworkInterface.available().contains { $0.ip == ip })
+      XCTAssertTrue(NanoNetworkInterface.available().contains { $0.ip == ip })
     }
   }
 
   // MARK: Ranking
 
-  private func interface(_ name: String, _ ip: String, ipv4: Bool = true) -> NetworkInterface {
-    return NetworkInterface(name: name, ipv4: ipv4, ip: ip, netmask: "255.255.255.0")
+  private func interface(_ name: String, _ ip: String, ipv4: Bool = true) -> NanoNetworkInterface {
+    return NanoNetworkInterface(name: name, ipv4: ipv4, ip: ip, netmask: "255.255.255.0")
   }
 
   func testPreferredInterface() {
     let utun = interface("utun3", "10.8.0.2"), bridge = interface("bridge100", "192.168.64.1")
     let en0 = interface("en0", "192.168.1.20"), en1 = interface("en1", "10.0.0.5"), en10 = interface("en10", "172.16.0.9")
-    XCTAssertEqual(NetworkInterface.preferred(among: [utun, bridge, en1, en0])?.name, "en0")
-    XCTAssertEqual(NetworkInterface.preferred(among: [utun, bridge, en1])?.name, "en1")
-    XCTAssertEqual(NetworkInterface.preferred(among: [en10, en1])?.name, "en1", "numeric, not alphabetical")
-    XCTAssertEqual(NetworkInterface.preferred(among: [utun, bridge])?.name, "bridge100", "otherwise by name")
-    XCTAssertNil(NetworkInterface.preferred(among: []))
+    XCTAssertEqual(NanoNetworkInterface.preferred(among: [utun, bridge, en1, en0])?.name, "en0")
+    XCTAssertEqual(NanoNetworkInterface.preferred(among: [utun, bridge, en1])?.name, "en1")
+    XCTAssertEqual(NanoNetworkInterface.preferred(among: [en10, en1])?.name, "en1", "numeric, not alphabetical")
+    XCTAssertEqual(NanoNetworkInterface.preferred(among: [utun, bridge])?.name, "bridge100", "otherwise by name")
+    XCTAssertNil(NanoNetworkInterface.preferred(among: []))
   }
 
   func testLinkLocalAddressesComeLast() {
     let linkLocal4 = interface("en0", "169.254.12.7"), other = interface("utun1", "10.1.1.1")
-    XCTAssertEqual(NetworkInterface.preferred(among: [linkLocal4, other])?.ip, "10.1.1.1")
-    XCTAssertEqual(NetworkInterface.preferred(among: [linkLocal4])?.ip, "169.254.12.7", "better than nothing")
+    XCTAssertEqual(NanoNetworkInterface.preferred(among: [linkLocal4, other])?.ip, "10.1.1.1")
+    XCTAssertEqual(NanoNetworkInterface.preferred(among: [linkLocal4])?.ip, "169.254.12.7", "better than nothing")
     let linkLocal6 = interface("en0", "fe80::1%en0", ipv4: false), global6 = interface("awdl0", "2001:db8::5", ipv4: false)
-    XCTAssertEqual(NetworkInterface.preferred(among: [linkLocal6, global6])?.ip, "2001:db8::5")
+    XCTAssertEqual(NanoNetworkInterface.preferred(among: [linkLocal6, global6])?.ip, "2001:db8::5")
   }
 
   func testThePreferenceDoesNotDependOnTheOrderOfTheSet() {
     let all = [interface("en2", "10.0.2.1"), interface("en0", "10.0.0.1"), interface("lo9", "10.9.9.9"), interface("en1", "10.0.1.1")]
     for _ in 0..<20 {
-      XCTAssertEqual(NetworkInterface.preferred(among: Set(all.shuffled()))?.name, "en0")
+      XCTAssertEqual(NanoNetworkInterface.preferred(among: Set(all.shuffled()))?.name, "en0")
     }
   }
 
@@ -712,14 +712,14 @@ final class NetworkInterfaceTests: XCTestCase {
 
   func testAnEntryWithoutAnAddressIsSkipped() {
     let entry = Entry(address: nil, netmask: nil)
-    XCTAssertNil(NetworkInterface.interface(from: entry.entry)) // used to dereference a null pointer
+    XCTAssertNil(NanoNetworkInterface.interface(from: entry.entry)) // used to dereference a null pointer
   }
 
   func testAnIPv6AddressIsReadInFull() {
     let address: [UInt8] = [0x20, 0x01, 0x0d, 0xb8, 0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04, 0x00, 0x05, 0x00, 0x06]
     let mask: [UInt8] = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff] + [UInt8](repeating: 0, count: 8)
     let entry = Entry(address: sockaddr6(address), netmask: sockaddr6(mask))
-    let interface = NetworkInterface.interface(from: entry.entry)
+    let interface = NanoNetworkInterface.interface(from: entry.entry)
     XCTAssertEqual(interface?.ip, "2001:db8:1:2:3:4:5:6") // the second half used to be garbage
     XCTAssertEqual(interface?.netmask, "ffff:ffff:ffff:ffff::")
     XCTAssertEqual(interface?.ipv4, false)
@@ -730,7 +730,7 @@ final class NetworkInterfaceTests: XCTestCase {
     var address = [UInt8](repeating: 0, count: 16)
     address[0] = 0xfe; address[1] = 0x80; address[15] = 1
     let entry = Entry(name: "lo99", address: sockaddr6(address, scope: 1)) // scope 1: the first interface, lo0
-    XCTAssertEqual(NetworkInterface.interface(from: entry.entry)?.ip, "fe80::1%lo0")
+    XCTAssertEqual(NanoNetworkInterface.interface(from: entry.entry)?.ip, "fe80::1%lo0")
   }
 
   func testANetmaskWithTrailingZeroBytesCutOffIsRestored() {
@@ -744,7 +744,7 @@ final class NetworkInterfaceTests: XCTestCase {
       let mask = sockaddr4(bytes[0], bytes[1], bytes[2], bytes[3], length: length)
       let cut = Array(mask.prefix(Int(length)))
       let entry = Entry(address: sockaddr4(192, 168, 1, 20), netmask: cut)
-      let interface = NetworkInterface.interface(from: entry.entry)
+      let interface = NanoNetworkInterface.interface(from: entry.entry)
       XCTAssertEqual(interface?.ip, "192.168.1.20")
       XCTAssertEqual(interface?.netmask, expected, "sa_len \(length)")
     }
@@ -752,18 +752,18 @@ final class NetworkInterfaceTests: XCTestCase {
 
   func testAnEntryWithoutANetmaskHasAnEmptyNetmask() {
     let entry = Entry(address: sockaddr4(10, 0, 0, 1), netmask: nil)
-    let interface = NetworkInterface.interface(from: entry.entry)
+    let interface = NanoNetworkInterface.interface(from: entry.entry)
     XCTAssertEqual(interface?.ip, "10.0.0.1")
     XCTAssertEqual(interface?.netmask, "")
   }
 
   func testLoopbackInterfacesInterfacesThatAreDownAndOtherAddressFamiliesAreSkipped() {
     let loopback = Entry(flags: IFF_UP | IFF_RUNNING | IFF_LOOPBACK, address: sockaddr4(127, 0, 0, 1), netmask: sockaddr4(255, 0, 0, 0))
-    XCTAssertNil(NetworkInterface.interface(from: loopback.entry))
+    XCTAssertNil(NanoNetworkInterface.interface(from: loopback.entry))
     let down = Entry(flags: IFF_UP, address: sockaddr4(10, 0, 0, 1), netmask: sockaddr4(255, 0, 0, 0))
-    XCTAssertNil(NetworkInterface.interface(from: down.entry))
+    XCTAssertNil(NanoNetworkInterface.interface(from: down.entry))
     let linkLayer = Entry(address: [20, UInt8(AF_LINK), 0, 0, 6, 0, 0, 0, 0xde, 0xad, 0xbe, 0xef, 0, 1, 0, 0, 0, 0, 0, 0])
-    XCTAssertNil(NetworkInterface.interface(from: linkLayer.entry))
+    XCTAssertNil(NanoNetworkInterface.interface(from: linkLayer.entry))
   }
 }
 

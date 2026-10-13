@@ -46,7 +46,7 @@ final class ListenAddressTests: XCTestCase {
   }
 
   private var lanAddress: String? {
-    return NetworkInterface.localIP(ipv4: true).flatMap { $0.hasPrefix("127.") ? nil : $0 }
+    return NanoNetworkInterface.localIP(ipv4: true).flatMap { $0.hasPrefix("127.") ? nil : $0 }
   }
 
   func testTheDefaultIsLoopback() throws {

@@ -13,7 +13,7 @@ let handler: NanoHTTPRequestHandler = { request in
   .ok(.text("Hello, \(request.params["name"] ?? "stranger")!"))
 }
 let request = NanoHTTPRequest(method: "GET", path: "/hello/Ada")
-request.params = ["name": "Ada"]                         // what the router would have set
+request.params = ["name": "Ada"]                         // what the router would have set (decoded)
 let response = try handler(request)
 assert(response.statusCode == 200)
 if case .text(let text) = response.body {

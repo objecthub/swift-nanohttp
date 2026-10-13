@@ -36,26 +36,22 @@ final class RequestLineTests: XCTestCase {
     XCTAssertEqual(request.queryParams.map { "\($0.0)=\($0.1)" }, ["b=2", "a=1", "a=3"])
   }
 
-  func testPathIsKeptPercentEncoded() throws {
-    // Router and file handlers decode path segments themselves, so `path` must stay raw.
-    // Documented invariant, pinned here. (See H1: query values should NOT stay raw.)
+  /// 2.0 (H1): `path` is decoded, `rawPath` is what the client sent; more in RequestSemanticsTests.
+  func testPathIsDecodedAndTheRawPathIsKept() throws {
     let request = try parse(target: "/a%20b/%C3%A9?x=1")
-    XCTAssertEqual(request.path, "/a%20b/%C3%A9")
+    XCTAssertEqual(request.path, "/a b/é")
+    XCTAssertEqual(request.rawPath, "/a%20b/%C3%A9")
   }
 
   func testQueryValuesArePercentDecoded() throws {
     let request = try parse(target: "/s?q=hello%20world&e=%E2%82%AC")
-    expectKnownIssue("H1", "query values keep their percent-encoding") {
-      XCTAssertEqual(request.queryParams.first { $0.0 == "q" }?.1, "hello world")
-      XCTAssertEqual(request.queryParams.first { $0.0 == "e" }?.1, "€")
-    }
+    XCTAssertEqual(request.queryParams.first { $0.0 == "q" }?.1, "hello world")
+    XCTAssertEqual(request.queryParams.first { $0.0 == "e" }?.1, "€")
   }
 
   func testPlusInQueryValueMeansSpace() throws {
     let request = try parse(target: "/s?q=a+b")
-    expectKnownIssue("H1", "'+' is not translated to a space in query values") {
-      XCTAssertEqual(request.queryParams.first { $0.0 == "q" }?.1, "a b")
-    }
+    XCTAssertEqual(request.queryParams.first { $0.0 == "q" }?.1, "a b")
   }
 
   func testQueryValueMayContainQuestionMarkAndColon() throws {

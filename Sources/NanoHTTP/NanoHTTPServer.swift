@@ -218,7 +218,7 @@ open class NanoHTTPServer: NanoHTTPServerIO {
   
   /// The router, the not-found handler, and finally the `404` of ``NanoHTTPServerIO``.
   private func route(_ request: NanoHTTPRequest) -> ([String: String], NanoHTTPRequestHandler) {
-    if let result = router.route(request.method, path: request.path) {
+    if let result = router.route(request.method, path: request.rawPath) {
       return result
     }
     if let notFoundHandler = self.notFoundHandler {

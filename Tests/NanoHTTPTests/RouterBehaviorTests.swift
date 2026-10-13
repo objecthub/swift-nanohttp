@@ -57,9 +57,10 @@ final class RouterBehaviorTests: XCTestCase {
     XCTAssertEqual(try match("GET", "/u/J%C3%BCrgen%20M")?.params["name"], "Jürgen M")
   }
 
-  func testPathVariableCapturesRemainingSegmentsUndecoded() {
+  /// 2.0: path variables are decoded like all others (they were left raw in 1.x, and the file handlers decoded them).
+  func testPathVariableCapturesRemainingSegmentsDecoded() {
     self.router.register(nil, path: "/files/::rest", handler: handler("files"))
-    XCTAssertEqual(try match("GET", "/files/a/b%20c/d.txt")?.params["rest"], "a/b%20c/d.txt")
+    XCTAssertEqual(try match("GET", "/files/a/b%20c/d.txt")?.params["rest"], "a/b c/d.txt")
   }
 
   func testPathVariableMayBeEmpty() {

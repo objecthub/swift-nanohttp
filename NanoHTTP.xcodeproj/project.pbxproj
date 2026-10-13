@@ -56,6 +56,7 @@
 		CC60E9B1307E5051000EE746 /* RequestParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9A8307E5051000EE746 /* RequestParsingTests.swift */; };
 		CC60E9B2307E5051000EE746 /* WebSocketIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9AD307E5051000EE746 /* WebSocketIntegrationTests.swift */; };
 		CC60E9B3307E5051000EE746 /* RobustnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9A9307E5051000EE746 /* RobustnessTests.swift */; };
+		CC1D0C102D0000160CF6A016 /* RequestSemanticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C102D0000150CF6A015 /* RequestSemanticsTests.swift */; };
 		CC1D0C0F2D0000120CF6A012 /* SocketSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0F2D0000110CF6A011 /* SocketSessionTests.swift */; };
 		CC1D0C0E2D0000100CF6A010 /* MiddlewareTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0E2D00000F0CF6A00F /* MiddlewareTests.swift */; };
 		CC1D0C0E2D00000E0CF6A00E /* HandlerErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0E2D00000D0CF6A00D /* HandlerErrorTests.swift */; };
@@ -214,6 +215,7 @@
 		CC60E9A5307E5051000EE746 /* HTTPProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPProtocolTests.swift; sourceTree = "<group>"; };
 		CC60E9A8307E5051000EE746 /* RequestParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestParsingTests.swift; sourceTree = "<group>"; };
 		CC60E9A9307E5051000EE746 /* RobustnessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RobustnessTests.swift; sourceTree = "<group>"; };
+		CC1D0C102D0000150CF6A015 /* RequestSemanticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestSemanticsTests.swift; sourceTree = "<group>"; };
 		CC1D0C0F2D0000110CF6A011 /* SocketSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketSessionTests.swift; sourceTree = "<group>"; };
 		CC1D0C0E2D00000F0CF6A00F /* MiddlewareTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiddlewareTests.swift; sourceTree = "<group>"; };
 		CC1D0C0E2D00000D0CF6A00D /* HandlerErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandlerErrorTests.swift; sourceTree = "<group>"; };
@@ -353,6 +355,7 @@
 				CC60E9A5307E5051000EE746 /* HTTPProtocolTests.swift */,
 				CC60E9A8307E5051000EE746 /* RequestParsingTests.swift */,
 				CC60E9A9307E5051000EE746 /* RobustnessTests.swift */,
+				CC1D0C102D0000150CF6A015 /* RequestSemanticsTests.swift */,
 				CC1D0C0F2D0000110CF6A011 /* SocketSessionTests.swift */,
 				CC1D0C0E2D00000F0CF6A00F /* MiddlewareTests.swift */,
 				CC1D0C0E2D00000D0CF6A00D /* HandlerErrorTests.swift */,
@@ -673,6 +676,7 @@
 				CC60E9B1307E5051000EE746 /* RequestParsingTests.swift in Sources */,
 				CC60E9B2307E5051000EE746 /* WebSocketIntegrationTests.swift in Sources */,
 				CC60E9B3307E5051000EE746 /* RobustnessTests.swift in Sources */,
+				CC1D0C102D0000160CF6A016 /* RequestSemanticsTests.swift in Sources */,
 				CC1D0C0F2D0000120CF6A012 /* SocketSessionTests.swift in Sources */,
 				CC1D0C0E2D0000100CF6A010 /* MiddlewareTests.swift in Sources */,
 				CC1D0C0E2D00000E0CF6A00E /* HandlerErrorTests.swift in Sources */,

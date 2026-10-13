@@ -131,3 +131,45 @@ What stays: the first middleware runs first, middleware sees every request befor
 sees the requests that no route matches together with their `404`. Variables of the route (`request.params`) are known
 after `next` has returned.
 
+## Paths and query values are decoded (H1)
+
+In 1.x, `request.path` and the values of `request.queryParams` were still percent-encoded, a `+` in a query stayed a `+`,
+the router decoded the values of `:variables` but not those of `::variables`, and the file handlers decoded the rest.
+In 2.0 everything that you read from a request is decoded text, once:
+
+| | 1.x | 2.0 |
+|---|---|---|
+| `request.path` for `/caf%C3%A9` | `"/caf%C3%A9"` | `"/café"` |
+| `request.queryParams` for `?q=a%20b+c` | `("q", "a%20b+c")` | `("q", "a b c")` |
+| `request.params` for `:name` | decoded | decoded |
+| `request.params` for `::path` | **not** decoded | decoded |
+| the path as sent | `request.path` | `request.rawPath` |
+| the query as sent | (not available) | `request.rawQuery` |
+
+New: `request.query("q")` (the first value of a parameter), `request.queries("tag")` (all values),
+`request.bodyString` and `request.json(Type.self)`, which throws `NanoHTTPError.badRequest` with a message that says what is wrong
+with the body. The router routes on `rawPath`; setting `request.path` (or `rawPath`) in middleware re-routes the request.
+
+**Remove the decoding that you did yourself.** This is the one change that can open a hole if it is overlooked:
+
+```swift nocompile
+// 1.x
+let name = request.queryParams.first { $0.0 == "name" }?.1.removingPercentEncoding   // decoded by you
+let file = request.params["path"]?.removingPercentEncoding                           // decoded by you
+// 2.0: both are decoded already; decoding again turns %252e%252e into %2e%2e, and a second time into ".."
+let name = request.query("name")
+let file = request.params["path"]
+```
+
+Code that checked a value for `..` and decoded it afterwards was already unsafe in 1.x; code that decodes a value of 2.0
+again has the same flaw. Search your code for `removingPercentEncoding`, `replacingOccurrences(of: "+"` and
+`addingPercentEncoding` next to `request.path`, `queryParams` and `params`, and delete the decoding of values
+that you got from the framework. `share(directory:)` and `browse(directory:)` are changed already.
+
+Two smaller things that come with it: the decoded path can contain line breaks and NUL characters (`%0A`, `%00`), so log
+`request.rawPath` instead of `request.path`, and `NanoHTTPRequest(method:path:queryParams:)` takes decoded text now
+(`path: "/a b"`, not `"/a%20b"`); use `NanoHTTPRequest(method:rawPath:rawQuery:)` for the encoded form.
+
+Targets with bytes that are not ASCII (a client that sends `é` as UTF-8 without encoding it), the absolute form (`GET http://host/a`) and
+`*` are handled by the parser now; `URLComponents` is no longer involved in reading a request.
+

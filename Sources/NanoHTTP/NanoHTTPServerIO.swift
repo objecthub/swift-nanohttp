@@ -730,7 +730,7 @@ open class NanoHTTPServerIO {
     if let error = error as? NanoHTTPError {
       return error.response
     }
-    self.log("\(request.method) \(request.path) failed: \(error)")
+    self.log("\(request.method) \(request.rawPath) failed: \(error)")
     return NanoHTTPError.internalServerError("Internal Server Error").response
   }
   

@@ -29,7 +29,7 @@ every method, not by the handler of a GET route.
 |---|---|---|
 | `about` | the segment `about` | |
 | `:id` | exactly one segment | `request.params["id"]`, percent-decoded |
-| `::path` | any number of segments, also none | `request.params["path"]`, **not** decoded, segments joined by `/` |
+| `::path` | any number of segments, also none | `request.params["path"]`, the percent-decoded segments joined by `/` |
 | `*` | exactly one segment | |
 | `**` | any number of segments, also none | |
 
@@ -45,15 +45,19 @@ defined order: avoid such overlaps.
 
 ### Percent-encoding
 
-The router matches the path as the client sent it, and decodes each segment before it compares it or binds it to a
-`:variable`:
+The router matches the path as the client sent it (``NanoHTTPRequest/rawPath``): the path is split at `/` first, and
+then every segment is decoded before it is compared with a fixed segment or becomes the value of a variable. An encoded
+slash therefore stays inside its segment:
 
 ```text
 GET /users/J%C3%BCrgen%20M     params["id"]   == "Jürgen M"
-GET /files/a/b%20c.txt         params["path"] == "a/b%20c.txt"   (kept as sent)
+GET /files/a/b%20c.txt         params["path"] == "a/b c.txt"
+GET /files/a%2Fb               params["path"] == "a/b"        (one segment, which contains a slash)
+GET /a%2Fb                     does not match the route /a/b  (but does match /:x, with x == "a/b")
 ```
 
-A segment that is not valid percent-encoding does not match anything.
+All values are decoded once, also those of path variables: do not decode them again (see <doc:ReadingRequests>).
+A segment that is not valid percent-encoding (`%zz`, or bytes that are no UTF-8) does not match anything.
 
 ### A variable at the end of a route
 

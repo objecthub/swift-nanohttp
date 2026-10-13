@@ -39,7 +39,7 @@ import Foundation
 /// that can be used: _variables_ (with `*` being an anonymous variable) and _path variables_
 /// (with `**` being an anonymous path variable). A variable matches one full path segment
 /// and its value is being url-decoded. A path variable matches a (potentially empty) sequence
-/// of path segments and its value is not being url-decoded.
+/// of path segments and its value is the url-decoded segments joined with `/`.
 ///
 open class NanoHTTPSegmentRouter: NanoHTTPRouter {
   
@@ -148,10 +148,8 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
         }
         return nil
       }
-      // There is at least one more component from the current path...
-      guard let component = path[index].removingPercentEncoding else {
-        return nil
-      }
+      // There is at least one more component from the current path (the segments are decoded already)...
+      let component = path[index]
       // Look at all path children of the current segment
       for (selector, next) in self.pathChildren {
         if selector == component,
@@ -247,16 +245,27 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
   
   /// Finds the handler for a request. Fixed segments win over variables, and the search backtracks:
   /// `/a/b/c` and `/a/:x/d` both match `/a/b/d`. A route for `method` is tried before a route for all
-  /// methods. Segments are percent-decoded before they are compared or bound to a variable, except for
-  /// the values of path variables (`::name`, `**`), which are kept as they are.
+  /// methods.
+  ///
+  /// `path` is the path as the client sent it, percent-encoded: it is split into segments first, and every
+  /// segment is decoded then (an encoded slash stays inside its segment). The decoded segments are compared
+  /// with the fixed segments of the routes and are the values of the variables; a path variable
+  /// (`::name`, `**`) gets its decoded segments joined with `/`. A path with a segment that is not valid
+  /// percent-encoded UTF-8 matches no route.
   open func route(_ method: String, path: String) -> ([String: String], NanoHTTPRequestHandler)? {
+    var segments = [String]()
+    for segment in (path.components(separatedBy: "?").first ?? path).split("/") {
+      guard let decoded = segment.removingPercentEncoding else {
+        return nil
+      }
+      segments.append(decoded)
+    }
     self.lock.lock()
     defer {
       self.lock.unlock()
     }
-    let path = (path.components(separatedBy: "?").first ?? path).split("/")
-    return self.root[method]?.match(path: path, index: 0) ??
-           self.root[nil]?.match(path: path, index: 0)
+    return self.root[method]?.match(path: segments, index: 0) ??
+           self.root[nil]?.match(path: segments, index: 0)
   }
   
   private func selectors(from path: String) -> [String] {

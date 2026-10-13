@@ -9,6 +9,18 @@ All notable changes to this project are documented in this file. The format is b
 Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says how to move from 1.x.
 
 ### Changed
+- **Breaking: paths and query values are decoded** (H1). `request.path`, the names and values of `request.queryParams`
+  and the values of `request.params` are percent-decoded text, once (`/caf%C3%A9?q=a%20b+c` is the path `/café` and
+  `q` = `a b c`; a `+` is a space in a query, not in a path). `::path` variables are decoded too (they were not), and
+  `share(directory:)` and `browse(directory:)` no longer decode them again (decoding twice would turn `%252e%252e`
+  into `..`). Code that decodes the values itself has to stop doing that, see `MIGRATION-2.0.md`. The router routes on
+  the new `rawPath`, so that an encoded slash stays inside its segment; setting `path` encodes it into `rawPath`.
+  Invalid percent sequences are kept in `path` and query values (they used to be, too) and match no route. `NanoHTTPRequest(method:path:queryParams:)`
+  now takes decoded text. The decoded path can contain line breaks and NUL
+  characters: the server logs `rawPath`.
+- The parser splits the request target itself instead of with `URLComponents`: bytes that are not ASCII in a target
+  are read as UTF-8, a target in absolute form (`GET http://host/a?b HTTP/1.1`) gives its path and query, and a
+  fragment is dropped.
 - **Breaking: handlers can throw.** `NanoHTTPRequestHandler` is `(NanoHTTPRequest) throws -> NanoHTTPResponse`.
   Closures that do not throw still work; code that calls a handler needs `try`. A server whose
   `handle(connection:)` calls `connection.handler(connection.request)` has to call `try` or use the new
@@ -41,6 +53,11 @@ Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says 
   "connection closed by peer" instead of "Undefined error: 0".
 
 ### Added
+- **Request helpers** (H1): `NanoHTTPRequest.query(_:)` and `queries(_:)`, `rawPath` and `rawQuery` (what the client
+  sent), `bodyString` (in the charset of the `Content-Type`), `json(_:decoder:)` (decodes the body; a body that is empty,
+  no JSON or does not fit the type throws `NanoHTTPError.badRequest` with a message that says what is wrong) and
+  `jsonObject()`. `NanoHTTPRequest.init(method:rawPath:rawQuery:headers:body:)` creates a request from a target that is
+  still percent-encoded.
 - **`NanoSocketSession`**: a conversation over a connection that has been switched away from HTTP, which the
   server drives: it calls `start`, then `receive()` whenever the socket has something to read, and `end`.
   `NanoHTTPResponse.switchProtocols(_:session:)` (and the new case `NanoHTTPResponse.Body.session`) turns a

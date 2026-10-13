@@ -101,17 +101,44 @@ public struct NanoHTTPParser {
     if statusLineTokens.count < 3 {
       throw NanoHTTPParserError.invalidStatusLine(statusLine)
     }
-    let urlComponents = URLComponents(string: statusLineTokens[1].addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
-                                      ?? statusLineTokens[1])
+    let (rawPath, rawQuery) = NanoHTTPParser.split(target: statusLineTokens[1])
     let request = NanoHTTPRequest(
                     method: statusLineTokens[0],
-                    path: urlComponents?.path ?? "",
-                    queryParams: urlComponents?.queryItems?.map { ($0.name, $0.value ?? "") } ?? [],
+                    rawPath: rawPath,
+                    rawQuery: rawQuery,
                     headers: try readHeaders(budget: &budget))
     if let contentLength = request.header("content-length") {
       request.body = try readBody(size: try self.bodySize(contentLength))
     }
     return request
+  }
+  
+  /// Splits the target of a request line into the path and the query, both still percent-encoded. The
+  /// fragment, which clients do not send, is dropped. A target in absolute form (`http://host/a?b`, as a
+  /// proxy receives it) gives its path and query; `*` (of an `OPTIONS` request) is its own path. Bytes that
+  /// are not ASCII are turned into percent sequences, see `String.withNonASCIIPercentEncoded`.
+  static func split(target: String) -> (path: String, query: String?) {
+    var text = Substring(target.withNonASCIIPercentEncoded)
+    if let fragment = text.firstIndex(of: "#") {
+      text = text[..<fragment]
+    }
+    let lowercased = text.prefix(8).lowercased()
+    if lowercased.hasPrefix("http://") || lowercased.hasPrefix("https://"),
+       let scheme = text.range(of: "://") {
+      let rest = text[scheme.upperBound...]
+      if let start = rest.firstIndex(where: { $0 == "/" || $0 == "?" }) {
+        text = rest[start...]
+        if text.first == "?" {
+          text = "/" + text
+        }
+      } else {
+        text = "/"
+      }
+    }
+    guard let question = text.firstIndex(of: "?") else {
+      return (String(text), nil)
+    }
+    return (String(text[..<question]), String(text[text.index(after: question)...]))
   }
   
   /// The number of body bytes announced by a `Content-Length` header value, checked against the limits.

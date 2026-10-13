@@ -26,6 +26,10 @@ The `Content-Type` comes from the extension of the file (`.html` gives `text/htm
 
 ### Files are only served from inside the directory
 
+The part of the path that selects the file is the value of the route's path variable. The router has percent-decoded it
+once (`a%20b.txt` is the file `a b.txt`); the handlers do not decode it again, so `%252e%252e` is a file that is called
+`%2e%2e`, and not a way to `..`.
+
 Requests that try to reach beyond the directory are answered with `403 Forbidden`: paths with `..` segments
 (also percent-encoded, as `%2e%2e` or `..%2f`), paths with a NUL character, and paths that lead out of the
 directory through a symbolic link. Symbolic links that stay inside the directory are followed, and so is a shared

@@ -148,8 +148,7 @@ public func share(directory path: String,
                   defaults: [String] = ["index.html", "default.html"],
                   followSymlinks: Bool = false) -> NanoHTTPRequestHandler {
   return { request in
-    guard let (_, value) = request.params.first,
-          let fileRelativePath = value.removingPercentEncoding else {
+    guard let (_, fileRelativePath) = request.params.first else { // decoded by the router, once
       return NanoHTTPResponse.internalServerError("Internal Server Error")
     }
     guard let filePath = locate(fileRelativePath, in: path, followSymlinks: followSymlinks) else {
@@ -187,11 +186,10 @@ public func share(directory path: String,
 ///       of `dir`. Only enable this if everyone who can create files in `dir` is trusted.
 public func browse(directory dir: String, followSymlinks: Bool = false) -> NanoHTTPRequestHandler {
   return { request in
-    guard let (_, value) = request.params.first,
-          let path = value.removingPercentEncoding else {
+    guard let (_, path) = request.params.first else { // decoded by the router, once
       return NanoHTTPResponse.internalServerError("Internal Server Error")
     }
-    var base = request.path
+    var base = request.rawPath // the links are percent-encoded: so is what they start with
     if base.last != "/" {
       base.append("/")
     }

@@ -79,3 +79,84 @@ extension String {
     return Data(data).base64EncodedString()
   }
 }
+
+extension String {
+  /// Decodes percent-encoded text: `%XX` is the byte `XX`, and the bytes are read as UTF-8. This never
+  /// fails: a `%` that is not followed by two hexadecimal digits is kept as it is, and bytes that are not
+  /// valid UTF-8 become the replacement character U+FFFD.
+  ///
+  /// - Parameter plusAsSpace: Whether `+` is a space, as in a query string or in the body of an HTML form
+  ///     (decided before the percent sequences are decoded, so that `%2B` stays a plus). In a path, `+` is a plus.
+  func percentDecoded(plusAsSpace: Bool = false) -> String {
+    let input = Array(self.utf8)
+    guard input.contains(37) || (plusAsSpace && input.contains(43)) else {
+      return self // nothing to decode
+    }
+    var bytes = [UInt8]()
+    bytes.reserveCapacity(input.count)
+    func hexValue(_ digit: UInt8) -> UInt8? {
+      switch digit {
+        case 48...57: return digit - 48
+        case 65...70: return digit - 55
+        case 97...102: return digit - 87
+        default: return nil
+      }
+    }
+    var index = 0
+    while index < input.count {
+      let byte = input[index]
+      if byte == 43 && plusAsSpace {
+        bytes.append(32)
+        index += 1
+      } else if byte == 37, index + 2 < input.count,
+                let high = hexValue(input[index + 1]), let low = hexValue(input[index + 2]) {
+        bytes.append(high << 4 | low)
+        index += 3
+      } else {
+        bytes.append(byte)
+        index += 1
+      }
+    }
+    return String(decoding: bytes, as: UTF8.self)
+  }
+  
+  /// The text as the path of a request target: everything but the characters that a path may contain is
+  /// percent-encoded as UTF-8 (`/a b/é` is `/a%20b/%C3%A9`; `/` and `+` stay as they are).
+  var percentEncodedAsPath: String {
+    return self.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? self
+  }
+  
+  /// The text as a name or a value of a query string: everything but letters, digits and `-._~` is
+  /// percent-encoded as UTF-8.
+  var percentEncodedAsQueryComponent: String {
+    return self.addingPercentEncoding(withAllowedCharacters: .urlQueryComponentAllowed) ?? self
+  }
+  
+  /// The text of a request target with the bytes that are not ASCII written as percent sequences. The
+  /// parser reads the bytes of a request line as Latin-1 characters; clients that send UTF-8 in a target
+  /// without encoding it have their bytes preserved this way, and the decoding reads them as UTF-8.
+  var withNonASCIIPercentEncoded: String {
+    guard self.unicodeScalars.contains(where: { $0.value > 127 }) else {
+      return self
+    }
+    var result = ""
+    for scalar in self.unicodeScalars {
+      if scalar.value < 128 {
+        result.unicodeScalars.append(scalar)
+      } else if scalar.value <= 0xFF {
+        result += String(format: "%%%02X", scalar.value)
+      } else {
+        for byte in String(scalar).utf8 {
+          result += String(format: "%%%02X", byte)
+        }
+      }
+    }
+    return result
+  }
+}
+
+extension CharacterSet {
+  /// Letters, digits and `-._~`: the characters that need no encoding in a name or value of a query.
+  static let urlQueryComponentAllowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+}
+

@@ -102,6 +102,10 @@ limits, or use another server.
 
 ### 6. Output
 
+- The decoded ``NanoHTTPRequest/path``, the query values and the values of route variables are decoded once, and can
+  contain anything: line breaks (`%0A`), NUL characters (`%00`), `..`. Log ``NanoHTTPRequest/rawPath`` instead, and
+  never decode the values again: a check that sees `%2e%2e` while the use decodes it to `..` is a way out of a
+  directory. See <doc:ReadingRequests>.
 - Text that is not under your control and is inserted into HTML must be escaped:
   ``Swift/String/htmlEscaped``. ``NanoHTTPResponse/Body/htmlBody(_:)`` and the `inner` of the HTML builder insert
   their content as it is. `browse` escapes file names itself.

@@ -222,7 +222,7 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
     return .movedPermanently("https://github.com/404")
   }
   server.middleware.append { request, next in
-    server.log("Middleware: \(request.address ?? "unknown address") -> \(request.method) \(request.path)")
+    server.log("Middleware: \(request.address ?? "unknown address") -> \(request.method) \(request.rawPath)")
     return try next(request)
   }
   return server

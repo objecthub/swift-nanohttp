@@ -53,7 +53,7 @@ remove the gate from a test as soon as its defect is fixed.
 Fixed since (their tests are plain regression tests now): **S1** path traversal in `share(directory:)` /
 `browse(directory:)` (literal `..`, `%2e%2e`, `..%2f`, listing and reading, symlink escape, `%00`).
 **H12** (found while adding `followSymlinks`): `Content-Length` of a symlinked file was the length of the link.
-**R1** the accept loop ended on any `accept()` error, e.g. when out of descriptors (now it backs off and keeps running) · **R2** file descriptors leaked when a response was never written (`String.File` closes itself) · **N1** concurrent NanoHTML rendering aborted the process (rendering is serialized now) · **S2** unbounded request line / header block / `Content-Length` (a single request could abort the process;
+**R4** closing a socket while other threads used it (stale reads/writes hit an unrelated socket that had reused the descriptor number; double close) · **R5** the non-atomic server state (also: a failed `start` left the server `starting`, a late accept loop of an earlier run could stop a restarted server) · **R1** the accept loop ended on any `accept()` error, e.g. when out of descriptors (now it backs off and keeps running) · **R2** file descriptors leaked when a response was never written (`String.File` closes itself) · **N1** concurrent NanoHTML rendering aborted the process (rendering is serialized now) · **S2** unbounded request line / header block / `Content-Length` (a single request could abort the process;
 now `NanoHTTPParser.Limits`, answers 414/431/413/400) · **S3** WebSocket frame length (the claimed length was
 allocated up front; the 64-bit decode had a `<< 54` typo; now a payload/message limit) · **R9** garbage requests
 now get `400` instead of a silent close. (After refusing, the connection is closed only once the peer had a
@@ -70,14 +70,13 @@ Content-Type · H7 HEAD sends a body, 405 · H9 multipart · H10 file responses 
 directory → empty 200 · W1 interleaved frames · W2 NUL truncation · N3 void elements.
 
 Hypotheses that did **not** reproduce (kept as plain regression tests):
-R4 (listening socket survives `stop()`; port is released, restart on the same port works 25/25,
-keep-alive connections are closed) · R6 (empty writes do not crash).
+the leak of the listening socket after `stop()` (the port is released, restart on the same port works 25/25) · R6 (empty writes do not crash).
 
-ThreadSanitizer: the races are still the two below. Under TSan's slowdown they can even make a test fail now and then (a server thread of an earlier test touches a file descriptor *number* that a later test has reused, which breaks an unrelated connection): the practical effect of R4.
-
-ThreadSanitizer (`swift test --sanitize=thread`) reports 79 races, all in two places:
-`NanoHTTPServerIO.state` getter/setter (76; finding R5) and `NanoSocket.close` (3; the unsynchronized
-`shutdown` flag, finding R4). AddressSanitizer reports nothing.
+ThreadSanitizer (`swift test --sanitize=thread`) and AddressSanitizer report nothing, and CI enforces both. Earlier,
+TSan reported 79-124 races, all in two places that are fixed now: the non-atomic `NanoHTTPServerIO.state` (R5) and the
+unsynchronized `shutdown` flag of `NanoSocket.close` (R4). R4 had a practical effect that showed up under TSan's slowdown:
+a thread of an earlier test used a file descriptor *number* that a later test had reused, which broke an unrelated
+connection. `SocketCloseTests` reproduces such reuse deterministically.
 
 Pinned current behavior that is probably wrong but needs a decision (not marked as an issue):
 `/users/:id` also matches `/users` with `id == ""` (H8), see `RouterBehaviorTests`.

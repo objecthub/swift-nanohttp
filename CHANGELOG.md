@@ -42,6 +42,8 @@ All notable changes to this project are documented in this file. The format is b
 - WebSocket messages (single frames or assembled from fragments) above 16 MiB, and control frames with more
   than 125 bytes, end the connection unless `maxMessageSize` is raised.
 - `NanoSocket.read(length:)` allocates with the data that arrives instead of the announced length.
+- `NanoHTTPServerIO.start` returns without effect if the server is not stopped (it is already running, or being started or stopped by another thread).
+- `closeAndforgetAllConnections()` shuts connections down and releases them as their threads finish.
 
 ### Removed
 - Carthage: dropped from the README (badge and requirements) and the `.gitignore` template block.
@@ -73,6 +75,18 @@ All notable changes to this project are documented in this file. The format is b
   state in process-wide variables. `htmlHandler` now builds one document at a time (and sends the finished page),
   so a closure passed to it should only build the page. A proper fix, without shared state, needs the redesign
   planned for 2.0.
+- Closing a socket is safe while other threads read or write it. A closed socket's file descriptor number is
+  handed out again by the system, and a thread that still used it could read from or write to an unrelated
+  connection (a late `WebSocketSession.writeText` after the connection had ended, a connection thread running when
+  `stop()` closed its socket, two threads closing the same socket). `NanoSocket.close()` now shuts the connection down
+  (this wakes blocked reads and writes), waits for running operations (at most two seconds), and only then releases the
+  descriptor; operations on a closed socket fail instead of touching the descriptor.
+- `NanoSocket` instances are compared by identity instead of by descriptor number, so forgetting a stale socket can no
+  longer forget a live one that has the same number.
+- `NanoHTTPServerIO.state` changes atomically (it used a compare-and-swap with a freshly read expected value, which
+  protected nothing, and a deprecated API). Concurrent calls of `start` and `stop` now do the work exactly once. A
+  `start` that fails (port in use, invalid address) leaves the server `stopped` instead of `starting`, and the accept
+  loop of an earlier run can no longer stop a server that has been started again.
 
 ### Security
 - `share(directory:defaults:)` and `browse(directory:)` no longer serve files outside the shared

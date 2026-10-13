@@ -43,6 +43,13 @@ public struct NanoHTTPConnection {
   
   internal init?(server: NanoHTTPServerIO, socket: NanoSocket) {
     server.remember(socket: socket)
+    guard server.operating else {
+      // The server was stopped after this connection had been accepted but before it was
+      // registered, so `stop` did not see it.
+      socket.close()
+      server.forget(socket: socket)
+      return nil
+    }
     self.server = server
     let parser = NanoHTTPParser(socket: socket, limits: server.limits)
     self.parser = parser

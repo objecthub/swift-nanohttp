@@ -33,10 +33,6 @@ jobs:
       fail-fast: false
       matrix:
         sanitizer: [address, thread]
-    # ThreadSanitizer currently reports two known races (findings R4/R5 of the assessment:
-    # the non-atomic `state` property and the unsynchronized `shutdown` flag of NanoSocket).
-    # Remove `continue-on-error` once they are fixed so that new races fail the build.
-    continue-on-error: ${{ matrix.sanitizer == 'thread' }}
     steps:
       - uses: actions/checkout@v4
       - name: Test

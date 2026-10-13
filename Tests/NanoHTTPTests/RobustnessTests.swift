@@ -224,6 +224,305 @@ final class LifecycleTests: XCTestCase {
   }
 }
 
+// MARK: - R4: closing a socket while other threads use it
+
+final class SocketCloseTests: XCTestCase {
+
+  private func socketPair() -> (Int32, Int32) {
+    var fds: [Int32] = [0, 0]
+    XCTAssertEqual(socketpair(AF_UNIX, SOCK_STREAM, 0, &fds), 0)
+    NanoSocket.setNoSigPipe(fds[0])
+    NanoSocket.setNoSigPipe(fds[1])
+    return (fds[0], fds[1])
+  }
+
+  /// A closed socket whose descriptor number has been handed out again, plus the two ends of the
+  /// unrelated socket pair that reuses it: `victim` has the old number, `peer` talks to it.
+  private func closedSocketWithReusedDescriptor() throws -> (stale: NanoSocket, victim: Int32, peer: Int32, cleanup: () -> Void) {
+    let (a0, a1) = socketPair()
+    let stale = NanoSocket(socketFileDescriptor: a0)
+    stale.close()
+    let (b0, b1) = socketPair()
+    guard b0 == a0 || b1 == a0 else {
+      close(a1); close(b0); close(b1)
+      throw XCTSkip("the descriptor number was not reused")
+    }
+    let (victim, peer) = b0 == a0 ? (b0, b1) : (b1, b0)
+    _ = fcntl(peer, F_SETFL, O_NONBLOCK)
+    _ = fcntl(victim, F_SETFL, O_NONBLOCK)
+    return (stale, victim, peer, { close(a1); close(b0); close(b1) })
+  }
+
+  /// The descriptor number of a closed socket belongs to somebody else now. A late write used to
+  /// go to that unrelated connection.
+  func testWritingToAClosedSocketNeverReachesAnUnrelatedSocket() throws {
+    let (stale, _, peer, cleanup) = try closedSocketWithReusedDescriptor()
+    defer { cleanup() }
+    XCTAssertThrowsError(try stale.writeUTF8("LEAK"))
+    XCTAssertThrowsError(try stale.writeUInt8([UInt8]("LEAK".utf8)))
+    XCTAssertThrowsError(try stale.writeData(Data("LEAK".utf8)))
+    var buffer = [UInt8](repeating: 0, count: 16)
+    XCTAssertEqual(read(peer, &buffer, buffer.count), -1, "data written to a closed socket arrived at another socket")
+  }
+
+  func testReadingFromAClosedSocketNeverConsumesDataOfAnUnrelatedSocket() throws {
+    let (stale, victim, peer, cleanup) = try closedSocketWithReusedDescriptor()
+    defer { cleanup() }
+    XCTAssertEqual(write(peer, "DATA", 4), 4)
+    XCTAssertThrowsError(try stale.read())
+    XCTAssertThrowsError(try stale.read(length: 2))
+    XCTAssertThrowsError(try stale.readLine())
+    var buffer = [UInt8](repeating: 0, count: 8)
+    XCTAssertEqual(read(victim, &buffer, buffer.count), 4, "a closed socket consumed the data of another socket")
+  }
+
+  func testAWebSocketSessionOfAClosedConnectionNeverWritesToAnUnrelatedSocket() throws {
+    let (stale, _, peer, cleanup) = try closedSocketWithReusedDescriptor()
+    defer { cleanup() }
+    let session = WebSocketSession(stale)
+    session.writeText("broadcast to a client that is gone")
+    var buffer = [UInt8](repeating: 0, count: 64)
+    XCTAssertEqual(read(peer, &buffer, buffer.count), -1, "a stale session wrote into another connection")
+  }
+
+  func testSocketsAreComparedByIdentityNotByDescriptorNumber() throws {
+    let first = open("/dev/null", O_RDONLY)
+    let stale = NanoSocket(socketFileDescriptor: first)
+    stale.close()
+    let second = open("/dev/null", O_RDONLY)
+    guard second == first else {
+      close(second)
+      throw XCTSkip("the descriptor number was not reused")
+    }
+    let current = NanoSocket(socketFileDescriptor: second)
+    XCTAssertNotEqual(stale, current)
+    var set: Set<NanoSocket> = [current]
+    XCTAssertNil(set.remove(stale), "forgetting a stale socket must not forget the new socket with the same number")
+    XCTAssertTrue(set.contains(current))
+  }
+
+  func testClosingWakesUpAThreadBlockedInRead() {
+    let (a0, a1) = socketPair()
+    defer { close(a1) }
+    let socket = NanoSocket(socketFileDescriptor: a0)
+    let returned = expectation(description: "blocked read returned")
+    DispatchQueue.global().async {
+      _ = try? socket.read()
+      returned.fulfill()
+    }
+    usleep(200_000)
+    socket.close()
+    wait(for: [returned], timeout: 3)
+  }
+
+  func testClosingWakesUpAThreadBlockedInWrite() {
+    let (a0, a1) = socketPair()
+    defer { close(a1) } // nobody reads from this end, so the writer fills the buffer and blocks
+    let socket = NanoSocket(socketFileDescriptor: a0)
+    let returned = expectation(description: "blocked write returned")
+    DispatchQueue.global().async {
+      _ = try? socket.writeUInt8([UInt8](repeating: 0, count: 64 * 1024 * 1024))
+      returned.fulfill()
+    }
+    usleep(200_000)
+    socket.close()
+    wait(for: [returned], timeout: 3)
+  }
+
+  func testCloseIsIdempotentAndSafeToCallConcurrently() {
+    for _ in 0..<300 {
+      let (a0, a1) = socketPair()
+      let socket = NanoSocket(socketFileDescriptor: a0)
+      DispatchQueue.concurrentPerform(iterations: 4) { _ in
+        socket.close()
+      }
+      var byte: UInt8 = 0
+      XCTAssertEqual(read(a0, &byte, 1), -1, "the descriptor must have been released")
+      close(a1)
+    }
+  }
+
+  func testOperationsRunningWhileTheSocketIsClosedEitherCompleteOrFail() {
+    // Threads exchange data through a socket that is closed under their feet; none of them may
+    // hang, crash or touch a descriptor that has been released.
+    for _ in 0..<50 {
+      let (a0, a1) = socketPair()
+      let socket = NanoSocket(socketFileDescriptor: a0)
+      let group = DispatchGroup()
+      for _ in 0..<4 {
+        group.enter()
+        DispatchQueue.global().async {
+          for _ in 0..<200 {
+            if (try? socket.writeUTF8("x")) == nil { break }
+          }
+          group.leave()
+        }
+      }
+      usleep(1_000)
+      socket.close()
+      XCTAssertEqual(group.wait(timeout: .now() + 5), .success)
+      close(a1)
+    }
+  }
+
+  func testStoppingTheServerEndsBlockedConnectionsWithoutHangingOrCrashing() throws {
+    try withTestServer(configure: { server in
+      server.get["/ping"] = { _ in .ok(.text("pong")) }
+    }) { server, port in
+      let clients = try (0..<20).map { _ in try RawClient(port: port) }
+      for client in clients {
+        client.send(RawClient.requestText("GET", "/ping", headers: ["Connection: keep-alive"]))
+        XCTAssertEqual(client.readResponse()?.status, 200)
+      }
+      XCTAssertEqual(server.openConnections, 20)
+      server.stop() // 20 connection threads are blocked in read() right now
+      XCTAssertEqual(server.openConnections, 0)
+      for client in clients {
+        XCTAssertTrue(client.waitForClose(timeout: 2))
+      }
+    }
+  }
+}
+
+// MARK: - R5: server state
+
+final class ServerStateTests: XCTestCase {
+
+  private func newServer() -> NanoHTTPServer {
+    let server = NanoHTTPServer()
+    server.listenAddressIPv4 = "127.0.0.1"
+    server.get["/ping"] = { _ in .ok(.text("pong")) }
+    return server
+  }
+
+  func testStateFollowsTheLifecycle() throws {
+    let server = newServer()
+    XCTAssertEqual(server.state, .stopped)
+    try server.start(0, forceIPv4: true)
+    XCTAssertEqual(server.state, .running)
+    XCTAssertTrue(server.operating)
+    server.stop()
+    XCTAssertEqual(server.state, .stopped)
+    XCTAssertFalse(server.operating)
+  }
+
+  /// A failed start used to leave the server in the state `starting` for good.
+  func testFailedStartLeavesTheServerStopped() throws {
+    let first = newServer()
+    try first.start(0, forceIPv4: true)
+    defer { first.stop() }
+    let second = newServer()
+    defer { second.stop() }
+    XCTAssertThrowsError(try second.start(UInt16(try first.port()), forceIPv4: true)) // address in use
+    XCTAssertEqual(second.state, .stopped)
+    try second.start(0, forceIPv4: true)
+    XCTAssertEqual(second.state, .running)
+    XCTAssertEqual(try RawClient.get("/ping", port: try second.port()).status, 200)
+  }
+
+  func testStartingARunningServerChangesNothing() throws {
+    let server = newServer()
+    try server.start(0, forceIPv4: true)
+    defer { server.stop() }
+    let port = try server.port()
+    try server.start(0, forceIPv4: true)
+    XCTAssertEqual(try server.port(), port)
+    XCTAssertEqual(try RawClient.get("/ping", port: port).status, 200)
+  }
+
+  func testConcurrentStopCallsStopOnce() throws {
+    for _ in 0..<20 {
+      let server = newServer()
+      try server.start(0, forceIPv4: true)
+      let port = try server.port()
+      let client = try RawClient(port: port)
+      client.send(RawClient.requestText("GET", "/ping", headers: ["Connection: keep-alive"]))
+      XCTAssertEqual(client.readResponse()?.status, 200)
+      DispatchQueue.concurrentPerform(iterations: 8) { _ in
+        server.stop()
+      }
+      XCTAssertEqual(server.state, .stopped)
+      XCTAssertEqual(server.openConnections, 0)
+      XCTAssertTrue(client.waitForClose(timeout: 2))
+    }
+  }
+
+  /// Counts how often the accept loop is started.
+  private final class CountingServer: NanoHTTPServer {
+    private let countLock = NSLock()
+    private var starts = 0
+    var acceptLoops: Int {
+      countLock.lock(); defer { countLock.unlock() }
+      return starts
+    }
+    override func listen(priority: DispatchQoS.QoSClass?) {
+      countLock.lock(); starts += 1; countLock.unlock()
+      super.listen(priority: priority)
+    }
+  }
+
+  func testConcurrentStartCallsStartOnce() throws {
+    let server = CountingServer()
+    server.listenAddressIPv4 = "127.0.0.1"
+    server.get["/ping"] = { _ in .ok(.text("pong")) }
+    defer { server.stop() }
+    DispatchQueue.concurrentPerform(iterations: 8) { _ in
+      try? server.start(0, forceIPv4: true, priority: .userInitiated)
+    }
+    XCTAssertEqual(server.state, .running)
+    XCTAssertEqual(try RawClient.get("/ping", port: try server.port()).status, 200)
+    usleep(200_000)
+    XCTAssertEqual(server.acceptLoops, 1, "several of the concurrent start calls did the work")
+  }
+
+  /// The accept loop of a stopped server ends by itself; if the server has been started again in
+  /// the meantime, that must not stop the new run.
+  func testRestartingTheSameServerAlwaysGivesAWorkingServer() throws {
+    let server = newServer()
+    defer { server.stop() }
+    for round in 0..<60 {
+      try server.start(0, forceIPv4: true)
+      XCTAssertEqual(try RawClient.get("/ping", port: try server.port()).status, 200, "round \(round)")
+      server.stop()
+    }
+  }
+
+  /// Plays an accept loop of an earlier run that is late to notice that its run is over: it asks
+  /// to stop "its" run after the server has been started again. That must not stop the new run.
+  func testALateAcceptLoopOfAnEarlierRunCannotStopTheNewRun() throws {
+    let server = newServer()
+    defer { server.stop() }
+    try server.start(0, forceIPv4: true)
+    let earlierRun = server.socket
+    server.stop()
+    try server.start(0, forceIPv4: true)
+    XCTAssertFalse(server.socket === earlierRun)
+    server.shutDown(run: earlierRun)
+    XCTAssertEqual(server.state, .running)
+    XCTAssertEqual(try RawClient.get("/ping", port: try server.port()).status, 200)
+    server.shutDown(run: server.socket) // the current run, on the other hand, is stopped
+    XCTAssertEqual(server.state, .stopped)
+  }
+
+  func testStoppingFromAnotherThreadWhileRequestsAreServed() throws {
+    let server = newServer()
+    try server.start(0, forceIPv4: true)
+    let port = try server.port()
+    let group = DispatchGroup()
+    for _ in 0..<4 {
+      group.enter()
+      DispatchQueue.global().async {
+        for _ in 0..<50 { _ = try? RawClient.get("/ping", port: port, timeout: 1) }
+        group.leave()
+      }
+    }
+    usleep(50_000)
+    server.stop()
+    XCTAssertEqual(group.wait(timeout: .now() + 30), .success)
+    XCTAssertEqual(server.state, .stopped)
+  }
+}
+
 // MARK: - R6: empty bodies
 
 final class EmptyBodyTests: XCTestCase {

@@ -62,8 +62,16 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   /// The socket file descriptor
   let socketFileDescriptor: Int32
   
-  /// Is set to `true` once the socket was closed
-  private var shutdown = false
+  /// Guards `closed` and `activeOperations`; signaled when the last running operation has ended.
+  private let condition = NSCondition()
+  
+  /// Is set to `true` as soon as the socket is being closed
+  private var closed = false
+  
+  /// The number of operations (reads, writes, ...) that are using the descriptor right now
+  private var activeOperations = 0
+  
+  private static let closedDescription = String(cString: strerror(EBADF))
   
   /// Initializer
   public init(socketFileDescriptor: Int32) {
@@ -74,15 +82,72 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     self.close()
   }
   
+  /// Sockets are compared by identity, not by file descriptor number: the number of a closed
+  /// socket is handed out again, and a stale socket must never be taken for the new one that
+  /// happens to have the same number.
   public func hash(into hasher: inout Hasher) {
-    hasher.combine(self.socketFileDescriptor)
+    hasher.combine(ObjectIdentifier(self))
   }
   
+  public static func == (socket1: NanoSocket, socket2: NanoSocket) -> Bool {
+    return socket1 === socket2
+  }
+  
+  /// Is `true` once the socket has been closed (or is being closed).
+  var isClosed: Bool {
+    self.condition.lock()
+    defer {
+      self.condition.unlock()
+    }
+    return self.closed
+  }
+  
+  /// Runs `body` with the descriptor of this socket and keeps the socket from being released
+  /// while `body` runs. Throws `closedError` if the socket is already closed.
+  ///
+  /// This is what makes closing safe while other threads read or write: the number of a closed
+  /// descriptor is handed out again by the system, so an operation that still used it would read
+  /// from or write to an unrelated socket.
+  private func withDescriptor<T>(closedError: @autoclosure () -> NanoSocketError,
+                                 _ body: (Int32) throws -> T) throws -> T {
+    self.condition.lock()
+    if self.closed {
+      self.condition.unlock()
+      throw closedError()
+    }
+    self.activeOperations += 1
+    self.condition.unlock()
+    defer {
+      self.condition.lock()
+      self.activeOperations -= 1
+      if self.activeOperations == 0 {
+        self.condition.broadcast()
+      }
+      self.condition.unlock()
+    }
+    return try body(self.socketFileDescriptor)
+  }
+  
+  /// Closes the socket. Closing is idempotent and may be called from any thread, also while other
+  /// threads are reading from or writing to the socket.
+  ///
+  /// The connection is shut down first, which makes operations that are blocked right now fail
+  /// instead of waiting for the peer; then `close` waits (for at most two seconds) until all
+  /// running operations have returned, and only then releases the descriptor. Operations started
+  /// afterwards fail without touching the descriptor.
   public func close() {
-    if shutdown {
+    self.condition.lock()
+    if self.closed {
+      self.condition.unlock()
       return
     }
-    self.shutdown = true
+    self.closed = true
+    self.condition.unlock()
+    _ = Darwin.shutdown(self.socketFileDescriptor, SHUT_RDWR)
+    let deadline = Date(timeIntervalSinceNow: 2)
+    self.condition.lock()
+    while self.activeOperations > 0 && self.condition.wait(until: deadline) {}
+    self.condition.unlock()
     NanoSocket.close(self.socketFileDescriptor)
   }
   
@@ -98,57 +163,60 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   ///   - timeout: The longest time to wait for the peer to finish, in seconds.
   ///   - limit: The most data to read and drop, in bytes.
   func closeAfterDraining(timeout: TimeInterval = 1, limit: Int = 4 * 1024 * 1024) {
-    guard !shutdown else {
-      return
-    }
-    _ = Darwin.shutdown(self.socketFileDescriptor, SHUT_WR)
-    let deadline = DispatchTime.now().uptimeNanoseconds + UInt64(timeout * 1_000_000_000)
-    var buffer = [UInt8](repeating: 0, count: 16 * 1024)
-    var drained = 0
-    while drained < limit {
-      let now = DispatchTime.now().uptimeNanoseconds
-      if now >= deadline {
-        break
-      }
-      let remaining = max(0.001, Double(deadline - now) / 1_000_000_000) // 0 would mean "no timeout"
-      var wait = timeval(tv_sec: Int(remaining), tv_usec: Int32((remaining - remaining.rounded(.down)) * 1_000_000))
-      setsockopt(self.socketFileDescriptor, SOL_SOCKET, SO_RCVTIMEO, &wait, socklen_t(MemoryLayout<timeval>.size))
-      let count = buffer.withUnsafeMutableBytes { Darwin.read(self.socketFileDescriptor, $0.baseAddress, $0.count) }
-      if count > 0 {
-        drained += count
-      } else if count < 0 && errno == EINTR {
-        continue
-      } else {
-        break
+    try? self.withDescriptor(closedError: .recvFailed(Self.closedDescription)) { descriptor in
+      _ = Darwin.shutdown(descriptor, SHUT_WR)
+      let deadline = DispatchTime.now().uptimeNanoseconds + UInt64(timeout * 1_000_000_000)
+      var buffer = [UInt8](repeating: 0, count: 16 * 1024)
+      var drained = 0
+      while drained < limit {
+        let now = DispatchTime.now().uptimeNanoseconds
+        if now >= deadline {
+          break
+        }
+        let remaining = max(0.001, Double(deadline - now) / 1_000_000_000) // 0 would mean "no timeout"
+        var wait = timeval(tv_sec: Int(remaining), tv_usec: Int32((remaining - remaining.rounded(.down)) * 1_000_000))
+        setsockopt(descriptor, SOL_SOCKET, SO_RCVTIMEO, &wait, socklen_t(MemoryLayout<timeval>.size))
+        let count = buffer.withUnsafeMutableBytes { Darwin.read(descriptor, $0.baseAddress, $0.count) }
+        if count > 0 {
+          drained += count
+        } else if count < 0 && errno == EINTR {
+          continue
+        } else {
+          break
+        }
       }
     }
     self.close()
   }
   
   public func port() throws -> in_port_t {
-    var addr = sockaddr_in()
-    return try withUnsafePointer(to: &addr) { pointer in
-      var len = socklen_t(MemoryLayout<sockaddr_in>.size)
-      if getsockname(socketFileDescriptor, UnsafeMutablePointer(OpaquePointer(pointer)), &len) != 0 {
-        throw NanoSocketError.getSockNameFailed(Self.errnoDescription)
+    return try self.withDescriptor(closedError: .getSockNameFailed(Self.closedDescription)) { descriptor in
+      var addr = sockaddr_in()
+      return try withUnsafePointer(to: &addr) { pointer in
+        var len = socklen_t(MemoryLayout<sockaddr_in>.size)
+        if getsockname(descriptor, UnsafeMutablePointer(OpaquePointer(pointer)), &len) != 0 {
+          throw NanoSocketError.getSockNameFailed(Self.errnoDescription)
+        }
+        let sin_port = pointer.pointee.sin_port
+        #if os(Linux)
+        return ntohs(sin_port)
+        #else
+        return Int(OSHostByteOrder()) != OSLittleEndian ? sin_port.littleEndian : sin_port.bigEndian
+        #endif
       }
-      let sin_port = pointer.pointee.sin_port
-      #if os(Linux)
-      return ntohs(sin_port)
-      #else
-      return Int(OSHostByteOrder()) != OSLittleEndian ? sin_port.littleEndian : sin_port.bigEndian
-      #endif
     }
   }
   
   public func isIPv4() throws -> Bool {
-    var addr = sockaddr_in()
-    return try withUnsafePointer(to: &addr) { pointer in
-      var len = socklen_t(MemoryLayout<sockaddr_in>.size)
-      if getsockname(socketFileDescriptor, UnsafeMutablePointer(OpaquePointer(pointer)), &len) != 0 {
-        throw NanoSocketError.getSockNameFailed(Self.errnoDescription)
+    return try self.withDescriptor(closedError: .getSockNameFailed(Self.closedDescription)) { descriptor in
+      var addr = sockaddr_in()
+      return try withUnsafePointer(to: &addr) { pointer in
+        var len = socklen_t(MemoryLayout<sockaddr_in>.size)
+        if getsockname(descriptor, UnsafeMutablePointer(OpaquePointer(pointer)), &len) != 0 {
+          throw NanoSocketError.getSockNameFailed(Self.errnoDescription)
+        }
+        return Int32(pointer.pointee.sin_family) == AF_INET
       }
-      return Int32(pointer.pointee.sin_family) == AF_INET
     }
   }
   
@@ -180,17 +248,19 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   }
   
   private func writeBuffer(_ pointer: UnsafeRawPointer, length: Int) throws {
-    var sent = 0
-    while sent < length {
-      #if os(Linux)
-      let result = send(self.socketFileDescriptor, pointer + sent, Int(length - sent), Int32(MSG_NOSIGNAL))
-      #else
-      let result = Darwin.write(self.socketFileDescriptor, pointer + sent, Int(length - sent))
-      #endif
-      if result <= 0 {
-        throw NanoSocketError.writeFailed(Self.errnoDescription)
+    try self.withDescriptor(closedError: .writeFailed(Self.closedDescription)) { descriptor in
+      var sent = 0
+      while sent < length {
+        #if os(Linux)
+        let result = send(descriptor, pointer + sent, Int(length - sent), Int32(MSG_NOSIGNAL))
+        #else
+        let result = Darwin.write(descriptor, pointer + sent, Int(length - sent))
+        #endif
+        if result <= 0 {
+          throw NanoSocketError.writeFailed(Self.errnoDescription)
+        }
+        sent += result
       }
-      sent += result
     }
   }
   
@@ -201,16 +271,18 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   /// - Returns: A single byte
   /// - Throws: SocketError.recvFailed if unable to read from the socket
   open func read() throws -> UInt8 {
-    var byte: UInt8 = 0
-    #if os(Linux)
-    let count = Glibc.read(self.socketFileDescriptor as Int32, &byte, 1)
-    #else
-    let count = Darwin.read(self.socketFileDescriptor as Int32, &byte, 1)
-    #endif
-    guard count > 0 else {
-      throw NanoSocketError.recvFailed(Self.errnoDescription)
+    return try self.withDescriptor(closedError: .recvFailed(Self.closedDescription)) { descriptor in
+      var byte: UInt8 = 0
+      #if os(Linux)
+      let count = Glibc.read(descriptor, &byte, 1)
+      #else
+      let count = Darwin.read(descriptor, &byte, 1)
+      #endif
+      guard count > 0 else {
+        throw NanoSocketError.recvFailed(Self.errnoDescription)
+      }
+      return byte
     }
-    return byte
   }
   
   /// Reads exactly `length` bytes from this socket.
@@ -227,20 +299,22 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     guard length >= 0 else {
       throw NanoSocketError.recvFailed("negative length")
     }
-    var result = [UInt8]()
-    var chunk = [UInt8](repeating: 0, count: min(length, NanoSocket.kChunkLength))
-    while result.count < length {
-      let wanted = min(chunk.count, length - result.count)
-      let count = chunk.withUnsafeMutableBytes { Darwin.read(self.socketFileDescriptor, $0.baseAddress, wanted) }
-      if count < 0 && errno == EINTR {
-        continue
+    return try self.withDescriptor(closedError: .recvFailed(Self.closedDescription)) { descriptor in
+      var result = [UInt8]()
+      var chunk = [UInt8](repeating: 0, count: min(length, NanoSocket.kChunkLength))
+      while result.count < length {
+        let wanted = min(chunk.count, length - result.count)
+        let count = chunk.withUnsafeMutableBytes { Darwin.read(descriptor, $0.baseAddress, wanted) }
+        if count < 0 && errno == EINTR {
+          continue
+        }
+        guard count > 0 else {
+          throw NanoSocketError.recvFailed(Self.errnoDescription)
+        }
+        result.append(contentsOf: chunk[0..<count])
       }
-      guard count > 0 else {
-        throw NanoSocketError.recvFailed(Self.errnoDescription)
-      }
-      result.append(contentsOf: chunk[0..<count])
+      return result
     }
-    return result
   }
   
   public func readLine() throws -> String {
@@ -257,8 +331,10 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   
   public func peername() throws -> String {
     var addr = sockaddr(), len: socklen_t = socklen_t(MemoryLayout<sockaddr>.size)
-    if getpeername(self.socketFileDescriptor, &addr, &len) != 0 {
-      throw NanoSocketError.getPeerNameFailed(Self.errnoDescription)
+    try self.withDescriptor(closedError: .getPeerNameFailed(Self.closedDescription)) { descriptor in
+      if getpeername(descriptor, &addr, &len) != 0 {
+        throw NanoSocketError.getPeerNameFailed(Self.errnoDescription)
+      }
     }
     var hostBuffer = [CChar](repeating: 0, count: Int(NI_MAXHOST))
     if getnameinfo(&addr, len, &hostBuffer, socklen_t(hostBuffer.count), nil, 0, NI_NUMERICHOST) != 0 {
@@ -287,15 +363,17 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   }
   
   public func writeFile(_ file: String.File) throws {
-    var offset: off_t = 0
-    var sf: sf_hdtr = sf_hdtr()
-    #if os(iOS) || os(tvOS) || os (Linux)
-    let result = sendfileImpl(file.pointer, self.socketFileDescriptor, 0, &offset, &sf, 0)
-    #else
-    let result = sendfile(fileno(file.pointer), self.socketFileDescriptor, 0, &offset, &sf, 0)
-    #endif
-    if result == -1 {
-      throw NanoSocketError.writeFailed("sendfile: " + Self.errnoDescription)
+    try self.withDescriptor(closedError: .writeFailed(Self.closedDescription)) { descriptor in
+      var offset: off_t = 0
+      var sf: sf_hdtr = sf_hdtr()
+      #if os(iOS) || os(tvOS) || os (Linux)
+      let result = sendfileImpl(file.pointer, descriptor, 0, &offset, &sf, 0)
+      #else
+      let result = sendfile(fileno(file.pointer), descriptor, 0, &offset, &sf, 0)
+      #endif
+      if result == -1 {
+        throw NanoSocketError.writeFailed("sendfile: " + Self.errnoDescription)
+      }
     }
   }
   
@@ -408,6 +486,9 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   /// Waits for the next connection and reports failures in a way that tells those that merely
   /// delay accepting (`transient`, `exhausted`) from those that end it (`failed`).
   func acceptOutcome() -> AcceptOutcome {
+    if self.isClosed {
+      return .failed(Self.closedDescription)
+    }
     var addr = sockaddr()
     var len: socklen_t = 0
     let clientSocket = accept(self.socketFileDescriptor, &addr, &len)
@@ -486,7 +567,4 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     return String(cString: strerror(errno))
   }
   
-  public static func == (socket1: NanoSocket, socket2: NanoSocket) -> Bool {
-    return socket1.socketFileDescriptor == socket2.socketFileDescriptor
-  }
 }

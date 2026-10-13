@@ -89,11 +89,9 @@ final class HTMLDSLTests: XCTestCase {
     }
   }
 
-  /// Every handler invocation uses module-wide attribute variables and a shared buffer
-  /// dictionary, so concurrent requests corrupt each other (and a concurrent write to the
-  /// Dictionary can crash the process). Opt in with NANOHTTP_CRASH_TESTS=1.
-  func testConcurrentRenderingDoesNotMixUpRequests() throws {
-    try requireCrashTests("N1", "NanoHTML keeps its state in unsynchronized module-level variables")
+  /// The builder keeps its state in module-wide variables. Rendering is serialized, so concurrent
+  /// requests no longer corrupt each other. (Before, this aborted the process in every run.)
+  func testConcurrentRenderingDoesNotMixUpRequests() {
     let lock = NSLock()
     var mismatches = 0
     DispatchQueue.concurrentPerform(iterations: 4000) { index in
@@ -105,6 +103,44 @@ final class HTMLDSLTests: XCTestCase {
       }
     }
     XCTAssertEqual(mismatches, 0, "\(mismatches) of 4000 concurrent renderings were corrupted")
+  }
+
+  func testConcurrentRequestsToAServerGetTheirOwnPage() throws {
+    try withTestServer(configure: { server in
+      server.get["/page/:n"] = { request in
+        let number = request.params["n"] ?? "?"
+        return htmlHandler {
+          div {
+            h1 { inner = "page \(number)" }
+            a { href = "/page/\(number)"; classs = "c\(number)"; inner = "link \(number)" }
+          }
+        }(request)
+      }
+    }) { _, port in
+      let lock = NSLock()
+      var failures = [String]()
+      DispatchQueue.concurrentPerform(iterations: 200) { index in
+        let expected = "<h1>page \(index)</h1><a href=\"/page/\(index)\" class=\"c\(index)\">link \(index)</a>"
+        let alternative = "<h1>page \(index)</h1><a class=\"c\(index)\" href=\"/page/\(index)\">link \(index)</a>"
+        let body = (try? RawClient.get("/page/\(index)", port: port).bodyString) ?? "<no response>"
+        if !body.contains(expected) && !body.contains(alternative) { // attribute order is not defined
+          lock.lock(); failures.append("\(index): \(body)"); lock.unlock()
+        }
+      }
+      XCTAssertEqual(failures.count, 0, failures.prefix(2).joined(separator: "\n"))
+    }
+  }
+
+  func testNestedRenderingOnTheSameThreadDoesNotDeadlock() {
+    let outer = htmlHandler {
+      div {
+        _ = htmlHandler { p { inner = "nested" } }(NanoHTTPRequest(method: "GET", path: "/"))
+        inner = "outer"
+      }
+    }
+    // The lock is recursive: this must return. (What the nested call does to the outer document
+    // is not specified.)
+    XCTAssertEqual(outer(NanoHTTPRequest(method: "GET", path: "/")).statusCode, 200)
   }
 }
 

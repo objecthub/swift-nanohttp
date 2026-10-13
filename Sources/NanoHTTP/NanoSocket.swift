@@ -390,15 +390,50 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     }
   }
   
-  public func acceptClientSocket() throws -> NanoSocket {
+  /// What happened when a connection was awaited with `acceptOutcome()`.
+  enum AcceptOutcome {
+    /// A client connected.
+    case accepted(NanoSocket)
+    /// The attempt failed for a reason that concerns only that attempt (an interrupted call, a
+    /// connection that was aborted before it could be accepted); the next attempt may succeed.
+    case transient(String)
+    /// The process or the system is out of file descriptors or memory. Accepting works again once
+    /// resources are free. Connections that arrive meanwhile may be lost: macOS discards a
+    /// pending connection whose `accept` failed for lack of resources.
+    case exhausted(String)
+    /// The listening socket is closed or unusable; accepting will never work again.
+    case failed(String)
+  }
+  
+  /// Waits for the next connection and reports failures in a way that tells those that merely
+  /// delay accepting (`transient`, `exhausted`) from those that end it (`failed`).
+  func acceptOutcome() -> AcceptOutcome {
     var addr = sockaddr()
     var len: socklen_t = 0
     let clientSocket = accept(self.socketFileDescriptor, &addr, &len)
-    if clientSocket == -1 {
-      throw NanoSocketError.acceptFailed(Self.errnoDescription)
+    if clientSocket >= 0 {
+      NanoSocket.setNoSigPipe(clientSocket)
+      return .accepted(NanoSocket(socketFileDescriptor: clientSocket))
     }
-    NanoSocket.setNoSigPipe(clientSocket)
-    return NanoSocket(socketFileDescriptor: clientSocket)
+    let code = errno
+    let description = String(cString: strerror(code))
+    switch code {
+      case EINTR, ECONNABORTED, EPROTO, EAGAIN, ETIMEDOUT:
+        return .transient(description)
+      case EMFILE, ENFILE, ENOBUFS, ENOMEM:
+        return .exhausted(description)
+      default:
+        return .failed(description)
+    }
+  }
+  
+  public func acceptClientSocket() throws -> NanoSocket {
+    switch self.acceptOutcome() {
+      case .accepted(let socket):
+        return socket
+      case .transient(let description), .exhausted(let description), .failed(let description):
+        throw NanoSocketError.acceptFailed(description)
+    }
   }
   
   public func write(_ file: String.File) throws {

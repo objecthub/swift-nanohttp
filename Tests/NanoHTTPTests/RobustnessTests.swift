@@ -10,39 +10,70 @@
 import XCTest
 @testable import NanoHTTP
 
-// MARK: - R1: accept loop must survive transient accept() errors
+// MARK: - R1: accept loop must survive transient accept() errors (fixed)
 
 final class AcceptLoopTests: XCTestCase {
 
-  /// Exhausts the process' file descriptors while connections are pending, so `accept()` fails
-  /// with EMFILE, then restores the limit and checks that the server still serves requests.
-  /// (One ephemeral error must not take the whole server down.)
+  /// Exhausts the process' file descriptors while connections arrive, so `accept()` fails with
+  /// EMFILE, then restores the limit. One shortage must not take the server down: it keeps
+  /// operating and serves new connections afterwards. (Connections that arrive during the shortage
+  /// may be lost: macOS discards a pending connection whose `accept` failed.)
   func testServerSurvivesDescriptorExhaustion() throws {
     raiseFileDescriptorLimit()
     try withTestServer(configure: { server in
       server.get["/ping"] = { _ in .ok(.text("pong")) }
     }) { server, port in
       // Reserve four client sockets, then leave exactly one descriptor free: the server can
-      // accept the first pending connection, the second accept() fails with EMFILE.
+      // accept one connection, the following accept() calls fail with EMFILE.
       let clients = try (0..<4).map { _ in try RawClient(port: port, connect: false) }
       let restore = exhaustFileDescriptors(leaving: 1)
       for client in clients {
         try? client.connect(port: port)
+        client.send(RawClient.requestText("GET", "/ping", headers: ["Connection: close"]))
       }
-      usleep(400_000)
+      usleep(400_000) // the accept loop runs into EMFILE and backs off
       restore()
       clients.forEach { $0.close() }
-      usleep(200_000)
-      expectKnownIssue("R1", "any accept() error ends the accept loop and stops the whole server") {
-        XCTAssertTrue(server.operating, "server stopped itself after an accept() failure")
-        let response = try? RawClient.get("/ping", port: port)
-        XCTAssertEqual(response?.status, 200)
+      usleep(100_000)
+      XCTAssertTrue(server.operating, "server stopped itself after an accept() failure")
+      for round in 0..<5 {
+        XCTAssertEqual(try RawClient.get("/ping", port: port).status, 200, "request \(round) after the shortage")
       }
     }
   }
+
+  func testAcceptClassifiesDescriptorExhaustionAsTemporary() throws {
+    raiseFileDescriptorLimit()
+    let listener = try NanoSocket.tcpSocketForListen(0, true, 8, "127.0.0.1")
+    let port = Int(try listener.port())
+    let client = try RawClient(port: port)
+    defer { client.close() }
+    usleep(100_000) // the connection is complete and waits in the queue
+    let restore = exhaustFileDescriptors(leaving: 0)
+    var exhausted = false
+    if case .exhausted = listener.acceptOutcome() {
+      exhausted = true
+    }
+    restore()
+    XCTAssertTrue(exhausted, "EMFILE must be reported as a shortage, not as a failure of the socket")
+  }
+
+  func testAcceptReportsAUnusableSocketAsFailed() {
+    var closed = false
+    if case .failed = NanoSocket(socketFileDescriptor: -1).acceptOutcome() {
+      closed = true
+    }
+    XCTAssertTrue(closed)
+    let notListening = NanoSocket(socketFileDescriptor: socket(AF_INET, SOCK_STREAM, 0))
+    var unusable = false
+    if case .failed = notListening.acceptOutcome() {
+      unusable = true
+    }
+    XCTAssertTrue(unusable)
+  }
 }
 
-// MARK: - R2: file descriptors must not leak
+// MARK: - R2: file descriptors must not leak (fixed)
 
 final class DescriptorLeakTests: XCTestCase {
   var fixture: FileFixture!
@@ -56,9 +87,9 @@ final class DescriptorLeakTests: XCTestCase {
     self.fixture = nil
   }
 
-  /// A handler opens the file when it *builds* the response; the descriptor is only closed when
-  /// the response is actually written. If the response is dropped (header write failed, server
-  /// stopping, ...) the descriptor leaks because `String.File` has no `deinit`.
+  /// A handler opens the file when it *builds* the response; the descriptor used to be closed only
+  /// when the response was actually written. If the response is dropped (header write failed,
+  /// server stopping, ...) the descriptor leaked because `String.File` had no `deinit`.
   func testShareFileDoesNotLeakWhenResponseIsNeverWritten() {
     let handler = share(file: self.fixture.helloFile)
     let request = NanoHTTPRequest(method: "GET", path: "/")
@@ -66,10 +97,20 @@ final class DescriptorLeakTests: XCTestCase {
     for _ in 0..<50 {
       _ = handler(request)
     }
-    let leaked = openFileDescriptorCount() - before
-    expectKnownIssue("R2", "String.File has no deinit; unwritten responses leak their descriptor") {
-      XCTAssertLessThan(leaked, 5, "leaked \(leaked) descriptors in 50 dropped responses")
+    XCTAssertLessThan(openFileDescriptorCount() - before, 5)
+  }
+
+  func testShareDirectoryAndBrowseDoNotLeakWhenResponseIsNeverWritten() {
+    let request = NanoHTTPRequest(method: "GET", path: "/public/hello.txt")
+    request.params = ["path": "hello.txt"]
+    let handlers = [share(directory: self.fixture.publicDir), browse(directory: self.fixture.publicDir)]
+    let before = openFileDescriptorCount()
+    for _ in 0..<50 {
+      for handler in handlers {
+        XCTAssertEqual(handler(request).statusCode, 200)
+      }
     }
+    XCTAssertLessThan(openFileDescriptorCount() - before, 5)
   }
 
   func testShareFileClosesDescriptorAfterWriting() {
@@ -80,6 +121,26 @@ final class DescriptorLeakTests: XCTestCase {
       XCTAssertEqual(handler(request).capturedBody(), "hello")
     }
     XCTAssertLessThan(openFileDescriptorCount() - before, 5)
+  }
+
+  func testAFileClosesItselfWhenItIsReleased() throws {
+    let before = openFileDescriptorCount()
+    for _ in 0..<50 {
+      _ = try self.fixture.helloFile.openForReading()
+    }
+    XCTAssertLessThan(openFileDescriptorCount() - before, 5)
+  }
+
+  func testClosingAFileTwiceIsHarmless() throws {
+    let before = openFileDescriptorCount()
+    do {
+      let file = try self.fixture.helloFile.openForReading()
+      XCTAssertEqual(openFileDescriptorCount(), before + 1)
+      file.close()
+      XCTAssertEqual(openFileDescriptorCount(), before)
+      file.close() // no effect; and the release at the end of the scope must not close it again
+    }
+    XCTAssertEqual(openFileDescriptorCount(), before)
   }
 }
 

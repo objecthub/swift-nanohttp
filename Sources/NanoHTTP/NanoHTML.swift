@@ -36,13 +36,40 @@
 import Foundation
 
 
+/// Returns a handler that responds with the HTML document that `scope` builds with the functions
+/// of this file (`html { body { ... } }`).
+///
+/// The builder keeps its state, including the attribute values that are set with assignments like
+/// `href = "/x"`, in variables that exist once per process. To make that safe when several
+/// connections are served at the same time, documents are built one at a time: a call of `scope`
+/// waits until all other documents are complete. `scope` therefore should only build the page and
+/// not, for example, wait for slow I/O.
 public func htmlHandler(_ scope: @escaping NanoHTMLClosure) -> NanoHTTPRequestHandler {
   return { _ in
-    scopesBuffer[NanoProcess.tid] = ""
-    scope()
-    return .custom(200, contentType: "text/html") {
-      try? $0.write([UInt8](("<!DOCTYPE html>"  + (scopesBuffer[NanoProcess.tid] ?? "")).utf8))
+    let document = renderLock.withLock { () -> [UInt8] in
+      scopesBuffer[NanoProcess.tid] = ""
+      scope()
+      let html = "<!DOCTYPE html>" + (scopesBuffer[NanoProcess.tid] ?? "")
+      scopesBuffer[NanoProcess.tid] = nil // do not keep the last page of every thread alive
+      return [UInt8](html.utf8)
     }
+    return .custom(200, contentType: "text/html") {
+      try? $0.write(document)
+    }
+  }
+}
+
+/// Serializes the use of the builder's process-wide state. Recursive, so that a handler that is
+/// called while a document is being built (a nested `htmlHandler`) cannot block itself.
+private let renderLock = NSRecursiveLock()
+
+extension NSRecursiveLock {
+  fileprivate func withLock<T>(_ body: () -> T) -> T {
+    self.lock()
+    defer {
+      self.unlock()
+    }
+    return body()
   }
 }
 

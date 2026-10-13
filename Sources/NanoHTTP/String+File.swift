@@ -42,15 +42,28 @@ extension String {
     case error(Int32)
   }
   
+  /// An open file. The file is closed by `close()` or, at the latest, when the last reference to
+  /// the `File` goes away, so a file handed to a response that is never written does not leak its
+  /// file descriptor.
   public class File {
     let pointer: UnsafeMutablePointer<FILE>
+    private var closed = false
     
     public init(_ pointer: UnsafeMutablePointer<FILE>) {
       self.pointer = pointer
     }
     
+    deinit {
+      self.close()
+    }
+    
+    /// Closes the file. Closing a file that is already closed has no effect. Do not use the file
+    /// afterwards.
     public func close() {
-      fclose(pointer)
+      if !self.closed {
+        self.closed = true
+        fclose(pointer)
+      }
     }
     
     public func seek(_ offset: Int) -> Bool {

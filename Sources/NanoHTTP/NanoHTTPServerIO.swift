@@ -148,21 +148,65 @@ open class NanoHTTPServerIO {
     self.state = .stopped
   }
   
+  /// Accepts connections until the server is stopped or the listening socket fails.
+  ///
+  /// A failed attempt to accept does not stop the server unless the listening socket itself is
+  /// gone: an interrupted call or an aborted connection is simply retried, and running out of file
+  /// descriptors or memory pauses accepting (with a growing delay of up to a second) until the
+  /// shortage is over. Connections that arrive during the shortage can be lost, because the system
+  /// discards a connection it cannot hand out.
   open func listen(priority: DispatchQoS.QoSClass?) {
-    while self.operating, let socket = try? self.socket.acceptClientSocket() {
-      if let priority {
-        DispatchQueue.global(qos: priority).async { [weak self] in
-          if let server = self,
-             server.operating,
-             let connection = NanoHTTPConnection(server: server, socket: socket) {
-            server.handle(connection: connection)
+    var failures = 0 // consecutive failed attempts
+    var delay = 0.01
+    acceptLoop: while self.operating {
+      switch self.socket.acceptOutcome() {
+        case .accepted(let socket):
+          if failures > 0 {
+            self.log("Accepting connections again")
           }
-        }
-      } else if self.operating, let connection = NanoHTTPConnection(server: self, socket: socket) {
-        self.handle(connection: connection)
+          failures = 0
+          delay = 0.01
+          if let priority {
+            DispatchQueue.global(qos: priority).async { [weak self] in
+              if let server = self,
+                 server.operating,
+                 let connection = NanoHTTPConnection(server: server, socket: socket) {
+                server.handle(connection: connection)
+              }
+            }
+          } else if self.operating, let connection = NanoHTTPConnection(server: self, socket: socket) {
+            self.handle(connection: connection)
+          }
+        case .transient(let reason):
+          failures += 1
+          if failures == 1 {
+            self.log("Unable to accept a connection (\(reason)); retrying")
+          }
+          if failures > 100 {
+            // Failing over and over without a pause would only burn CPU.
+            self.pause(for: delay)
+            delay = min(delay * 2, 1.0)
+          }
+        case .exhausted(let reason):
+          failures += 1
+          if failures == 1 {
+            self.log("Unable to accept a connection (\(reason)); retrying")
+          }
+          self.pause(for: delay)
+          delay = min(delay * 2, 1.0)
+        case .failed:
+          break acceptLoop
       }
     }
     self.stop()
+  }
+  
+  /// Waits for `seconds`, but wakes up early when the server stops operating.
+  private func pause(for seconds: TimeInterval) {
+    let end = DispatchTime.now().uptimeNanoseconds + UInt64(seconds * 1_000_000_000)
+    while self.operating && DispatchTime.now().uptimeNanoseconds < end {
+      Thread.sleep(forTimeInterval: 0.02)
+    }
   }
   
   open func dispatch(request: NanoHTTPRequest) -> ([String: String], NanoHTTPRequestHandler) {

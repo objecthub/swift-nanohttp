@@ -62,6 +62,17 @@ All notable changes to this project are documented in this file. The format is b
 - After a refused request or a failed WebSocket session the connection is now closed only after the peer
   had a chance to read the answer. Closing with unread data made TCP reset the connection, and the peer
   could lose the response.
+- A failed `accept()` no longer stops the server for good. An interrupted or aborted attempt is retried; running
+  out of file descriptors or memory pauses accepting (with a delay that grows to one second) and logs it, and the
+  server keeps running. Only a closed or unusable listening socket ends the accept loop. Connections that arrive
+  during such a shortage can be lost, because macOS discards a pending connection whose `accept` failed.
+- A file that was opened for a response that is never written (client gone, server stopping) is closed when the
+  response is released; before, its file descriptor leaked, which eventually exhausted the process. `String.File`
+  closes itself in `deinit`, and `close()` may be called more than once.
+- NanoHTML: concurrent requests could corrupt each other's pages and abort the process, because the builder keeps its
+  state in process-wide variables. `htmlHandler` now builds one document at a time (and sends the finished page),
+  so a closure passed to it should only build the page. A proper fix, without shared state, needs the redesign
+  planned for 2.0.
 
 ### Security
 - `share(directory:defaults:)` and `browse(directory:)` no longer serve files outside the shared

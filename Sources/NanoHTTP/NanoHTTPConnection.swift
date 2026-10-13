@@ -144,15 +144,46 @@ public struct NanoHTTPConnection {
     self.server?.forget(socket: self.socket)
   }
   
+  /// A header name is a token (RFC 9110 5.6.2): letters, digits and a few punctuation characters,
+  /// but no whitespace, no colon and no line break.
+  private static func isValidHeaderName(_ name: String) -> Bool {
+    let punctuation = Set("!#$%&'*+-.^_`|~".utf8)
+    return !name.isEmpty && name.utf8.allSatisfy {
+      ($0 >= 48 && $0 <= 57) || ($0 >= 65 && $0 <= 90) || ($0 >= 97 && $0 <= 122) || punctuation.contains($0)
+    }
+  }
+  
+  /// A header value without line breaks. A carriage return or line feed would end the header and let
+  /// whatever follows become a header (or the body) of the response, which is how a redirect to a
+  /// location taken from a request can be turned into an injection of arbitrary headers.
+  private static func sanitizedHeaderValue(_ value: String) -> String {
+    guard value.utf8.contains(where: { $0 == 13 || $0 == 10 || $0 == 0 }) else {
+      return value
+    }
+    // Not `Character`s: "\r\n" is a single Character that is neither "\r" nor "\n".
+    return String(String.UnicodeScalarView(value.unicodeScalars.map { $0 == "\r" || $0 == "\n" || $0 == "\0" ? " " : $0 }))
+  }
+  
   private func respond(response: NanoHTTPResponse, keepAlive: Bool) throws -> Bool {
     guard let server, server.operating else {
       return false
     }
     // Some web-socket clients (like Jetfire) expects to have header section in a single packet.
     // We can't promise that but make sure we invoke "write" only once for response header section.
+    var response = response
+    let length: Int?
+    let write: ((NanoHTTPResponseBodyWriter) throws -> Void)?
+    do {
+      (length, write) = try response.body.content()
+    } catch {
+      // The body could not be produced (a `.json` body that is not JSON). Nothing has been sent
+      // yet, so the client can still be told that the server failed.
+      server.log("Unable to produce the body of the response: \(error)")
+      response = NanoHTTPResponse.internalServerError(.text("Internal Server Error"))
+      (length, write) = try response.body.content()
+    }
     var responseHeader = String()
     responseHeader.append("HTTP/1.1 \(response.statusCode) \(response.reasonPhrase)\r\n")
-    let (length, write) = response.body.content()
     if let length, length >= 0 {
       responseHeader.append("Content-Length: \(length)\r\n")
       if keepAlive {
@@ -160,7 +191,11 @@ public struct NanoHTTPConnection {
       }
     }
     for (name, value) in response.allHeaders() {
-      responseHeader.append("\(name): \(value)\r\n")
+      guard NanoHTTPConnection.isValidHeaderName(name) else {
+        server.log("Dropped a response header with an invalid name: \(String(reflecting: name))")
+        continue
+      }
+      responseHeader.append("\(name): \(NanoHTTPConnection.sanitizedHeaderValue(value))\r\n")
     }
     responseHeader.append("\r\n")
     try self.socket.writeUTF8(responseHeader)

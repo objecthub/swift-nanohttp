@@ -60,9 +60,9 @@ public struct NanoHTTPResponse {
         case .empty:
           return nil
         case .text(_):
-          return "text/plain"
+          return "text/plain; charset=utf-8"
         case .html(_):
-          return "text/html"
+          return "text/html; charset=utf-8"
         case .json(_):
           return "application/json"
         case .data(_, let contentType):
@@ -74,33 +74,30 @@ public struct NanoHTTPResponse {
       }
     }
     
-    func content() -> (Int?, ((NanoHTTPResponseBodyWriter) throws -> Void)?) {
-      do {
-        switch self {
-          case .empty:
-            return (0, nil)
-          case .text(let body):
-            let data = [UInt8](body.utf8)
-            return (data.count, { try $0.write(data) })
-          case .html(let html):
-            let data = [UInt8](html.utf8)
-            return (data.count, { try $0.write(data) })
-          case .json(let object):
-            guard JSONSerialization.isValidJSONObject(object) else {
-              throw ResponseError.invalidObject
-            }
-            let data = try JSONSerialization.data(withJSONObject: object)
-            return (data.count, { try $0.write(data) })
-          case .data(let data, _):
-            return (data.count, { try $0.write(data) })
-          case .custom(let content, _):
-            return (nil, content)
-          case .socket(_):
-            return (nil, nil)
-        }
-      } catch {
-        let data = [UInt8]("Serialization error: \(error)".utf8)
-        return (data.count, { try $0.write(data) })
+    /// The length of the body (`nil` if unknown) and a function that writes it. Throws if the body
+    /// cannot be produced, which only happens for `.json` with something that is not JSON.
+    func content() throws -> (Int?, ((NanoHTTPResponseBodyWriter) throws -> Void)?) {
+      switch self {
+        case .empty:
+          return (0, nil)
+        case .text(let body):
+          let data = [UInt8](body.utf8)
+          return (data.count, { try $0.write(data) })
+        case .html(let html):
+          let data = [UInt8](html.utf8)
+          return (data.count, { try $0.write(data) })
+        case .json(let object):
+          guard JSONSerialization.isValidJSONObject(object) else {
+            throw ResponseError.invalidObject
+          }
+          let data = try JSONSerialization.data(withJSONObject: object)
+          return (data.count, { try $0.write(data) })
+        case .data(let data, _):
+          return (data.count, { try $0.write(data) })
+        case .custom(let content, _):
+          return (nil, content)
+        case .socket(_):
+          return (nil, nil)
       }
     }
   }
@@ -219,9 +216,34 @@ public struct NanoHTTPResponse {
                             body: .custom(writer, contentType: contentType))
   }
   
+  /// The standard reason phrase of the status code (RFC 9110), or an empty string for a code that
+  /// has none. (`HTTPURLResponse.localizedString` is not suitable: it is localized and lower case,
+  /// and calls 200 "no error".)
   public var reasonPhrase: String {
-    return HTTPURLResponse.localizedString(forStatusCode: self.statusCode)
+    return NanoHTTPResponse.reasonPhrases[self.statusCode] ?? ""
   }
+  
+  private static let reasonPhrases: [Int: String] = [
+    100: "Continue", 101: "Switching Protocols", 102: "Processing", 103: "Early Hints",
+    200: "OK", 201: "Created", 202: "Accepted", 203: "Non-Authoritative Information",
+    204: "No Content", 205: "Reset Content", 206: "Partial Content", 207: "Multi-Status",
+    208: "Already Reported", 226: "IM Used",
+    300: "Multiple Choices", 301: "Moved Permanently", 302: "Found", 303: "See Other",
+    304: "Not Modified", 305: "Use Proxy", 307: "Temporary Redirect", 308: "Permanent Redirect",
+    400: "Bad Request", 401: "Unauthorized", 402: "Payment Required", 403: "Forbidden",
+    404: "Not Found", 405: "Method Not Allowed", 406: "Not Acceptable",
+    407: "Proxy Authentication Required", 408: "Request Timeout", 409: "Conflict", 410: "Gone",
+    411: "Length Required", 412: "Precondition Failed", 413: "Content Too Large",
+    414: "URI Too Long", 415: "Unsupported Media Type", 416: "Range Not Satisfiable",
+    417: "Expectation Failed", 418: "I'm a Teapot", 421: "Misdirected Request",
+    422: "Unprocessable Content", 423: "Locked", 424: "Failed Dependency", 425: "Too Early",
+    426: "Upgrade Required", 428: "Precondition Required", 429: "Too Many Requests",
+    431: "Request Header Fields Too Large", 451: "Unavailable For Legal Reasons",
+    500: "Internal Server Error", 501: "Not Implemented", 502: "Bad Gateway",
+    503: "Service Unavailable", 504: "Gateway Timeout", 505: "HTTP Version Not Supported",
+    506: "Variant Also Negotiates", 507: "Insufficient Storage", 508: "Loop Detected",
+    510: "Not Extended", 511: "Network Authentication Required"
+  ]
   
   public func allHeaders() -> [String : String] {
     var headers = self.headers

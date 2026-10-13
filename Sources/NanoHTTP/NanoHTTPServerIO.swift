@@ -57,12 +57,16 @@ open class NanoHTTPServerIO {
   
   /// String representation of the IPv4 address to receive requests from.
   /// It's only used when the server is started with `forceIPv4` option set to true.
-  /// Otherwise, `listenAddressIPv6` will be used.
+  /// Otherwise, `listenAddressIPv6` will be used. Use `"127.0.0.1"` to accept connections from
+  /// this machine only. If this is `nil`, all network interfaces are served. `start` throws if the
+  /// string is not an IPv4 address.
   public var listenAddressIPv4: String?
   
   /// String representation of the IPv6 address to receive requests from.
   /// It's only used when the server is started with `forceIPv4` option set to false.
-  /// Otherwise, `listenAddressIPv4` will be used.
+  /// Otherwise, `listenAddressIPv4` will be used. Use `"::1"` to accept connections from this
+  /// machine only. If this is `nil`, all network interfaces are served. `start` throws if the
+  /// string is not an IPv6 address.
   public var listenAddressIPv6: String?
   
   /// The largest requests this server accepts. A request that exceeds a limit is answered with

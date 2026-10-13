@@ -76,29 +76,44 @@ final class HeaderParsingTests: XCTestCase {
   func testEmptyHeaderValueIsEmptyString() throws {
     let request = try parse("GET / HTTP/1.1\r\nX-Empty:\r\nX-Next: 1\r\n\r\n")
     XCTAssertEqual(request.header("x-next"), "1")
-    expectKnownIssue("H3", "an empty header value comes back as the header NAME") {
-      XCTAssertEqual(request.header("x-empty"), "")
-    }
+    XCTAssertEqual(request.header("x-empty"), "")
   }
 
   func testLineWithoutColonIsIgnored() throws {
     let request = try parse("GET / HTTP/1.1\r\ngarbage\r\nX-Next: 1\r\n\r\n")
-    expectKnownIssue("H3", "a colon-less line becomes a header whose value is its own name") {
-      XCTAssertNil(request.header("garbage"))
-    }
+    XCTAssertNil(request.header("garbage"))
   }
 
   func testRepeatedHeadersAreCombined() throws {
     let request = try parse("GET / HTTP/1.1\r\nAccept: text/html\r\nAccept: application/json\r\n\r\n")
-    expectKnownIssue("H3", "the last of several same-named headers silently wins") {
-      XCTAssertEqual(request.header("accept"), "text/html, application/json")
-    }
+    XCTAssertEqual(request.header("accept"), "text/html, application/json")
   }
 
   func testHeaderNameIsTrimmed() throws {
     let request = try parse("GET / HTTP/1.1\r\nX-Spaced : 1\r\n\r\n")
-    expectKnownIssue("H3", "whitespace before the colon becomes part of the header name") {
-      XCTAssertEqual(request.header("x-spaced"), "1")
+    XCTAssertEqual(request.header("x-spaced"), "1")
+  }
+
+  func testWhitespaceAroundNameAndValueIsTrimmed() throws {
+    let request = try parse("GET / HTTP/1.1\r\nX-A:   padded value  \r\nX-B\t: tab\r\n\r\n")
+    XCTAssertEqual(request.header("x-a"), "padded value")
+  }
+
+  func testHeaderWithEmptyNameIsIgnored() throws {
+    let request = try parse("GET / HTTP/1.1\r\n: value\r\nX-A: 1\r\n\r\n")
+    XCTAssertEqual(request.availableHeaders, ["x-a"])
+  }
+
+  func testRepeatedHeadersAreCombinedInTheirOrder() throws {
+    let request = try parse("GET / HTTP/1.1\r\nX-List: a\r\nOther: o\r\nx-list: b\r\nX-LIST: c\r\n\r\n")
+    XCTAssertEqual(request.header("x-list"), "a, b, c")
+    XCTAssertEqual(request.header("other"), "o")
+  }
+
+  func testConflictingContentLengthHeadersAreRefused() {
+    // Combined they read "5, 6", which is not a length: such a request must not be framed by guessing.
+    XCTAssertThrowsError(try parse("POST / HTTP/1.1\r\nContent-Length: 5\r\nContent-Length: 6\r\n\r\n12345")) { error in
+      XCTAssertEqual(error as? NanoHTTPParserError, .invalidContentLength)
     }
   }
 
@@ -146,23 +161,54 @@ final class UrlencodedFormTests: XCTestCase {
 
   func testEncodedPlusIsAPlusNotASpace() {
     let parsed = fields(form("a=1%2B1"))
-    expectKnownIssue("H2", "'%' is decoded before '+', so %2B turns into a space") {
-      XCTAssertEqual(parsed["a"], "1+1")
-    }
+    XCTAssertEqual(parsed["a"], "1+1")
   }
 
   func testUnencodedEqualsSignInValueIsKept() {
     let parsed = fields(form("token=abc==&x=1"))
-    expectKnownIssue("H2", "pairs whose value contains '=' (e.g. base64 padding) are dropped") {
-      XCTAssertEqual(parsed["token"], "abc==")
-    }
+    XCTAssertEqual(parsed["token"], "abc==")
   }
 
-  func testMalformedPairIsSkippedNotInventedAsEmptyField() {
+  func testPairWithoutEqualsSignIsANameWithAnEmptyValue() {
     let parsed = form("a=1&oops&b=2").parseUrlencodedForm()
-    expectKnownIssue("H2", "a pair without '=' becomes a bogus ('', '') entry") {
-      XCTAssertEqual(parsed.count, 2)
-    }
+    XCTAssertEqual(parsed.map { "\($0.0)=\($0.1)" }, ["a=1", "oops=", "b=2"])
+  }
+
+  func testEmptySegmentsAreSkipped() {
+    XCTAssertEqual(form("&a=1&&b=2&").parseUrlencodedForm().map { "\($0.0)=\($0.1)" }, ["a=1", "b=2"])
+    XCTAssertTrue(form("").parseUrlencodedForm().isEmpty)
+  }
+
+  func testPlusAndPercentSequencesAreDecodedInTheRightOrder() {
+    let parsed = form("a=x+y&b=x%2By&c=%2B%2B&d=100%25&e=%E2%82%AC&f=%C3%BC+%C3%A4").parseUrlencodedForm()
+    let values = Dictionary(parsed, uniquingKeysWith: { _, last in last })
+    XCTAssertEqual(values["a"], "x y")
+    XCTAssertEqual(values["b"], "x+y")
+    XCTAssertEqual(values["c"], "++")
+    XCTAssertEqual(values["d"], "100%")
+    XCTAssertEqual(values["e"], "€")
+    XCTAssertEqual(values["f"], "ü ä")
+  }
+
+  func testInvalidPercentSequencesAreKept() {
+    let values = Dictionary(form("a=100%&b=%zz&c=%4&d=%").parseUrlencodedForm(), uniquingKeysWith: { _, last in last })
+    XCTAssertEqual(values["a"], "100%")
+    XCTAssertEqual(values["b"], "%zz")
+    XCTAssertEqual(values["c"], "%4")
+    XCTAssertEqual(values["d"], "%")
+  }
+
+  func testNamesAreDecodedLikeValuesAndRepeatedNamesKeepTheirOrder() {
+    let parsed = form("a%5B%5D=1&a%5B%5D=2&x+y=3&=4").parseUrlencodedForm()
+    XCTAssertEqual(parsed.map { "\($0.0)=\($0.1)" }, ["a[]=1", "a[]=2", "x y=3", "=4"])
+  }
+
+  func testTheValueEndsAtTheEndOfThePairNotAtTheSecondEqualsSign() {
+    XCTAssertEqual(form("redirect=/p?a=1&b=2").parseUrlencodedForm().map { "\($0.0)=\($0.1)" }, ["redirect=/p?a=1", "b=2"])
+  }
+
+  func testContentTypeIsMatchedCaseInsensitively() {
+    XCTAssertEqual(form("a=1", contentType: "Application/X-WWW-Form-Urlencoded; charset=UTF-8").parseUrlencodedForm().count, 1)
   }
 }
 

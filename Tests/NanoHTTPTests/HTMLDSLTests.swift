@@ -18,7 +18,7 @@ final class HTMLDSLTests: XCTestCase {
   func testResponseIsAnHTMLDocument() {
     let response = htmlHandler { body { p { inner = "x" } } }(NanoHTTPRequest(method: "GET", path: "/"))
     XCTAssertEqual(response.statusCode, 200)
-    XCTAssertEqual(response.allHeaders()["Content-Type"], "text/html")
+    XCTAssertEqual(response.allHeaders()["Content-Type"], "text/html; charset=utf-8")
     XCTAssertTrue(response.capturedBody().hasPrefix("<!DOCTYPE html>"))
   }
 

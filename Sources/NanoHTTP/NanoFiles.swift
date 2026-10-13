@@ -97,6 +97,20 @@ extension String.File {
   }
 }
 
+/// The response that sends `file`: its MIME type (from `name`, if it has an extension that is known),
+/// its size as `Content-Length`, and the content. The file is closed when it has been sent or, if
+/// the response is dropped, when the response is released.
+private func response(for file: String.File, named name: String) -> NanoHTTPResponse {
+  var headers: [String: String] = [:]
+  if let size = file.size {
+    headers["Content-Length"] = String(size)
+  }
+  return .custom(200, headers: headers, contentType: name.mimeType()) { writer in
+    try? writer.write(file)
+    file.close()
+  }
+}
+
 /// Returns a handler that serves one file.
 ///
 /// The response carries the MIME type derived from the extension of `path` and the size of the
@@ -106,15 +120,7 @@ extension String.File {
 public func share(file path: String) -> NanoHTTPRequestHandler {
   return { _ in
     if let file = try? path.openForReading() {
-      let mimeType = path.mimeType()
-      var responseHeader: [String: String] = [:]
-      if let fileSize = file.size {
-        responseHeader["Content-Length"] = String(fileSize)
-      }
-      return .custom(200, headers: responseHeader, contentType: mimeType) { writer in
-        try? writer.write(file)
-        file.close()
-      }
+      return response(for: file, named: path)
     }
     return .notFound()
   }
@@ -153,23 +159,12 @@ public func share(directory path: String,
       for d in defaults {
         if let defaultPath = locate(d, in: path, followSymlinks: followSymlinks),
            let file = try? defaultPath.openForReading() {
-          return .custom(200) { writer in
-            try? writer.write(file)
-            file.close()
-          }
+          return response(for: file, named: d)
         }
       }
     }
     if let file = try? filePath.openForReading() {
-      let mimeType = fileRelativePath.mimeType()
-      var responseHeader: [String: String] = [:]
-      if let fileSize = file.size {
-        responseHeader["Content-Length"] = String(fileSize)
-      }
-      return .custom(200, headers: responseHeader, contentType: mimeType) { writer in
-        try? writer.write(file)
-        file.close()
-      }
+      return response(for: file, named: fileRelativePath)
     }
     return .notFound("Unknown file/directory")
   }
@@ -213,17 +208,14 @@ public func browse(directory dir: String, followSymlinks: Bool = false) -> NanoH
         var res = ""
         for f in files {
           let path = base + (f.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? f)
-          res += "<li><a href=\"\(path)\">\(f)</a></li>"
+          res += "<li><a href=\"\(path.htmlEscaped)\">\(f.htmlEscaped)</a></li>"
         }
         return .ok(.htmlBody("<ul style=\"list-style: none;\">\(res)</ul>"))
       } else {
         guard let file = try? filePath.openForReading() else {
           return .notFound("Unable to open file")
         }
-        return .custom(200) { writer in
-          try? writer.write(file)
-          file.close()
-        }
+        return response(for: file, named: path)
       }
     } catch {
       return NanoHTTPResponse.internalServerError("Internal Server Error")

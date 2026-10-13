@@ -127,6 +127,10 @@ public final class NanoHTTPRequest: Hashable {
                       .count > 0
   }
   
+  /// The fields of an `application/x-www-form-urlencoded` body (the encoding of an HTML form), in
+  /// the order in which they appear; repeated names are kept. Names and values are decoded: `+`
+  /// is a space, `%XX` a byte of UTF-8 text. A field without `=` is a name with an empty value.
+  /// Returns an empty array if the request has another content type or the body is not UTF-8.
   public func parseUrlencodedForm() -> [(String, String)] {
     guard let contentTypeHeader = headers["content-type"] else {
       return []
@@ -134,22 +138,21 @@ public final class NanoHTTPRequest: Hashable {
     let contentTypeHeaderTokens = contentTypeHeader
                                     .components(separatedBy: ";")
                                     .map { $0.trimmingCharacters(in: .whitespaces) }
-    guard contentTypeHeaderTokens.first == "application/x-www-form-urlencoded" else {
+    guard contentTypeHeaderTokens.first?.lowercased() == "application/x-www-form-urlencoded" else {
       return []
     }
     guard let utf8String = String(bytes: body, encoding: .utf8) else {
       // Consider to throw an exception here (examine the encoding from headers).
       return []
     }
-    return utf8String.components(separatedBy: "&").map { param -> (String, String) in
-      let tokens = param.components(separatedBy: "=")
-      guard tokens.count == 2,
-            let name = tokens.first?.removingPercentEncoding,
-            let value = tokens.last?.removingPercentEncoding else {
-        return ("", "")
+    return utf8String.split(separator: "&", omittingEmptySubsequences: true).map { pair -> (String, String) in
+      // The name ends at the first "=", so a value may contain "=" (base64 padding, for example). A
+      // pair without "=" is a name with an empty value.
+      guard let separator = pair.firstIndex(of: "=") else {
+        return (String(pair).formDecoded(), "")
       }
-      return (name.replacingOccurrences(of: "+", with: " "),
-              value.replacingOccurrences(of: "+", with: " "))
+      return (String(pair[pair.startIndex..<separator]).formDecoded(),
+              String(pair[pair.index(after: separator)...]).formDecoded())
     }
   }
   
@@ -280,5 +283,41 @@ public final class NanoHTTPRequest: Hashable {
   
   public static func ==(lhs: NanoHTTPRequest, rhs: NanoHTTPRequest) -> Bool {
     return lhs === rhs
+  }
+}
+
+extension String {
+  /// Decodes one name or value of an `application/x-www-form-urlencoded` body: `+` is a space
+  /// (decided before the percent sequences are decoded, so that `%2B` stays a plus), `%XX` is the
+  /// byte `XX`, and the bytes are read as UTF-8. A `%` that is not followed by two hexadecimal
+  /// digits is kept as it is.
+  func formDecoded() -> String {
+    let input = Array(self.utf8)
+    var bytes = [UInt8]()
+    bytes.reserveCapacity(input.count)
+    func hexValue(_ digit: UInt8) -> UInt8? {
+      switch digit {
+        case 48...57: return digit - 48
+        case 65...70: return digit - 55
+        case 97...102: return digit - 87
+        default: return nil
+      }
+    }
+    var index = 0
+    while index < input.count {
+      let byte = input[index]
+      if byte == 43 { // "+"
+        bytes.append(32)
+        index += 1
+      } else if byte == 37, index + 2 < input.count,
+                let high = hexValue(input[index + 1]), let low = hexValue(input[index + 2]) {
+        bytes.append(high << 4 | low)
+        index += 3
+      } else {
+        bytes.append(byte)
+        index += 1
+      }
+    }
+    return String(decoding: bytes, as: UTF8.self)
   }
 }

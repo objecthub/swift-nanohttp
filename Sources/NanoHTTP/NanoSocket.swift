@@ -380,7 +380,9 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   /// - Parameters:
   ///   - listenAddress: String representation of the address the socket should accept
   ///       connections from. It should be in IPv4 format if forceIPv4 == true,
-  ///       otherwise - in IPv6.
+  ///       otherwise - in IPv6. Without an address, the socket accepts connections on all
+  ///       network interfaces. An address that cannot be parsed, or cannot be bound on this
+  ///       machine, makes this method throw `NanoSocketError.bindFailed`.
   public class func tcpSocketForListen(_ port: in_port_t,
                                        _ forceIPv4: Bool = false,
                                        _ maxPendingConnection: Int32 = SOMAXCONN,
@@ -417,10 +419,10 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
         sin_zero: (0, 0, 0, 0, 0, 0, 0, 0))
       #endif
       if let address = listenAddress {
-        if address.withCString({ cstring in inet_pton(AF_INET, cstring, &addr.sin_addr) }) == 1 {
-          // print("\(address) is converted to \(addr.sin_addr).")
-        } else {
-          // print("\(address) is not converted.")
+        guard address.withCString({ cstring in inet_pton(AF_INET, cstring, &addr.sin_addr) }) == 1 else {
+          // Binding to "any address" instead would expose the server on every network interface.
+          NanoSocket.close(socketFileDescriptor)
+          throw NanoSocketError.bindFailed("invalid IPv4 listen address \"\(address)\"")
         }
       }
       bindResult = withUnsafePointer(to: &addr) {
@@ -444,10 +446,9 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
         sin6_scope_id: 0)
       #endif
       if let address = listenAddress {
-        if address.withCString({ cstring in inet_pton(AF_INET6, cstring, &addr.sin6_addr) }) == 1 {
-            //print("\(address) is converted to \(addr.sin6_addr).")
-        } else {
-            //print("\(address) is not converted.")
+        guard address.withCString({ cstring in inet_pton(AF_INET6, cstring, &addr.sin6_addr) }) == 1 else {
+          NanoSocket.close(socketFileDescriptor)
+          throw NanoSocketError.bindFailed("invalid IPv6 listen address \"\(address)\"")
         }
       }
       bindResult = withUnsafePointer(to: &addr) {

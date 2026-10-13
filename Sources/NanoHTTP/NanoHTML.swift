@@ -53,7 +53,7 @@ public func htmlHandler(_ scope: @escaping NanoHTMLClosure) -> NanoHTTPRequestHa
       scopesBuffer[NanoProcess.tid] = nil // do not keep the last page of every thread alive
       return [UInt8](html.utf8)
     }
-    return .custom(200, contentType: "text/html") {
+    return .custom(200, contentType: "text/html; charset=utf-8") {
       try? $0.write(document)
     }
   }
@@ -201,6 +201,9 @@ public var placeholder: String?
 public var marginheight: String?
 public var acceptCharset: String?
 
+/// The content of the element, as HTML. It is inserted unchanged, so text that does not come from
+/// you (a request, a file name, a database) has to be escaped with `htmlEscaped` first:
+/// `p { inner = request.path.htmlEscaped }`.
 public var inner: String?
 
 public func a(_ closure: NanoHTMLClosure) { element("a", closure) }
@@ -801,7 +804,8 @@ private func evaluate(_ node: String, _ attrs: [String: String?] = [:], _ closur
   
   output += mergedAttributes.reduce("") { result, item in
     if let value = item.value {
-      return result + " \(item.key)=\"\(value)\""
+      // A quote would end the value and let the rest become attributes of the element.
+      return result + " \(item.key)=\"\(value.replacingOccurrences(of: "\"", with: "&quot;"))\""
     } else {
       return result
     }
@@ -942,4 +946,25 @@ private func evaluate(_ node: String, _ attrs: [String: String?] = [:], _ closur
   acceptCharset = stackacceptCharset
   
   inner = stackinner
+}
+
+extension String {
+  /// This text with the characters that have a meaning in HTML replaced by entities
+  /// (`&`, `<`, `>`, `"` and `'`), so that it is shown as it is when it is used as the text of an
+  /// element or as the value of an attribute.
+  public var htmlEscaped: String {
+    var result = ""
+    result.reserveCapacity(self.utf8.count)
+    for character in self {
+      switch character {
+        case "&": result += "&amp;"
+        case "<": result += "&lt;"
+        case ">": result += "&gt;"
+        case "\"": result += "&quot;"
+        case "'": result += "&#39;"
+        default: result.append(character)
+      }
+    }
+    return result
+  }
 }

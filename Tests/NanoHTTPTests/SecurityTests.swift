@@ -202,15 +202,26 @@ final class FileServingSecurityTests: XCTestCase {
     }
   }
 
-  // MARK: S5 (browse part): file names are inserted into HTML unescaped
+  // MARK: S5 (browse part, fixed): file names are escaped
 
   func testBrowseEscapesFileNames() throws {
-    try expectKnownIssue("S5", "file name is interpolated into HTML without escaping") {
-      try self.serve { port in
-        let response = try RawClient.get("/files/", port: port)
-        XCTAssertFalse(response.bodyString.contains(FileFixture.xssName),
-                       "listing contains a raw HTML element built from a file name")
-      }
+    try self.serve { port in
+      let response = try RawClient.get("/files/", port: port)
+      XCTAssertEqual(response.status, 200)
+      XCTAssertFalse(response.bodyString.contains(FileFixture.xssName),
+                     "listing contains a raw HTML element built from a file name")
+      XCTAssertTrue(response.bodyString.contains(">&lt;img src=x onerror=alert(1)&gt;.txt</a>"), response.bodyString)
+    }
+  }
+
+  func testBrowseLinksStayUsableAndCannotBreakOutOfTheAttribute() throws {
+    try self.serve { port in
+      let response = try RawClient.get("/files/sub/", port: port)
+      XCTAssertEqual(response.status, 200)
+      XCTAssertTrue(response.bodyString.contains("<a href=\"/files/sub/nested.txt\">nested.txt</a>"), response.bodyString)
+      // The request path is echoed into the links: a quote in it must not end the attribute.
+      let hostile = try RawClient.get("/files/sub/%22%3E%3Cb%3E/", port: port) // does not exist: 404, no echo
+      XCTAssertEqual(hostile.status, 404)
     }
   }
 }
@@ -616,37 +627,103 @@ final class WebSocketFrameLimitTests: XCTestCase {
   }
 }
 
-// MARK: - S4: listen address handling
+// MARK: - S4: listen address handling (fixed)
 
 final class ListenAddressTests: XCTestCase {
 
-  func testInvalidIPv4ListenAddressThrows() throws {
-    let server = NanoHTTPServer()
-    server.listenAddressIPv4 = "127.0.0.1x" // typo
-    defer { server.stop() }
-    try expectKnownIssue("S4", "invalid address is ignored and the server binds to ALL interfaces") {
+  func testInvalidIPv4ListenAddressThrowsInsteadOfBindingEverywhere() {
+    for address in ["127.0.0.1x", "", "localhost", "256.0.0.1", "::1", " 127.0.0.1"] {
+      let server = NanoHTTPServer()
+      server.listenAddressIPv4 = address
+      XCTAssertThrowsError(try server.start(0, forceIPv4: true), "\"\(address)\"") { error in
+        guard case NanoSocketError.bindFailed(let message) = error else {
+          return XCTFail("unexpected error \(error)")
+        }
+        XCTAssertTrue(message.contains("invalid IPv4 listen address"), message)
+      }
+      XCTAssertEqual(server.state, .stopped)
+    }
+  }
+
+  func testInvalidIPv6ListenAddressThrowsInsteadOfBindingEverywhere() {
+    for address in ["::1x", "", "localhost", "127.0.0.1"] {
+      let server = NanoHTTPServer()
+      server.listenAddressIPv6 = address
+      XCTAssertThrowsError(try server.start(0, forceIPv4: false), "\"\(address)\"") { error in
+        guard case NanoSocketError.bindFailed(let message) = error else {
+          return XCTFail("unexpected error \(error)")
+        }
+        XCTAssertTrue(message.contains("invalid IPv6 listen address"), message)
+      }
+      XCTAssertEqual(server.state, .stopped)
+    }
+  }
+
+  func testAnAddressThatCannotBeBoundThrowsToo() {
+    // Well-formed, but not an address of this machine (or, with a zone, not usable here): bind fails.
+    for (address, ipv4) in [("203.0.113.7", true), ("2001:db8::1", false), ("fe80::1%nonexistent0", false)] {
+      let server = NanoHTTPServer()
+      if ipv4 { server.listenAddressIPv4 = address } else { server.listenAddressIPv6 = address }
+      XCTAssertThrowsError(try server.start(0, forceIPv4: ipv4), address) { error in
+        guard case NanoSocketError.bindFailed = error else {
+          return XCTFail("unexpected error \(error)")
+        }
+      }
+      XCTAssertEqual(server.state, .stopped)
+    }
+  }
+
+  func testRejectedAddressDoesNotLeakTheListeningSocket() {
+    let before = openFileDescriptorCount()
+    for _ in 0..<20 {
+      let server = NanoHTTPServer()
+      server.listenAddressIPv4 = "not an address"
       XCTAssertThrowsError(try server.start(0, forceIPv4: true))
     }
+    XCTAssertLessThan(openFileDescriptorCount() - before, 5)
   }
 
-  func testInvalidIPv6ListenAddressThrows() throws {
+  func testValidAddressesAreAccepted() throws {
+    let ipv4 = NanoHTTPServer()
+    ipv4.listenAddressIPv4 = "127.0.0.1"
+    try ipv4.start(0, forceIPv4: true)
+    defer { ipv4.stop() }
+    XCTAssertTrue(ipv4.operating)
+    let ipv6 = NanoHTTPServer()
+    ipv6.listenAddressIPv6 = "::1"
+    try ipv6.start(0, forceIPv4: false)
+    defer { ipv6.stop() }
+    XCTAssertTrue(ipv6.operating)
+  }
+
+  /// A server bound to the loopback address cannot be reached through the address of a network
+  /// interface; that is the point of setting an address.
+  func testLoopbackAddressIsNotReachableFromTheNetworkInterface() throws {
+    guard let lanAddress = NetworkInterface.localIP(ipv4: true), !lanAddress.hasPrefix("127.") else {
+      throw XCTSkip("no network interface with an IPv4 address")
+    }
+    try withTestServer(configure: { $0.get["/ping"] = { _ in .ok(.text("pong")) } }) { _, port in
+      XCTAssertEqual(try RawClient.get("/ping", port: port).status, 200)
+      XCTAssertThrowsError(try RawClient(port: port, host: lanAddress), "reachable at \(lanAddress)")
+    }
+  }
+
+  func testWithoutAnAddressTheServerListensOnAllInterfaces() throws {
+    // Pinned current default (a candidate for 2.0: loopback by default).
+    guard let lanAddress = NetworkInterface.localIP(ipv4: true), !lanAddress.hasPrefix("127.") else {
+      throw XCTSkip("no network interface with an IPv4 address")
+    }
     let server = NanoHTTPServer()
-    server.listenAddressIPv6 = "::1x" // typo
+    server.get["/ping"] = { _ in .ok(.text("pong")) }
+    try server.start(0, forceIPv4: true)
     defer { server.stop() }
-    try expectKnownIssue("S4", "invalid address is ignored and the server binds to ALL interfaces") {
-      XCTAssertThrowsError(try server.start(0, forceIPv4: false))
-    }
-  }
-
-  func testLoopbackListenAddressIsAccepted() throws {
-    try withTestServer { server, port in
-      XCTAssertTrue(server.operating)
-      XCTAssertGreaterThan(port, 0)
-    }
+    let client = try RawClient(port: try server.port(), host: lanAddress)
+    client.send(RawClient.requestText("GET", "/ping", headers: ["Connection: close"]))
+    XCTAssertEqual(client.readResponse()?.status, 200)
   }
 }
 
-// MARK: - S5: NanoHTML escaping (decision pending: 1.0.2 for attributes, 2.0 for inner text)
+// MARK: - S5: NanoHTML escaping (attributes fixed; `inner` is raw HTML by design until 2.0)
 
 final class HTMLEscapingTests: XCTestCase {
 
@@ -654,26 +731,57 @@ final class HTMLEscapingTests: XCTestCase {
     return htmlHandler(scope)(NanoHTTPRequest(method: "GET", path: "/")).capturedBody()
   }
 
-  func testAttributeValueCannotBreakOutOfTheAttribute() throws {
+  func testAttributeValueCannotBreakOutOfTheAttribute() {
     let html = self.render {
       a { href = "x\" onclick=\"evil()"; inner = "link" }
     }
-    expectKnownIssue("S5", "attribute values are not escaped") {
-      XCTAssertFalse(html.contains("\" onclick=\""), html)
-    }
+    XCTAssertFalse(html.contains("\" onclick=\""), html)
+    XCTAssertEqual(html, "<!DOCTYPE html><a href=\"x&quot; onclick=&quot;evil()\">link</a>")
   }
 
-  func testInnerTextIsEscaped() throws {
+  func testOrdinaryAttributeValuesAreUnchanged() {
     let html = self.render {
-      p { inner = "<script>alert(1)</script>" }
+      a { href = "/search?q=a&b=c#top"; title = "it's <fine>"; inner = "x" }
     }
-    expectKnownIssue("S5", "inner text is emitted verbatim (design decision: raw vs. escaped)") {
-      XCTAssertFalse(html.contains("<script>alert(1)</script>"), html)
+    XCTAssertTrue(html.contains("href=\"/search?q=a&b=c#top\""), html)
+    XCTAssertTrue(html.contains("title=\"it's <fine>\""), html)
+  }
+
+  func testCustomAttributesAreEscapedToo() {
+    let html = self.render {
+      element("div", ["data-x": "1\" onmouseover=\"evil()"]) { inner = "x" }
     }
+    XCTAssertFalse(html.contains("\" onmouseover=\""), html)
+  }
+
+  /// `inner` is HTML: it is inserted as it is, so that markup can be passed. Untrusted text has to
+  /// be escaped by the caller (a safe-by-default builder is planned for 2.0).
+  func testInnerIsInsertedVerbatim() {
+    let html = self.render {
+      p { inner = "<b>bold</b>" }
+    }
+    XCTAssertEqual(html, "<!DOCTYPE html><p><b>bold</b></p>")
+  }
+
+  func testEscapedTextCannotInjectMarkup() {
+    let hostile = "<script>alert(\"x\")</script> & 'friends'"
+    let html = self.render {
+      p { inner = hostile.htmlEscaped }
+    }
+    XCTAssertFalse(html.contains("<script>"), html)
+    XCTAssertEqual(html, "<!DOCTYPE html><p>&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; &#39;friends&#39;</p>")
+  }
+
+  func testHTMLEscapedReplacesExactlyTheSpecialCharacters() {
+    XCTAssertEqual("plain text 123 äöü €".htmlEscaped, "plain text 123 äöü €")
+    XCTAssertEqual("&<>\"'".htmlEscaped, "&amp;&lt;&gt;&quot;&#39;")
+    XCTAssertEqual("&amp;".htmlEscaped, "&amp;amp;") // not idempotent, by design
+    XCTAssertEqual("".htmlEscaped, "")
+    XCTAssertEqual("a\r\nb".htmlEscaped, "a\r\nb")
   }
 }
 
-// MARK: - S7: header / response splitting
+// MARK: - S7: header / response splitting (fixed)
 
 final class HeaderInjectionTests: XCTestCase {
 
@@ -682,9 +790,9 @@ final class HeaderInjectionTests: XCTestCase {
       server["/redir"] = { _ in .movedTemporarily("/ok\r\nSet-Cookie: pwned=1") }
     }) { _, port in
       let response = try RawClient.get("/redir", port: port)
-      expectKnownIssue("S7", "CR/LF in header values is written verbatim") {
-        XCTAssertNil(response.header("set-cookie"), "injected header reached the client")
-      }
+      XCTAssertEqual(response.status, 307)
+      XCTAssertNil(response.header("set-cookie"), "injected header reached the client")
+      XCTAssertEqual(response.header("location"), "/ok  Set-Cookie: pwned=1") // one line, line break -> space
     }
   }
 
@@ -693,9 +801,34 @@ final class HeaderInjectionTests: XCTestCase {
       server["/h"] = { _ in .ok(headers: ["X-Echo": "a\r\nInjected: yes"], .text("x")) }
     }) { _, port in
       let response = try RawClient.get("/h", port: port)
-      expectKnownIssue("S7", "CR/LF in header values is written verbatim") {
-        XCTAssertNil(response.header("injected"), "injected header reached the client")
+      XCTAssertNil(response.header("injected"), "injected header reached the client")
+      XCTAssertEqual(response.header("x-echo"), "a  Injected: yes")
+      XCTAssertEqual(response.bodyString, "x")
+    }
+  }
+
+  func testEveryKindOfLineBreakIsNeutralized() throws {
+    try withTestServer(configure: { server in
+      server["/h"] = { _ in .ok(headers: ["A": "1\rX-R: r", "B": "2\nX-N: n", "C": "3\r\n\r\n<script>", "D": "4\0X-Z: z"], .text("ok")) }
+    }) { _, port in
+      let response = try RawClient.get("/h", port: port)
+      for injected in ["x-r", "x-n", "x-z"] {
+        XCTAssertNil(response.header(injected), injected)
       }
+      XCTAssertEqual(response.bodyString, "ok", "a blank line in a header value must not start the body")
+    }
+  }
+
+  func testInvalidHeaderNamesAreDropped() throws {
+    try withTestServer(configure: { server in
+      server["/h"] = { _ in .ok(headers: ["X-Good": "1", "Bad Name": "2", "X-Colon:": "3", "X-A\r\nInjected": "4", "": "5"], .text("ok")) }
+    }) { _, port in
+      let response = try RawClient.get("/h", port: port)
+      XCTAssertEqual(response.status, 200)
+      XCTAssertEqual(response.header("x-good"), "1")
+      XCTAssertNil(response.header("injected"))
+      XCTAssertEqual(response.headerFields.filter { $0.name.contains(" ") || $0.name.isEmpty || $0.name.contains(":") }.count, 0)
+      XCTAssertEqual(response.bodyString, "ok")
     }
   }
 
@@ -706,6 +839,14 @@ final class HeaderInjectionTests: XCTestCase {
       let response = try RawClient.get("/redir", port: port)
       XCTAssertEqual(response.status, 307)
       XCTAssertEqual(response.header("location"), "/ok")
+    }
+  }
+
+  func testNonASCIIHeaderValuesAreKept() throws {
+    try withTestServer(configure: { server in
+      server["/h"] = { _ in .ok(headers: ["X-Name": "Jürgen €"], .text("ok")) }
+    }) { _, port in
+      XCTAssertEqual(try RawClient.get("/h", port: port).header("x-name"), "Jürgen €")
     }
   }
 }

@@ -216,9 +216,7 @@ final class HTTPProtocolTests: XCTestCase {
       server.get["/bad-json"] = { _ in .ok(.json(Date())) } // not a valid JSON object
     }) { _, port in
       let response = try RawClient.get("/bad-json", port: port)
-      expectKnownIssue("H5", "serialization failure is reported as 200 OK with an error text") {
-        XCTAssertEqual(response.status, 500)
-      }
+      XCTAssertEqual(response.status, 500)
     }
   }
 
@@ -229,10 +227,8 @@ final class HTTPProtocolTests: XCTestCase {
     }) { _, port in
       for path in ["/text", "/html"] {
         let response = try RawClient.get(path, port: port)
-        expectKnownIssue("H6", "Content-Type has no charset parameter (\(path))") {
-          XCTAssertTrue(response.header("content-type")?.lowercased().contains("charset=utf-8") ?? false,
-                        response.header("content-type") ?? "<none>")
-        }
+        XCTAssertTrue(response.header("content-type")?.lowercased().contains("charset=utf-8") ?? false,
+                      response.header("content-type") ?? "<none>")
       }
     }
   }
@@ -244,11 +240,54 @@ final class HTTPProtocolTests: XCTestCase {
       let ok = try RawClient.get("/ok", port: port)
       let missing = try RawClient.get("/missing", port: port)
       // Observed: derived from HTTPURLResponse.localizedString, i.e. localized, not the RFC text.
-      expectKnownIssue("H6", "reason phrase comes from the localized HTTPURLResponse table") {
-        XCTAssertEqual(ok.statusLine, "HTTP/1.1 200 OK")
-        XCTAssertEqual(missing.statusLine, "HTTP/1.1 404 Not Found")
-      }
+      XCTAssertEqual(ok.statusLine, "HTTP/1.1 200 OK")
+      XCTAssertEqual(missing.statusLine, "HTTP/1.1 404 Not Found")
     }
+  }
+
+  func testFailedJSONSerializationAnswers500WithoutDetailsAndKeepsTheConnection() throws {
+    try withTestServer(configure: { server in
+      server.get["/bad"] = { _ in .ok(headers: ["X-Mine": "1"], .json(Date())) }
+      server.get["/good"] = { _ in .ok(.json(["ok": true])) }
+    }) { _, port in
+      let client = try RawClient(port: port)
+      client.send(RawClient.requestText("GET", "/bad", headers: ["Connection: keep-alive"]))
+      let failed = client.readResponse()
+      XCTAssertEqual(failed?.status, 500)
+      XCTAssertEqual(failed?.bodyString, "Internal Server Error")
+      XCTAssertEqual(failed?.header("content-type"), "text/plain; charset=utf-8")
+      XCTAssertNil(failed?.header("x-mine"))
+      client.send(RawClient.requestText("GET", "/good", headers: ["Connection: keep-alive"]))
+      XCTAssertEqual(client.readResponse()?.bodyString, "{\"ok\":true}")
+    }
+  }
+
+  func testStatusLinesUseTheStandardReasonPhrases() throws {
+    let expected: [Int: String] = [200: "OK", 201: "Created", 204: "No Content", 301: "Moved Permanently",
+                                   304: "Not Modified", 400: "Bad Request", 403: "Forbidden", 404: "Not Found",
+                                   405: "Method Not Allowed", 413: "Content Too Large", 429: "Too Many Requests",
+                                   500: "Internal Server Error", 503: "Service Unavailable"]
+    for (code, phrase) in expected {
+      XCTAssertEqual(NanoHTTPResponse(statusCode: code).reasonPhrase, phrase, "\(code)")
+    }
+    XCTAssertEqual(NanoHTTPResponse(statusCode: 299).reasonPhrase, "")
+    try withTestServer(configure: { server in
+      server["/odd"] = { _ in NanoHTTPResponse(statusCode: 299) }
+    }) { _, port in
+      let client = try RawClient(port: port)
+      client.send("GET /odd HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")
+      XCTAssertEqual(client.readResponse()?.statusLine, "HTTP/1.1 299 ") // an empty reason phrase is allowed
+    }
+  }
+
+  func testOnlyTextualBodiesGetACharset() throws {
+    XCTAssertEqual(NanoHTTPResponse.Body.text("x").contentType(), "text/plain; charset=utf-8")
+    XCTAssertEqual(NanoHTTPResponse.Body.html("x").contentType(), "text/html; charset=utf-8")
+    XCTAssertEqual(NanoHTTPResponse.Body.htmlBody("x").contentType(), "text/html; charset=utf-8")
+    XCTAssertEqual(NanoHTTPResponse.Body.json([:]).contentType(), "application/json")
+    XCTAssertEqual(NanoHTTPResponse.Body.data(Data(), contentType: nil).contentType(), "application/octet-stream")
+    XCTAssertEqual(NanoHTTPResponse.Body.data(Data(), contentType: "image/png").contentType(), "image/png")
+    XCTAssertNil(NanoHTTPResponse.Body.empty.contentType())
   }
 
   // MARK: H7: HEAD and 405
@@ -355,13 +394,23 @@ final class FileResponseTests: XCTestCase {
     }
   }
 
+  func testBrowseFileResponseHasTypeAndLength() throws {
+    try withTestServer(configure: { server in
+      server["/files/::path"] = browse(directory: self.fixture.publicDir)
+    }) { _, port in
+      let response = try RawClient.get("/files/hello.txt", port: port)
+      XCTAssertEqual(response.bodyString, "hello")
+      XCTAssertEqual(response.header("content-type"), "text/plain")
+      XCTAssertEqual(response.header("content-length"), "5")
+    }
+  }
+
   func testIndexResponseDeclaresAContentType() throws {
     try "<h1>index</h1>".write(toFile: self.fixture.publicDir + "/index.html", atomically: true, encoding: .utf8)
     try serve { port in
       let response = try RawClient.get("/public/", port: port)
-      expectKnownIssue("H6", "the default-index response has no Content-Type") {
-        XCTAssertEqual(response.header("content-type"), "text/html")
-      }
+      XCTAssertEqual(response.header("content-type"), "text/html")
+      XCTAssertEqual(response.header("content-length"), "14")
     }
   }
 }

@@ -60,12 +60,14 @@ struct RawResponse {
 
 final class RawClient {
   private var fd: Int32
+  private let host: String
   private var buffer = [UInt8]()
   private(set) var reachedEOF = false
 
   /// Creates a client socket and (by default) connects it to `127.0.0.1:port`.
   /// Pass `connect: false` to reserve the file descriptor first and connect later.
-  init(port: Int, timeout: TimeInterval = 3, connect: Bool = true) throws {
+  init(port: Int, host: String = "127.0.0.1", timeout: TimeInterval = 3, connect: Bool = true) throws {
+    self.host = host
     self.fd = socket(AF_INET, SOCK_STREAM, 0)
     guard self.fd >= 0 else {
       throw RawClientError.socket(String(cString: strerror(errno)))
@@ -87,7 +89,7 @@ final class RawClient {
     addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
     addr.sin_family = sa_family_t(AF_INET)
     addr.sin_port = in_port_t(port).bigEndian
-    addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+    addr.sin_addr.s_addr = inet_addr(self.host)
     let result = withUnsafePointer(to: &addr) {
       $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
         Darwin.connect(self.fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))

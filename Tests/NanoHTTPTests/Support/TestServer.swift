@@ -128,7 +128,7 @@ extension NanoHTTPResponse {
       case .custom(let produce, _):
         try? produce(writer)
       default:
-        let (_, produce) = self.body.content()
+        let (_, produce) = (try? self.body.content()) ?? (nil, nil)
         try? produce?(writer)
     }
     return writer.text

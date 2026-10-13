@@ -63,34 +63,34 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
     }
   }
   server["/magic"] = {
-    return .ok(headers: ["XXX-Custom-Header" : "value"], .htmlBody("You asked for " + $0.path))
+    return .ok(headers: ["XXX-Custom-Header" : "value"], .htmlBody("You asked for " + $0.path.htmlEscaped))
   }
   server["/test/:param1/:param2", "/pathTest/::param/end"] = { request in
     htmlHandler {
       html {
         body {
-          h3 { inner = "Address: \(request.address ?? "unknown")" }
-          h3 { inner = "Url: \(request.path)" }
-          h3 { inner = "Method: \(request.method)" }
+          h3 { inner = "Address: \(request.address ?? "unknown")".htmlEscaped }
+          h3 { inner = "Url: \(request.path)".htmlEscaped }
+          h3 { inner = "Method: \(request.method)".htmlEscaped }
           h3 { inner = "Query:" }
           table(request.queryParams) { param in
             tr {
-              td { inner = param.0 }
-              td { inner = param.1 }
+              td { inner = param.0.htmlEscaped }
+              td { inner = param.1.htmlEscaped }
             }
           }
           h3 { inner = "Headers:" }
           table(request.availableHeaders) { header in
             tr {
-              td { inner = header }
-              td { inner = request.header(header) }
+              td { inner = header.htmlEscaped }
+              td { inner = request.header(header)?.htmlEscaped }
             }
           }
           h3 { inner = "Route params:" }
           table(request.params) { param in
             tr {
-              td { inner = param.0 }
-              td { inner = param.1 }
+              td { inner = param.0.htmlEscaped }
+              td { inner = param.1.htmlEscaped }
             }
           }
         }
@@ -122,7 +122,7 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
             let fileName = multipart.fileName else {
         continue
       }
-      response += "Name: \(name) File name: \(fileName) Size: \(multipart.body.count)<br>"
+      response += "Name: \(name.htmlEscaped) File name: \(fileName.htmlEscaped) Size: \(multipart.body.count)<br>"
     }
     return .ok(headers: ["XXX-Custom-Header" : "value"], .htmlBody(response))
   }
@@ -158,7 +158,7 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
   server.post["/login"] = { request in
     let formFields = request.parseUrlencodedForm()
     return .ok(headers: ["XXX-Custom-Header": "value"],
-               .htmlBody(formFields.map({ "\($0.0) = \($0.1)" }).joined(separator: "<br>")))
+               .htmlBody(formFields.map({ "\($0.0.htmlEscaped) = \($0.1.htmlEscaped)" }).joined(separator: "<br>")))
   }
   server["/demo"] = htmlHandler {
     html {
@@ -196,7 +196,7 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
     return .ok(headers: ["XXX-Custom-Header": "value"], .htmlBody(longResponse))
   }
   server["/wildcard/*/test/*/:param"] = { request in
-    return .ok(headers: ["XXX-Custom-Header": "value"], .htmlBody(request.path))
+    return .ok(headers: ["XXX-Custom-Header": "value"], .htmlBody(request.path.htmlEscaped))
   }
   server["/stream"] = { _ in
     return .custom(200) { writer in

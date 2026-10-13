@@ -42,6 +42,20 @@ All notable changes to this project are documented in this file. The format is b
 - WebSocket messages (single frames or assembled from fragments) above 16 MiB, and control frames with more
   than 125 bytes, end the connection unless `maxMessageSize` is raised.
 - `NanoSocket.read(length:)` allocates with the data that arrives instead of the announced length.
+- `start` throws `NanoSocketError.bindFailed` for a `listenAddressIPv4`/`listenAddressIPv6` that is not an address
+  (it silently listened on all network interfaces).
+- The `Content-Type` of `.text` and `.html` bodies and of `htmlHandler` pages has the parameter `; charset=utf-8`.
+- Reason phrases are the standard ones (`200 OK`, `404 Not Found`); `HTTPURLResponse.localizedString` gave `200 no error`.
+- Request headers: the value of a header without value is empty (it was the name), a line without a colon is
+  ignored, spaces around the name are removed, and repeated headers are combined with `, ` (the last one used to win).
+- `parseUrlencodedForm` decodes `+` before the percent sequences (so `%2B` stays a plus), keeps `=` inside values and
+  turns a field without `=` into a name with an empty value (it was a bogus empty pair); the content type is
+  matched case-insensitively.
+- A `.json` body that cannot be serialized gives `500 Internal Server Error` (it was `200` with the error text);
+  details are logged.
+- Response headers: a name that is not a valid header name drops the header (and is logged); carriage return, line
+  feed and NUL in a value become spaces.
+- `browse(directory:)` and the default index file of `share(directory:)` send `Content-Type` and `Content-Length`.
 - `NanoHTTPServerIO.start` returns without effect if the server is not stopped (it is already running, or being started or stopped by another thread).
 - `closeAndforgetAllConnections()` shuts connections down and releases them as their threads finish.
 
@@ -54,6 +68,7 @@ All notable changes to this project are documented in this file. The format is b
   `maxLineLength` (8 KiB), `maxHeaderBytes` (64 KiB) and `maxBodyBytes` (64 MiB).
 - `websocket(..., maxMessageSize:)` (default 16 MiB) and `WebSocketSession.maxPayloadSize`.
 - `NanoHTTPParserError` is public (it was internal) and has new cases for the limits.
+- `String.htmlEscaped`: escapes `& < > " '` for use as the text or an attribute value of an HTML element.
 
 ### Fixed
 - `share(file:) and `share(directory:defaults:followSymlinks:)` sent the length of a symbolic link
@@ -93,6 +108,13 @@ All notable changes to this project are documented in this file. The format is b
   directory. Requests with `..` segments (also percent-encoded), NUL characters, or paths that lead
   out of the directory through symbolic links are answered with `403 Forbidden`. Symbolic links that
   stay inside the directory, and shared directories that are themselves symbolic links, keep working.
+- Response splitting: a header value that contained a line break (a redirect to a location taken from a request, for
+  example) could inject headers or start the body. Line breaks are replaced, invalid header names are dropped.
+- HTML injection: `browse(directory:)` inserted file names (and the request path) into its listing unescaped, and
+  `NanoHTML` attribute values could end their attribute with a quote. Both are escaped now. `inner` is still inserted
+  as it is, because it may contain markup: escape untrusted text with `htmlEscaped`. The demo servers do.
+- A server that is given a `listenAddressIPv4`/`listenAddressIPv6` with a typo no longer listens on all network
+  interfaces instead.
 - A single request could abort the process: the value of `Content-Length`, and the length announced by a
   WebSocket frame, were used as an allocation size without any limit. Request lines, headers, bodies and
   WebSocket messages are now bounded (see Added), and memory is only used for data that actually arrives.

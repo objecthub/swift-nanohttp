@@ -166,12 +166,22 @@ public struct NanoHTTPParser {
     var headers = [String: String]()
     while case let headerLine = try self.readLine(tooLong: .headerLineTooLong, budget: &budget),
           !headerLine.isEmpty {
-      let headerTokens = headerLine.split(separator: ":",
-                                          maxSplits: 1,
-                                          omittingEmptySubsequences: true).map(String.init)
-      if let name = headerTokens.first,
-         let value = headerTokens.last {
-        headers[name.lowercased()] = value.trimmingCharacters(in: .whitespaces)
+      // "Name: value": the value starts after the first colon and may be empty or contain colons.
+      // A line without a colon is not a header and is ignored.
+      guard let colon = headerLine.firstIndex(of: ":") else {
+        continue
+      }
+      let name = headerLine[headerLine.startIndex..<colon].trimmingCharacters(in: .whitespaces).lowercased()
+      guard !name.isEmpty else {
+        continue
+      }
+      let value = headerLine[headerLine.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+      if let earlier = headers[name] {
+        // Several headers of the same name are the same as one header with a comma-separated list
+        // (RFC 9110 5.3), so none of them gets lost.
+        headers[name] = earlier + ", " + value
+      } else {
+        headers[name] = value
       }
     }
     return headers

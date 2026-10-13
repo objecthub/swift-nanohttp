@@ -94,8 +94,25 @@ open class NanoHTTPServerIO {
     case stopped
   }
   
-  /// How a server listens and what it accepts. Change it before ``start(_:)``: a running server keeps
-  /// the configuration it was started with.
+  /// The network address a server listens at, which decides who can connect to it.
+  public enum NanoListenAddress: Equatable {
+    
+    /// `127.0.0.1`: only programs on this machine can connect.
+    case loopback
+    
+    /// All network interfaces, for IPv4 as well as IPv6 (`::`): everybody who can
+    /// reach this machine can connect.
+    case allInterfaces
+    
+    /// One address, as text: an IPv4 address (`"192.168.1.20"`, `"0.0.0.0"` for all
+    /// IPv4 interfaces) or an IPv6 address (`"::1"`). Starting a server with a string
+    /// that is no address, or no address of this machine, throws
+    /// ``NanoSocketError/bindFailed(_:)``.
+    case address(String)
+  }
+  
+  /// How a server listens and what it accepts. Change it before ``start(_:)``: a
+  /// running server keeps the configuration it was started with.
   ///
   /// ```swift
   /// let server = NanoHTTPServer()

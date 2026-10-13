@@ -87,7 +87,8 @@ H9 multipart · N3 void elements.
 Hypotheses that did **not** reproduce (kept as plain regression tests):
 the leak of the listening socket after `stop()` (the port is released, restart on the same port works 25/25) · R6 (empty writes do not crash).
 
-ThreadSanitizer (`swift test --sanitize=thread`) and AddressSanitizer report nothing, and CI enforces both. Earlier,
+ThreadSanitizer (`swift test --sanitize=thread`) and AddressSanitizer report nothing; run both before a change is
+considered done (there is no CI). Earlier,
 TSan reported 79-124 races, all in two places that are fixed now: the non-atomic `NanoHTTPServerIO.state` (R5) and the
 unsynchronized `shutdown` flag of `NanoSocket.close` (R4). R4 had a practical effect that showed up under TSan's slowdown:
 a thread of an earlier test used a file descriptor *number* that a later test had reused, which broke an unrelated
@@ -106,7 +107,7 @@ delegate callback semantics (H11), `NanoHTTPDemo`.
 SwiftPM finds files by itself, `NanoHTTP.xcodeproj` does not. Whenever a Swift file is added, removed
 or renamed, update the project too (new test files go into the `NanoHTTPTests` target, new files in
 `Support/` into its `Support` group). `python3 Scripts/check_xcodeproj.py` verifies that every Swift file
-is referenced exactly once; CI runs it.
+is referenced exactly once; run it whenever Swift files change.
 
 The same script checks that the project's deployment targets match the platforms declared in
 `Package.swift` (project level and the library targets must be equal; the test bundle and the demo apps may be higher), so

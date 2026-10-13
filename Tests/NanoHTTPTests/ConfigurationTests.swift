@@ -37,7 +37,7 @@ private func canConnect(to host: String, port: Int) -> Bool {
 
 final class ListenAddressTests: XCTestCase {
 
-  private func start(_ address: NanoListenAddress) throws -> NanoHTTPServer {
+  private func start(_ address: NanoHTTPServerIO.NanoListenAddress) throws -> NanoHTTPServer {
     let server = NanoHTTPServer()
     server.configuration.listenAddress = address
     server.get["/ping"] = { _ in .ok(.text("pong")) }

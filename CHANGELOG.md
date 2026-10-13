@@ -120,6 +120,10 @@ Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says 
 - `NanoListenAddress`, `NanoSocketError.timedOut`, `NanoSocket.setReceiveTimeout(_:)`, `setSendTimeout(_:)` and
   `waitUntilReadable(timeout:)`.
 
+### Removed
+- The GitHub Actions workflow (`.github/workflows/ci.yml`): the project has no continuous integration. The checks it ran
+  are scripts and commands that are run by hand, listed in `CONTRIBUTING.md`.
+
 ### Fixed
 - Idle connections no longer starve the server: between 60 and 70 silent connections used up the threads of the
   dispatch pool, and no request was served after that (R3).

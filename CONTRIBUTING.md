@@ -31,8 +31,10 @@ raw socket client for the exact bytes of a request, `withTestServer`, fixtures).
 
 ## Pull requests
 
-Describe what the change does and why, and mention behavior changes. CI (GitHub Actions) builds the package,
-runs the tests (also under the address and thread sanitizers), builds the iOS demo, and runs the checks above.
+Describe what the change does and why, and mention behavior changes. The project has no continuous integration, so
+run the checks yourself before you send a change: the tests, also under the address and thread sanitizers, the three
+`Scripts/check_*.py` scripts above, and a build of the iOS demo
+(`xcodebuild -project NanoHTTP.xcodeproj -scheme "DemoServer iOS" -destination 'generic/platform=iOS Simulator' build`).
 
 ## Security
 

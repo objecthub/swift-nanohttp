@@ -48,6 +48,13 @@ All notable changes to this project are documented in this file. The format is b
 - Reason phrases are the standard ones (`200 OK`, `404 Not Found`); `HTTPURLResponse.localizedString` gave `200 no error`.
 - Request headers: the value of a header without value is empty (it was the name), a line without a colon is
   ignored, spaces around the name are removed, and repeated headers are combined with `, ` (the last one used to win).
+- WebSocket: a connection that ends because of an error is closed with a status code (1002 protocol error, 1007 invalid
+  UTF-8, 1009 message too big), and the status code of a close frame of the client is answered with the same code;
+  invalid status codes and one-byte close payloads are protocol errors. The handshake must be a `GET` request
+  (`405` otherwise) with `Sec-WebSocket-Version: 13` (`426` with that header otherwise, as RFC 6455 4.4 requires).
+- `NetworkInterface.localIP` does not depend on the order in which the system lists interfaces any more: `en0`, `en1`,
+  ... come first (numerically), link-local addresses last. An address without a netmask is reported with an empty
+  netmask (it was skipped).
 - `parseUrlencodedForm` decodes `+` before the percent sequences (so `%2B` stays a plus), keeps `=` inside values and
   turns a field without `=` into a name with an empty value (it was a bogus empty pair); the content type is
   matched case-insensitively.
@@ -68,6 +75,8 @@ All notable changes to this project are documented in this file. The format is b
   `maxLineLength` (8 KiB), `maxHeaderBytes` (64 KiB) and `maxBodyBytes` (64 MiB).
 - `websocket(..., maxMessageSize:)` (default 16 MiB) and `WebSocketSession.maxPayloadSize`.
 - `NanoHTTPParserError` is public (it was internal) and has new cases for the limits.
+- `WebSocketSession.writeCloseFrame(code:reason:)` and `WebSocketSession.CloseCode` (status codes of close frames).
+- `WebSocketSession.WsError.messageTooBig`: a frame or a message above the size limit (it was a `protocolError`).
 - `String.htmlEscaped`: escapes `& < > " '` for use as the text or an attribute value of an HTML element.
 
 ### Fixed
@@ -102,6 +111,13 @@ All notable changes to this project are documented in this file. The format is b
   protected nothing, and a deprecated API). Concurrent calls of `start` and `stop` now do the work exactly once. A
   `start` that fails (port in use, invalid address) leaves the server `stopped` instead of `starting`, and the accept
   loop of an earlier run can no longer stop a server that has been started again.
+- WebSocket: frames that several threads send through one session (a broadcast, a pong in reply to a ping) were
+  written in parts and could interleave, which corrupted the stream. Frames are written one at a time now, and small
+  ones (up to 64 KiB) in a single write.
+- WebSocket: a text message that contained a NUL character was cut off at it.
+- `NetworkInterface`: IPv6 addresses (and netmasks) were garbled, because the address was copied into a `sockaddr`
+  that is smaller than `sockaddr_in6`; an entry without an address (some tunnel interfaces) crashed the process;
+  netmasks that the system stores without their trailing zero bytes were misread.
 
 ### Security
 - `share(directory:defaults:)` and `browse(directory:)` no longer serve files outside the shared

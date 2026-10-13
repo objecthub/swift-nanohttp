@@ -81,12 +81,26 @@ private enum WS {
     return (head[0] & 0x0F, head[0] & 0x80 != 0, payload)
   }
 
-  static func handshakeRequest(path: String = "/ws", key: String? = WS.key) -> [UInt8] {
-    var headers = ["Upgrade: websocket", "Connection: Upgrade", "Sec-WebSocket-Version: 13"]
+  static func handshakeRequest(path: String = "/ws",
+                               key: String? = WS.key,
+                               version: String? = "13",
+                               method: String = "GET") -> [UInt8] {
+    var headers = ["Upgrade: websocket", "Connection: Upgrade"]
+    if let version {
+      headers.append("Sec-WebSocket-Version: \(version)")
+    }
     if let key {
       headers.append("Sec-WebSocket-Key: \(key)")
     }
-    return RawClient.requestText("GET", path, headers: headers)
+    return RawClient.requestText(method, path, headers: headers)
+  }
+
+  /// The status code of a close frame, if it has one.
+  static func closeCode(_ frame: (opcode: UInt8, fin: Bool, payload: [UInt8])?) -> UInt16? {
+    guard let frame, frame.opcode == Opcode.close.rawValue, frame.payload.count >= 2 else {
+      return nil
+    }
+    return UInt16(frame.payload[0]) << 8 | UInt16(frame.payload[1])
   }
 
   /// Opens a connection and performs the handshake; the returned client speaks frames.
@@ -253,9 +267,9 @@ final class WebSocketIntegrationTests: XCTestCase {
       let client = try WS.connect(port: port)
       client.send(WS.text("a\u{0}b"))
       let echoed = String(decoding: WS.readFrame(client)?.payload ?? [], as: UTF8.self)
-      expectKnownIssue("W2", "String(validatingUTF8:) stops at the NUL byte, so the text is cut to 'a'") {
-        XCTAssertEqual(echoed, "a\u{0}b")
-      }
+      XCTAssertEqual(echoed, "a\u{0}b")
+      client.send(WS.text("\u{0}"))
+      XCTAssertEqual(WS.readFrame(client)?.payload, [0])
     }
   }
 
@@ -378,14 +392,176 @@ final class WebSocketMessageLimitTests: XCTestCase {
   }
 }
 
+// MARK: - W2: close codes and handshake
+
+final class WebSocketCloseCodeTests: XCTestCase {
+
+  private func serve(maxMessageSize: Int = 1000, _ body: (Int) throws -> Void) throws {
+    try withTestServer(configure: { server in
+      server["/ws"] = websocket(text: { session, text in session.writeText(text) },
+                                binary: { session, bytes in session.writeBinary(bytes) },
+                                maxMessageSize: maxMessageSize)
+    }) { _, port in
+      try body(port)
+    }
+  }
+
+  /// Sends `bytes`, expects the server to answer with a close frame carrying `code` and to end the connection.
+  private func assertCloses(with code: UInt16,
+                            after bytes: [UInt8],
+                            maxMessageSize: Int = 1000,
+                            file: StaticString = #filePath,
+                            line: UInt = #line) throws {
+    try serve(maxMessageSize: maxMessageSize) { port in
+      let client = try WS.connect(port: port)
+      client.send(bytes)
+      XCTAssertEqual(WS.closeCode(WS.readFrame(client)), code, file: file, line: line)
+      XCTAssertTrue(client.waitForClose(timeout: 2), file: file, line: line)
+    }
+  }
+
+  func testInvalidUTF8TextIsAnsweredWithCode1007() throws {
+    try assertCloses(with: 1007, after: WS.frame(.text, [0xC3, 0x28]))
+    try assertCloses(with: 1007, after: WS.frame(.text, [0xFF]))
+  }
+
+  func testInvalidUTF8SplitOverFragmentsIsDetectedWhenTheMessageIsComplete() throws {
+    try assertCloses(with: 1007, after: WS.frame(.text, [0xE2, 0x82], fin: false) + WS.frame(.continuation, [0x28], fin: true))
+    // The same bytes in valid combination are fine.
+    try serve { port in
+      let client = try WS.connect(port: port)
+      client.send(WS.frame(.text, [0xE2, 0x82], fin: false) + WS.frame(.continuation, [0xAC], fin: true))
+      XCTAssertEqual(String(decoding: WS.readFrame(client)?.payload ?? [], as: UTF8.self), "€")
+    }
+  }
+
+  func testUnmaskedFrameIsAnsweredWithCode1002() throws {
+    try assertCloses(with: 1002, after: WS.frame(.text, Array("hi".utf8), masked: false))
+  }
+
+  func testUnknownOpcodeIsAnsweredWithCode1002() throws {
+    try assertCloses(with: 1002, after: [0x83, 0x80, 0, 0, 0, 0])
+  }
+
+  func testOversizedControlFrameIsAnsweredWithCode1002() throws {
+    try assertCloses(with: 1002, after: WS.frame(.ping, [UInt8](repeating: 1, count: 126)))
+  }
+
+  func testTooBigFrameAndTooBigMessageAreAnsweredWithCode1009() throws {
+    try assertCloses(with: 1009, after: WS.text(String(repeating: "x", count: 1001)))
+    try assertCloses(with: 1009, after: WS.frame(.text, [UInt8](repeating: 0x78, count: 600), fin: false)
+                                        + WS.frame(.continuation, [UInt8](repeating: 0x78, count: 600), fin: true))
+  }
+
+  func testTheCloseCodeOfTheClientIsEchoed() throws {
+    for code: UInt16 in [1000, 1001, 1008, 3000, 4999] {
+      try serve { port in
+        let client = try WS.connect(port: port)
+        client.send(WS.frame(.close, [UInt8(code >> 8), UInt8(code & 0xFF)] + Array("bye".utf8)))
+        XCTAssertEqual(WS.closeCode(WS.readFrame(client)), code)
+        XCTAssertTrue(client.waitForClose(timeout: 2))
+      }
+    }
+  }
+
+  func testACloseWithoutCodeIsAnsweredWithoutCode() throws {
+    try serve { port in
+      let client = try WS.connect(port: port)
+      client.send(WS.frame(.close, []))
+      let frame = WS.readFrame(client)
+      XCTAssertEqual(frame?.opcode, WS.Opcode.close.rawValue)
+      XCTAssertEqual(frame?.payload, [])
+    }
+  }
+
+  func testInvalidCloseCodesAndPayloadsAreProtocolErrors() throws {
+    for payload: [UInt8] in [[0x03, 0xED],        // 1005: must not be sent
+                             [0x03, 0xEC],        // 1004: reserved
+                             [0x03, 0xE7],        // 999
+                             [0x03, 0xF7],        // 1015: must not be sent
+                             [0x13, 0x88],        // 5000
+                             [0x03]] {            // a single byte is no status code
+      try assertCloses(with: 1002, after: WS.frame(.close, payload))
+    }
+  }
+
+  func testCloseFrameEncoding() {
+    var fds: [Int32] = [0, 0]
+    XCTAssertEqual(socketpair(AF_UNIX, SOCK_STREAM, 0, &fds), 0)
+    NanoSocket.setNoSigPipe(fds[0]); NanoSocket.setNoSigPipe(fds[1])
+    defer { close(fds[1]) }
+    let session = WebSocketSession(NanoSocket(socketFileDescriptor: fds[0]))
+    session.writeCloseFrame(code: WebSocketSession.CloseCode.normal, reason: "bye")
+    session.writeCloseFrame(code: 1009)
+    session.writeCloseFrame(code: 1000, reason: String(repeating: "r", count: 500)) // cut to 123 bytes
+    session.writeCloseFrame()
+    var buffer = [UInt8](repeating: 0, count: 256)
+    let count = read(fds[1], &buffer, buffer.count)
+    var expected: [UInt8] = [0x88, 5, 0x03, 0xE8] + Array("bye".utf8)
+    expected += [0x88, 2, 0x03, 0xF1]
+    expected += [0x88, 125, 0x03, 0xE8] + [UInt8](repeating: 0x72, count: 123)
+    expected += [0x88, 0]
+    XCTAssertEqual(Array(buffer[0..<max(count, 0)]), expected)
+  }
+}
+
+final class WebSocketHandshakeTests: XCTestCase {
+
+  private func handshake(_ request: [UInt8], _ body: (RawResponse?) -> Void) throws {
+    try withTestServer(configure: { server in
+      server["/ws"] = websocket(text: { session, text in session.writeText(text) })
+    }) { _, port in
+      let client = try RawClient(port: port)
+      client.send(request)
+      body(client.readResponse())
+    }
+  }
+
+  func testVersion13IsAccepted() throws {
+    try handshake(WS.handshakeRequest()) { response in
+      XCTAssertEqual(response?.status, 101)
+    }
+  }
+
+  func testOtherVersionsAreAnsweredWith426AndTheSupportedVersion() throws {
+    for version in ["8", "12", "14", "13, 8", ""] {
+      try handshake(WS.handshakeRequest(version: version)) { response in
+        XCTAssertEqual(response?.status, 426, "version \"\(version)\"")
+        XCTAssertEqual(response?.header("sec-websocket-version"), "13")
+      }
+    }
+  }
+
+  func testAMissingVersionIsAnsweredWith426() throws {
+    try handshake(WS.handshakeRequest(version: nil)) { response in
+      XCTAssertEqual(response?.status, 426)
+      XCTAssertEqual(response?.header("sec-websocket-version"), "13")
+    }
+  }
+
+  func testOnlyGETCanUpgrade() throws {
+    for method in ["POST", "PUT", "DELETE", "OPTIONS"] {
+      try handshake(WS.handshakeRequest(method: method)) { response in
+        XCTAssertEqual(response?.status, 405, method)
+        XCTAssertEqual(response?.header("allow"), "GET")
+      }
+    }
+  }
+
+  func testTheKeyIsStillRequired() throws {
+    try handshake(WS.handshakeRequest(key: nil)) { response in
+      XCTAssertEqual(response?.status, 400)
+    }
+  }
+}
+
 // MARK: - W1: concurrent writers
 
 final class WebSocketWriteTests: XCTestCase {
 
   /// Several threads send frames through ONE session (a broadcast loop plus a ping reply is the
-  /// realistic case). `writeFrame` issues three separate `write`s per frame without a lock, so
-  /// frames of different threads can interleave and corrupt the stream. The failure is
-  /// timing-dependent, hence `strict: false`.
+  /// realistic case). A frame is written in several parts; without a lock the frames of different
+  /// threads interleaved and corrupted the stream.
   func testConcurrentWritersDoNotInterleaveFrames() throws {
     var fds: [Int32] = [0, 0]
     XCTAssertEqual(socketpair(AF_UNIX, SOCK_STREAM, 0, &fds), 0)
@@ -395,7 +571,7 @@ final class WebSocketWriteTests: XCTestCase {
     setsockopt(fds[1], SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
 
     let writers = 4
-    let framesPerWriter = 300
+    let framesPerWriter = 400
     let payloadSize = 3000
     let letters = Array("ABCD".utf8)
     let session = WebSocketSession(NanoSocket(socketFileDescriptor: fds[0]))
@@ -457,9 +633,99 @@ final class WebSocketWriteTests: XCTestCase {
     lock.lock(); writersDone = true; lock.unlock()
     XCTAssertEqual(reader.wait(timeout: .now() + 30), .success, "reader did not finish")
     lock.lock(); let wasCorrupted = corrupted; lock.unlock()
-    expectKnownIssue("W1", "frames from concurrent writers interleave (no write lock)", strict: false) {
-      XCTAssertFalse(wasCorrupted, "the byte stream contained a corrupted frame")
-    }
+    XCTAssertFalse(wasCorrupted, "the byte stream contained a corrupted frame")
     close(fds[1])
   }
 }
+
+/// A server pushes messages from many threads through one session, also messages above the size
+/// that is written together with the header.
+final class WebSocketPushTests: XCTestCase {
+
+  private final class Box {
+    private let lock = NSLock()
+    private var session: WebSocketSession?
+    func set(_ value: WebSocketSession) { lock.lock(); session = value; lock.unlock() }
+    var value: WebSocketSession? { lock.lock(); defer { lock.unlock() }; return session }
+  }
+
+  /// The text of message `index` of thread `thread`: "thread:index:" and padding; the size depends
+  /// on both numbers, and some messages are large.
+  private func message(thread: Int, index: Int) -> String {
+    let size = index % 9 == 0 ? 70_000 + thread : 10 + (index * 37 + thread * 11) % 3000
+    return "\(thread):\(index):" + String(repeating: Character(UnicodeScalar(UInt8(97 + thread))), count: size)
+  }
+
+  func testMessagesPushedFromManyThreadsArriveIntactAndInOrderPerThread() throws {
+    let box = Box()
+    try withTestServer(configure: { server in
+      server["/ws"] = websocket(connected: { box.set($0) })
+    }) { _, port in
+      let client = try WS.connect(port: port)
+      var waited = 0
+      while box.value == nil && waited < 200 { usleep(10_000); waited += 1 }
+      let session = try XCTUnwrap(box.value)
+      let threads = 8, perThread = 60
+      let pushers = DispatchGroup()
+      for thread in 0..<threads {
+        pushers.enter()
+        DispatchQueue.global().async {
+          for index in 0..<perThread {
+            session.writeText(self.message(thread: thread, index: index))
+          }
+          pushers.leave()
+        }
+      }
+      var next = [Int](repeating: 0, count: threads)
+      for _ in 0..<(threads * perThread) {
+        guard let frame = WS.readFrame(client) else {
+          return XCTFail("the stream ended early or is corrupted")
+        }
+        XCTAssertEqual(frame.opcode, WS.Opcode.text.rawValue)
+        let text = String(decoding: frame.payload, as: UTF8.self)
+        let parts = text.split(separator: ":", maxSplits: 2, omittingEmptySubsequences: false)
+        guard parts.count == 3, let thread = Int(parts[0]), let index = Int(parts[1]), thread < threads else {
+          return XCTFail("garbled message: \(text.prefix(40))")
+        }
+        XCTAssertEqual(text, message(thread: thread, index: index), "message \(thread):\(index) was damaged")
+        XCTAssertEqual(index, next[thread], "thread \(thread) delivered out of order")
+        next[thread] = index + 1
+      }
+      XCTAssertEqual(pushers.wait(timeout: .now() + 20), .success)
+      XCTAssertEqual(next, [Int](repeating: perThread, count: threads))
+    }
+  }
+
+  func testAPongReplyBetweenPushedMessagesDoesNotBreakThem() throws {
+    let box = Box()
+    try withTestServer(configure: { server in
+      server["/ws"] = websocket(connected: { box.set($0) })
+    }) { _, port in
+      let client = try WS.connect(port: port)
+      while box.value == nil { usleep(10_000) }
+      let session = try XCTUnwrap(box.value)
+      let pusher = DispatchGroup()
+      pusher.enter()
+      DispatchQueue.global().async {
+        for index in 0..<300 { session.writeText("push \(index) " + String(repeating: "x", count: index * 5)) }
+        pusher.leave()
+      }
+      // The server answers each ping from its read loop, while the other thread is pushing.
+      for round in 0..<50 { client.send(WS.frame(.ping, Array("p\(round)".utf8))) }
+      var pushes = 0, pongs = 0
+      while pushes < 300 || pongs < 50 {
+        guard let frame = WS.readFrame(client) else { return XCTFail("stream ended: \(pushes) pushes, \(pongs) pongs") }
+        let text = String(decoding: frame.payload, as: UTF8.self)
+        if frame.opcode == WS.Opcode.pong.rawValue {
+          XCTAssertEqual(text, "p\(pongs)")
+          pongs += 1
+        } else {
+          XCTAssertEqual(text, "push \(pushes) " + String(repeating: "x", count: pushes * 5))
+          pushes += 1
+        }
+      }
+      XCTAssertEqual(pusher.wait(timeout: .now() + 10), .success)
+    }
+  }
+}
+

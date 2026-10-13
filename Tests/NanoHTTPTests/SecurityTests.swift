@@ -576,21 +576,33 @@ final class WebSocketFrameLimitTests: XCTestCase {
     }
   }
 
+  /// A frame that announces more than the limit allows (close code 1009, not 1002).
+  private func assertTooBig(_ bytes: [UInt8],
+                            maxPayloadSize: Int? = nil,
+                            file: StaticString = #filePath,
+                            line: UInt = #line) {
+    XCTAssertThrowsError(try session(bytes, maxPayloadSize: maxPayloadSize).readFrame(), file: file, line: line) { error in
+      guard case WebSocketSession.WsError.messageTooBig = error else {
+        return XCTFail("expected messageTooBig, got \(error)", file: file, line: line)
+      }
+    }
+  }
+
   func testHugeFrameLengthIsRejectedBeforeReadingOrAllocating() {
     // Used to abort the process: "failed to allocate 2305843009213693984 bytes".
-    assertProtocolError(header64([0x80, 0, 0, 0, 0, 0, 0, 0]))
-    assertProtocolError(header64([0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]))
+    assertTooBig(header64([0x80, 0, 0, 0, 0, 0, 0, 0]))
+    assertTooBig(header64([0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]))
   }
 
   func testOneTerabyteFrameLengthIsRejected() {
-    assertProtocolError(header64([0, 0, 1, 0, 0, 0, 0, 0]))
+    assertTooBig(header64([0, 0, 1, 0, 0, 0, 0, 0]))
   }
 
   /// The first length byte used to be shifted by 54 instead of 56, so 2^63 was decoded as 2^61.
   /// With an unbounded limit the two differ: 2^63 does not fit an `Int` and is a protocol error,
   /// 2^61 would be read (and fail with an I/O error).
   func testTheMostSignificantLengthByteHasWeight2To56() {
-    assertProtocolError(header64([0x80, 0, 0, 0, 0, 0, 0, 0]), maxPayloadSize: Int.max)
+    assertTooBig(header64([0x80, 0, 0, 0, 0, 0, 0, 0]), maxPayloadSize: Int.max)
   }
 
   func testLengthBytesAreBigEndian() throws {
@@ -608,7 +620,7 @@ final class WebSocketFrameLimitTests: XCTestCase {
   func testPayloadAtTheLimitIsAcceptedOneByteMoreIsNot() throws {
     let payload = [UInt8](repeating: 0x41, count: 10)
     XCTAssertEqual(try session([0x81, 0x8A, 0, 0, 0, 0] + payload, maxPayloadSize: 10).readFrame().payload, payload)
-    assertProtocolError([0x81, 0x8B, 0, 0, 0, 0] + payload + [0x41], maxPayloadSize: 10)
+    assertTooBig([0x81, 0x8B, 0, 0, 0, 0] + payload + [0x41], maxPayloadSize: 10)
   }
 
   func testMaskingStillWorksOnLargerPayloads() throws {

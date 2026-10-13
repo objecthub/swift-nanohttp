@@ -560,13 +560,15 @@ final class EmptyBodyTests: XCTestCase {
   }
 }
 
-// MARK: - R7: NetworkInterface
+// MARK: - R7: NetworkInterface (fixed)
 
 final class NetworkInterfaceTests: XCTestCase {
 
-  /// Independent reference: IPv6 addresses of all running, non-loopback interfaces via
-  /// getifaddrs + inet_ntop on the real `sockaddr_in6`.
-  private func referenceIPv6Addresses() -> Set<String> {
+  // MARK: Against the operating system
+
+  /// Independent reference: the addresses of all running, non-loopback interfaces via getifaddrs +
+  /// inet_ntop on the real `sockaddr_in`/`sockaddr_in6`.
+  private func reference(ipv4: Bool) -> Set<String> {
     var result = Set<String>()
     var list: UnsafeMutablePointer<ifaddrs>? = nil
     guard getifaddrs(&list) == 0 else {
@@ -577,13 +579,21 @@ final class NetworkInterfaceTests: XCTestCase {
     while let entry = cursor {
       let flags = Int32(entry.pointee.ifa_flags)
       if let address = entry.pointee.ifa_addr,
-         address.pointee.sa_family == UInt8(AF_INET6),
          flags & (IFF_UP | IFF_RUNNING | IFF_LOOPBACK) == (IFF_UP | IFF_RUNNING) {
-        address.withMemoryRebound(to: sockaddr_in6.self, capacity: 1) { pointer in
-          var addr = pointer.pointee.sin6_addr
-          var buffer = [CChar](repeating: 0, count: Int(INET6_ADDRSTRLEN))
-          if inet_ntop(AF_INET6, &addr, &buffer, socklen_t(buffer.count)) != nil {
-            result.insert(String(cString: buffer))
+        var buffer = [CChar](repeating: 0, count: Int(INET6_ADDRSTRLEN))
+        if ipv4 && address.pointee.sa_family == UInt8(AF_INET) {
+          address.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { pointer in
+            var addr = pointer.pointee.sin_addr
+            if inet_ntop(AF_INET, &addr, &buffer, socklen_t(buffer.count)) != nil {
+              result.insert(String(cString: buffer))
+            }
+          }
+        } else if !ipv4 && address.pointee.sa_family == UInt8(AF_INET6) {
+          address.withMemoryRebound(to: sockaddr_in6.self, capacity: 1) { pointer in
+            var addr = pointer.pointee.sin6_addr
+            if inet_ntop(AF_INET6, &addr, &buffer, socklen_t(buffer.count)) != nil {
+              result.insert(String(cString: buffer))
+            }
           }
         }
       }
@@ -592,29 +602,179 @@ final class NetworkInterfaceTests: XCTestCase {
     return result
   }
 
-  func testIPv4AddressesAreWellFormed() {
-    for interface in NetworkInterface.available() where interface.ipv4 {
-      var address = in_addr()
-      XCTAssertEqual(inet_pton(AF_INET, interface.ip, &address), 1, "\(interface)")
-      XCTAssertEqual(inet_pton(AF_INET, interface.netmask, &address), 1, "\(interface)")
-    }
+  /// `255.255.255.0` and `ffff:ffff:ffff:ffff::` are masks: ones, then zeros.
+  private func isContiguousMask(_ text: String, ipv4: Bool) -> Bool {
+    var bytes = [UInt8](repeating: 0, count: 16)
+    let parsed = ipv4 ? inet_pton(AF_INET, text, &bytes) : inet_pton(AF_INET6, text, &bytes)
+    guard parsed == 1 else { return false }
+    let bits = bytes.prefix(ipv4 ? 4 : 16).map { String($0, radix: 2).leftPadded(to: 8) }.joined()
+    return !bits.contains("01")
+  }
+
+  func testIPv4AddressesMatchTheOperatingSystem() {
+    let reported = Set(NetworkInterface.available().filter { $0.ipv4 }.map { $0.ip })
+    XCTAssertEqual(reported, reference(ipv4: true))
   }
 
   func testIPv6AddressesMatchTheOperatingSystem() throws {
-    let reference = self.referenceIPv6Addresses()
-    try XCTSkipIf(reference.isEmpty, "no running non-loopback IPv6 interface on this machine")
+    let expected = reference(ipv4: false)
+    try XCTSkipIf(expected.isEmpty, "no running non-loopback IPv6 interface on this machine")
+    // Link-local addresses are reported with the zone of the interface: fe80::1%en0.
     let reported = Set(NetworkInterface.available().filter { !$0.ipv4 }.map {
       String($0.ip.split(separator: "%").first ?? "")
     })
-    expectKnownIssue("R7", "sockaddr_in6 is copied into a 16-byte sockaddr; the address is truncated") {
-      XCTAssertEqual(reported, reference)
+    XCTAssertEqual(reported, expected)
+  }
+
+  func testAddressesAndNetmasksAreWellFormed() {
+    for interface in NetworkInterface.available() {
+      var storage = [UInt8](repeating: 0, count: 16)
+      let address = String(interface.ip.split(separator: "%").first ?? "")
+      XCTAssertEqual(inet_pton(interface.ipv4 ? AF_INET : AF_INET6, address, &storage), 1, "\(interface)")
+      XCTAssertTrue(self.isContiguousMask(interface.netmask, ipv4: interface.ipv4), "\(interface)")
     }
   }
 
-  func testLocalIPIsOneOfTheInterfaceAddresses() {
-    if let ip = NetworkInterface.localIP {
+  func testLocalIPIsOneOfTheInterfaceAddressesAndStable() {
+    let first = NetworkInterface.localIP
+    for _ in 0..<50 {
+      XCTAssertEqual(NetworkInterface.localIP, first)
+      XCTAssertEqual(NetworkInterface.localIP(ipv4: true), NetworkInterface.localIP(ipv4: true))
+    }
+    if let ip = first {
       XCTAssertTrue(NetworkInterface.available().contains { $0.ip == ip })
     }
+  }
+
+  // MARK: Ranking
+
+  private func interface(_ name: String, _ ip: String, ipv4: Bool = true) -> NetworkInterface {
+    return NetworkInterface(name: name, ipv4: ipv4, ip: ip, netmask: "255.255.255.0")
+  }
+
+  func testPreferredInterface() {
+    let utun = interface("utun3", "10.8.0.2"), bridge = interface("bridge100", "192.168.64.1")
+    let en0 = interface("en0", "192.168.1.20"), en1 = interface("en1", "10.0.0.5"), en10 = interface("en10", "172.16.0.9")
+    XCTAssertEqual(NetworkInterface.preferred(among: [utun, bridge, en1, en0])?.name, "en0")
+    XCTAssertEqual(NetworkInterface.preferred(among: [utun, bridge, en1])?.name, "en1")
+    XCTAssertEqual(NetworkInterface.preferred(among: [en10, en1])?.name, "en1", "numeric, not alphabetical")
+    XCTAssertEqual(NetworkInterface.preferred(among: [utun, bridge])?.name, "bridge100", "otherwise by name")
+    XCTAssertNil(NetworkInterface.preferred(among: []))
+  }
+
+  func testLinkLocalAddressesComeLast() {
+    let linkLocal4 = interface("en0", "169.254.12.7"), other = interface("utun1", "10.1.1.1")
+    XCTAssertEqual(NetworkInterface.preferred(among: [linkLocal4, other])?.ip, "10.1.1.1")
+    XCTAssertEqual(NetworkInterface.preferred(among: [linkLocal4])?.ip, "169.254.12.7", "better than nothing")
+    let linkLocal6 = interface("en0", "fe80::1%en0", ipv4: false), global6 = interface("awdl0", "2001:db8::5", ipv4: false)
+    XCTAssertEqual(NetworkInterface.preferred(among: [linkLocal6, global6])?.ip, "2001:db8::5")
+  }
+
+  func testThePreferenceDoesNotDependOnTheOrderOfTheSet() {
+    let all = [interface("en2", "10.0.2.1"), interface("en0", "10.0.0.1"), interface("lo9", "10.9.9.9"), interface("en1", "10.0.1.1")]
+    for _ in 0..<20 {
+      XCTAssertEqual(NetworkInterface.preferred(among: Set(all.shuffled()))?.name, "en0")
+    }
+  }
+
+  // MARK: Entries of getifaddrs, built by hand
+
+  /// An `ifaddrs` entry with the given contents; frees what it allocated.
+  private final class Entry {
+    var entry = ifaddrs()
+    private var allocations = [UnsafeMutableRawPointer]()
+
+    init(name: String = "en7", flags: Int32 = IFF_UP | IFF_RUNNING, address: [UInt8]?, netmask: [UInt8]? = nil) {
+      let nameCopy = strdup(name)!
+      allocations.append(UnsafeMutableRawPointer(nameCopy))
+      entry.ifa_name = nameCopy
+      entry.ifa_flags = UInt32(flags)
+      entry.ifa_addr = address.map(storage)
+      entry.ifa_netmask = netmask.map(storage)
+    }
+
+    /// Copies raw `sockaddr` bytes (as the system lays them out) into allocated memory.
+    private func storage(_ bytes: [UInt8]) -> UnsafeMutablePointer<sockaddr> {
+      let memory = UnsafeMutableRawPointer.allocate(byteCount: max(bytes.count, MemoryLayout<sockaddr_storage>.size), alignment: 8)
+      memset(memory, 0, max(bytes.count, MemoryLayout<sockaddr_storage>.size))
+      memcpy(memory, bytes, bytes.count)
+      allocations.append(memory)
+      return memory.assumingMemoryBound(to: sockaddr.self)
+    }
+
+    deinit { allocations.forEach { free($0) } } // malloc'ed (strdup) and allocate()d memory alike come from malloc
+  }
+
+  /// The bytes of a `sockaddr_in` for `a.b.c.d`; `length` is the `sa_len` the system stores.
+  private func sockaddr4(_ a: UInt8, _ b: UInt8, _ c: UInt8, _ d: UInt8, length: UInt8 = 16) -> [UInt8] {
+    return [length, UInt8(AF_INET), 0, 0, a, b, c, d] + [UInt8](repeating: 0, count: 8)
+  }
+
+  /// The bytes of a `sockaddr_in6`: len, family, port, flowinfo, 16 address bytes, scope id.
+  private func sockaddr6(_ address: [UInt8], length: UInt8 = 28, scope: UInt32 = 0) -> [UInt8] {
+    return [length, UInt8(AF_INET6), 0, 0, 0, 0, 0, 0] + address + withUnsafeBytes(of: scope) { Array($0) }
+  }
+
+  func testAnEntryWithoutAnAddressIsSkipped() {
+    let entry = Entry(address: nil, netmask: nil)
+    XCTAssertNil(NetworkInterface.interface(from: entry.entry)) // used to dereference a null pointer
+  }
+
+  func testAnIPv6AddressIsReadInFull() {
+    let address: [UInt8] = [0x20, 0x01, 0x0d, 0xb8, 0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04, 0x00, 0x05, 0x00, 0x06]
+    let mask: [UInt8] = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff] + [UInt8](repeating: 0, count: 8)
+    let entry = Entry(address: sockaddr6(address), netmask: sockaddr6(mask))
+    let interface = NetworkInterface.interface(from: entry.entry)
+    XCTAssertEqual(interface?.ip, "2001:db8:1:2:3:4:5:6") // the second half used to be garbage
+    XCTAssertEqual(interface?.netmask, "ffff:ffff:ffff:ffff::")
+    XCTAssertEqual(interface?.ipv4, false)
+    XCTAssertEqual(interface?.name, "en7")
+  }
+
+  func testALinkLocalAddressCarriesItsZone() {
+    var address = [UInt8](repeating: 0, count: 16)
+    address[0] = 0xfe; address[1] = 0x80; address[15] = 1
+    let entry = Entry(name: "lo99", address: sockaddr6(address, scope: 1)) // scope 1: the first interface, lo0
+    XCTAssertEqual(NetworkInterface.interface(from: entry.entry)?.ip, "fe80::1%lo0")
+  }
+
+  func testANetmaskWithTrailingZeroBytesCutOffIsRestored() {
+    // The system stores 255.255.255.0 with sa_len 7 (the last byte is missing) and 0.0.0.0 with sa_len 0.
+    let cases: [(UInt8, [UInt8], String)] = [(7, [255, 255, 255, 0], "255.255.255.0"),
+                                              (6, [255, 255, 0, 0], "255.255.0.0"),
+                                              (5, [255, 0, 0, 0], "255.0.0.0"),
+                                              (16, [255, 255, 255, 255], "255.255.255.255"),
+                                              (0, [0, 0, 0, 0], "0.0.0.0")]
+    for (length, bytes, expected) in cases {
+      let mask = sockaddr4(bytes[0], bytes[1], bytes[2], bytes[3], length: length)
+      let cut = Array(mask.prefix(Int(length)))
+      let entry = Entry(address: sockaddr4(192, 168, 1, 20), netmask: cut)
+      let interface = NetworkInterface.interface(from: entry.entry)
+      XCTAssertEqual(interface?.ip, "192.168.1.20")
+      XCTAssertEqual(interface?.netmask, expected, "sa_len \(length)")
+    }
+  }
+
+  func testAnEntryWithoutANetmaskHasAnEmptyNetmask() {
+    let entry = Entry(address: sockaddr4(10, 0, 0, 1), netmask: nil)
+    let interface = NetworkInterface.interface(from: entry.entry)
+    XCTAssertEqual(interface?.ip, "10.0.0.1")
+    XCTAssertEqual(interface?.netmask, "")
+  }
+
+  func testLoopbackInterfacesInterfacesThatAreDownAndOtherAddressFamiliesAreSkipped() {
+    let loopback = Entry(flags: IFF_UP | IFF_RUNNING | IFF_LOOPBACK, address: sockaddr4(127, 0, 0, 1), netmask: sockaddr4(255, 0, 0, 0))
+    XCTAssertNil(NetworkInterface.interface(from: loopback.entry))
+    let down = Entry(flags: IFF_UP, address: sockaddr4(10, 0, 0, 1), netmask: sockaddr4(255, 0, 0, 0))
+    XCTAssertNil(NetworkInterface.interface(from: down.entry))
+    let linkLayer = Entry(address: [20, UInt8(AF_LINK), 0, 0, 6, 0, 0, 0, 0xde, 0xad, 0xbe, 0xef, 0, 1, 0, 0, 0, 0, 0, 0])
+    XCTAssertNil(NetworkInterface.interface(from: linkLayer.entry))
+  }
+}
+
+private extension String {
+  func leftPadded(to length: Int) -> String {
+    return String(repeating: "0", count: max(0, length - self.count)) + self
   }
 }
 

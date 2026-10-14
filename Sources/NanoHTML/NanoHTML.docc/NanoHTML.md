@@ -4,6 +4,9 @@ Build web pages in Swift: elements are values, text is escaped, and nothing is s
 
 ## Overview
 
+> Note: NanoHTML builds on **NanoHTTP**, the HTTP server of this package. Routing, requests, responses, cookies, WebSockets and
+> the rest are documented there: [NanoHTTP documentation](https://objecthub.github.io/swift-nanohttp/documentation/nanohttp/).
+
 NanoHTML is the companion of NanoHTTP for small pages: status and admin pages, forms, the user interface of a
 tool. A page is a tree of values that a block builds for every request:
 

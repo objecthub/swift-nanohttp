@@ -78,7 +78,7 @@ are handled one at a time and handlers need no locks.
 
 ## Pages
 
-The second library of the package, `NanoHTML`, builds small pages (status pages, forms, the user interface of a tool) from
+The second library of the package, `NanoHTML` ([documentation](https://objecthub.github.io/swift-nanohttp/documentation/nanohtml/)), builds small pages (status pages, forms, the user interface of a tool) from
 Swift values. Text and attribute values are escaped, so a page cannot be broken by what a request contains:
 
 ```swift

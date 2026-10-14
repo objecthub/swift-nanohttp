@@ -4,6 +4,10 @@ A small HTTP/1.1 server for apps and tools: routing, files, forms, uploads and W
 
 ## Overview
 
+> Tip: Looking for the page builder? **NanoHTML**, the second library of this package, builds pages from Swift values and
+> escapes everything for you. It has its own documentation:
+> [NanoHTML documentation](https://objecthub.github.io/swift-nanohttp/documentation/nanohtml/).
+
 NanoHTTP runs a web server inside your process: a command-line tool, a Mac app or an iOS app. You register
 functions for methods and paths, and the framework takes care of sockets, threads and the protocol.
 
@@ -14,8 +18,6 @@ server.get["/hello/:name"] = { request in
 }
 try server.start(8080)
 ```
-
-Pages are built with the companion library NanoHTML (a second product of the package), which escapes text for you.
 
 It is meant for servers that are used by you, your own devices or a small trusted group: tools, local
 user interfaces, companion apps, test servers. It does not provide TLS, authentication or protection against

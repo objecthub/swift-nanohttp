@@ -91,6 +91,8 @@ answered and the connection is closed:
 | `maxLineLength`: request line, header line | 8 KiB | `414 URI Too Long` / `431` |
 | `maxHeaderBytes`: request line and all headers | 64 KiB | `431 Request Header Fields Too Large` |
 | `maxBodyBytes`: body (`Content-Length`) | 64 MiB | `413 Content Too Large` |
+| `maxMultipartParts`: parts of a `multipart/form-data` body | 1000 | `parseMultiPartFormData()` returns no parts |
+| `maxMultipartHeaderBytes`: headers of one part | 16 KiB | `parseMultiPartFormData()` returns no parts |
 
 A request that cannot be parsed (an invalid request line, a `Content-Length` that is not a number) is answered with
 `400 Bad Request`. Set the limits before starting the server; the body is held in memory, so lower the limit if you

@@ -86,13 +86,26 @@ public struct NanoHTTPParser {
     /// held in memory, so keep this as small as the application allows.
     public var maxBodyBytes: Int
     
+    /// The most parts that ``NanoHTTPRequest/parseMultiPartFormData()`` accepts in a `multipart/form-data` body. A
+    /// body with more parts is refused as a whole. The parts cost memory (every one has headers of its own), and a
+    /// body of the permitted size can hold millions of empty ones.
+    public var maxMultipartParts: Int
+    
+    /// The most bytes that ``NanoHTTPRequest/parseMultiPartFormData()`` accepts for the headers of one part of a
+    /// `multipart/form-data` body, including line breaks.
+    public var maxMultipartHeaderBytes: Int
+    
     /// Creates limits; the defaults are the limits of a new server.
     public init(maxLineLength: Int = 8 * 1024,
                 maxHeaderBytes: Int = 64 * 1024,
-                maxBodyBytes: Int = 64 * 1024 * 1024) {
+                maxBodyBytes: Int = 64 * 1024 * 1024,
+                maxMultipartParts: Int = 1000,
+                maxMultipartHeaderBytes: Int = 16 * 1024) {
       self.maxLineLength = maxLineLength
       self.maxHeaderBytes = maxHeaderBytes
       self.maxBodyBytes = maxBodyBytes
+      self.maxMultipartParts = maxMultipartParts
+      self.maxMultipartHeaderBytes = maxMultipartHeaderBytes
     }
   }
   
@@ -122,6 +135,7 @@ public struct NanoHTTPParser {
                     rawQuery: rawQuery,
                     headers: try readHeaders(budget: &budget),
                     httpVersion: version)
+    request.multipartLimits = (self.limits.maxMultipartParts, self.limits.maxMultipartHeaderBytes)
     // Where the body ends: with the chunks that say so, or after as many bytes as `Content-Length` says.
     // A request that says both is refused (see `NanoHTTPParserError.conflictingFraming`).
     let contentLength = request.header("content-length")

@@ -16,7 +16,18 @@ All notable changes to this project are documented in this file. The format is b
   and logs a warning. Works with threads per connection and with one thread. See *Middleware and Extending*, which has a
   complete example: a worker pool behind one network thread, with a bounded queue.
 
+### Fixed
+- **Multipart bodies** (H9). `parseMultiPartFormData()` works on the bytes now (and is faster: 20 MB in 14 ms instead of
+  40 ms). A part ends at the line break before the next boundary line and keeps every other byte, a boundary followed by more
+  text (`--boundaryX`) inside the content does not end it, text before the first and after the closing boundary is ignored,
+  a boundary can be quoted, header lines can contain colons and continue on the next line, and `name` and `fileName` can
+  contain quotes (`\"`), `;`, `=` and `:` (and `filename*=UTF-8''...` is read).
+
 ### Changed
+- **A multipart body that is not well-formed gives no parts at all** (it gave the parts before the error): it has no closing
+  boundary, the headers of a part are not followed by an empty line, it has more parts than the new
+  `Limits.maxMultipartParts` (1000), or a part has more header bytes than `Limits.maxMultipartHeaderBytes` (16 KiB).
+  Both limits are configurable, like the other limits of the server.
 - `SECURITY.md` lists the supported versions: 2.x, and 1.0.x (security and crash fixes only) until the end of 2027.
 
 ## [2.0.0] - 2026-10-14

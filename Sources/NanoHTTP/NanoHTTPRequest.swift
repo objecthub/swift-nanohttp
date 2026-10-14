@@ -114,6 +114,10 @@ public final class NanoHTTPRequest: Hashable {
 
   /// The token of the deferred answer. Weak: the token holds the connection, which holds this request.
   weak var deferral: NanoHTTPDeferredResponse? = nil
+  
+  /// The bounds for `parseMultiPartFormData()`: the most parts, and the most bytes for the headers of a part. The
+  /// parser sets them from the limits of the server.
+  var multipartLimits: (parts: Int, headerBytes: Int) = (1000, 16 * 1024)
 
   /// Creates a request, for example to call a handler directly in a test. `path` and the names and values of
   /// `queryParams` are decoded text, as the properties of the same names (`"/a b"`, not `"/a%20b"`); the
@@ -376,133 +380,29 @@ public final class NanoHTTPRequest: Hashable {
     /// The content of the part.
     public let body: [UInt8]
     
-    /// The name of the form field (`name="..."` of `Content-Disposition`), without quotes.
+    /// The name of the form field (`name="..."` of `Content-Disposition`), without quotes. A name that is given in
+    /// the extended form (`name*=UTF-8''...`) takes precedence.
     public var name: String? {
-      return valueFor("content-disposition", parameter: "name")?.unquote()
+      return self.contentDispositionParameter("name")
     }
     
-    /// The file name of an upload (`filename="..."` of `Content-Disposition`), without quotes; `nil` for ordinary fields.
+    /// The file name of an upload (`filename="..."` of `Content-Disposition`), without quotes; `nil` for ordinary
+    /// fields. The extended form (`filename*=UTF-8''%E2%82%AC.txt`) takes precedence if it is there. The name is
+    /// what the client sent: do not use it as a path without checking it (it can hold `/` and `..`).
     public var fileName: String? {
-      return valueFor("content-disposition", parameter: "filename")?.unquote()
+      return self.contentDispositionParameter("filename")
     }
     
-    private func valueFor(_ headerName: String, parameter: String) -> String? {
-      return headers.reduce([String]()) { (combined, header: (key: String, value: String)) -> [String] in
-        guard header.key == headerName else {
-          return combined
-        }
-        let headerValueParams = header.value.components(separatedBy: ";").map {
-          $0.trimmingCharacters(in: .whitespaces)
-        }
-        return headerValueParams.reduce(combined, { (results, token) -> [String] in
-          let parameterTokens = token.components(separatedBy: "=")
-          if parameterTokens.first == parameter, let value = parameterTokens.last {
-            return results + [value]
-          }
-          return results
-        })
-      }.first
-    }
-  }
-  
-  /// The parts of a `multipart/form-data` body (a form with file uploads), in order. Returns an empty
-  /// array if the request has another content type or the body is malformed. The whole body is in
-  /// memory, see ``NanoHTTPParser/Limits/maxBodyBytes``.
-  ///
-  /// Limitations: names and file names that contain `;`, `=` or `:`, and quoted boundaries, are not
-  /// parsed correctly.
-  public func parseMultiPartFormData() -> [MultiPart] {
-    guard let contentTypeHeader = headers["content-type"] else {
-      return []
-    }
-    let contentTypeHeaderTokens = contentTypeHeader
-                                    .components(separatedBy: ";")
-                                    .map { $0.trimmingCharacters(in: .whitespaces) }
-    guard let contentType = contentTypeHeaderTokens.first,
-          contentType == "multipart/form-data" else {
-      return []
-    }
-    var boundary: String?
-    contentTypeHeaderTokens.forEach({
-      let tokens = $0.components(separatedBy: "=")
-      if let key = tokens.first, key == "boundary" && tokens.count == 2 {
-        boundary = tokens.last
-      }
-    })
-    if let boundary = boundary, boundary.utf8.count > 0 {
-      return parseMultiPartFormData(body, boundary: "--\(boundary)")
-    }
-    return []
-  }
-  
-  private func parseMultiPartFormData(_ data: [UInt8], boundary: String) -> [MultiPart] {
-    var generator = data.makeIterator()
-    var result = [MultiPart]()
-    while let part = nextMultiPart(&generator, boundary: boundary, isFirst: result.isEmpty) {
-      result.append(part)
-    }
-    return result
-  }
-  
-  private func nextMultiPart(_ generator: inout IndexingIterator<[UInt8]>,
-                             boundary: String,
-                             isFirst: Bool) -> MultiPart? {
-    if isFirst {
-      guard nextUTF8MultiPartLine(&generator) == boundary else {
+    private func contentDispositionParameter(_ name: String) -> String? {
+      guard let header = self.headers["content-disposition"] else {
         return nil
       }
-    } else {
-      _ = nextUTF8MultiPartLine(&generator)
-    }
-    var headers = [String: String]()
-    while let line = nextUTF8MultiPartLine(&generator), !line.isEmpty {
-      let tokens = line.components(separatedBy: ":")
-      if let name = tokens.first, let value = tokens.last, tokens.count == 2 {
-        headers[name.lowercased()] = value.trimmingCharacters(in: .whitespaces)
+      let parameters = NanoHeaderParameters(header)
+      if let extended = parameters[name + "*"], let decoded = NanoHeaderParameters.decodeExtended(extended) {
+        return decoded
       }
+      return parameters[name]
     }
-    guard let body = nextMultiPartBody(&generator, boundary: boundary) else {
-      return nil
-    }
-    return MultiPart(headers: headers, body: body)
-  }
-  
-  private func nextUTF8MultiPartLine(_ generator: inout IndexingIterator<[UInt8]>) -> String? {
-    var temp = [UInt8]()
-    while let value = generator.next() {
-      if value > NanoHTTPRequest.CR {
-        temp.append(value)
-      }
-      if value == NanoHTTPRequest.NL {
-        break
-      }
-    }
-    return String(bytes: temp, encoding: String.Encoding.utf8)
-  }
-  
-  static let CR = UInt8(13)
-  static let NL = UInt8(10)
-  
-  private func nextMultiPartBody(_ generator: inout IndexingIterator<[UInt8]>,
-                                 boundary: String) -> [UInt8]? {
-    var body = [UInt8]()
-    let boundaryArray = [UInt8](boundary.utf8)
-    var matchOffset = 0
-    while let x = generator.next() {
-      matchOffset = x == boundaryArray[matchOffset] ? matchOffset + 1 : 0
-      body.append(x)
-      if matchOffset == boundaryArray.count {
-        body.removeSubrange(body.count-matchOffset ..< body.count)
-        if body.last == NanoHTTPRequest.NL {
-          body.removeLast()
-          if body.last == NanoHTTPRequest.CR {
-            body.removeLast()
-          }
-        }
-        return body
-      }
-    }
-    return nil
   }
   
   /// Requests are equal if they are the same object.

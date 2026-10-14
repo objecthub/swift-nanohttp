@@ -101,7 +101,10 @@ server.post["/login"] = { request in
 ### Uploads
 
 ``NanoHTTPRequest/parseMultiPartFormData()`` reads `multipart/form-data` bodies (forms with files). The whole
-body is held in memory, so uploads are limited by ``NanoHTTPParser/Limits/maxBodyBytes``.
+body is held in memory, so uploads are limited by ``NanoHTTPParser/Limits/maxBodyBytes``. Every part has its
+``NanoHTTPRequest/MultiPart/headers``, its ``NanoHTTPRequest/MultiPart/body`` (exactly the bytes that were sent), and,
+from its `Content-Disposition`, a ``NanoHTTPRequest/MultiPart/name`` and, for a file, a
+``NanoHTTPRequest/MultiPart/fileName``.
 
 ```swift
 let server = NanoHTTPServer()
@@ -115,8 +118,12 @@ server.post["/upload"] = { request in
 }
 ```
 
-Names and file names that contain `;`, `=` or `:` are not parsed correctly. Treat file names as untrusted: never
-use them as paths without checking.
+Names and file names can contain quotes (`\"`), `;`, `=` and `:`, and the extended form `filename*=UTF-8''...` is
+understood. A body that is not well-formed (it has no closing boundary, or the headers of a part are not followed by an
+empty line) is refused as a whole: the result is empty. So is a body with more parts than
+``NanoHTTPParser/Limits/maxMultipartParts`` (1000), or with headers of a part that are longer than
+``NanoHTTPParser/Limits/maxMultipartHeaderBytes`` (16 KiB). Treat file names as untrusted: never use them as paths
+without checking.
 
 ## Topics
 

@@ -253,23 +253,17 @@ final class MultipartTests: XCTestCase {
 
   func testFieldNameMayContainAColon() {
     let request = multipart(["Content-Disposition: form-data; name=\"a:b\"\r\n\r\nv"])
-    expectKnownIssue("H9", "a header line with more than one ':' is dropped, so the part has no name") {
-      XCTAssertEqual(request.parseMultiPartFormData().first?.name, "a:b")
-    }
+    XCTAssertEqual(request.parseMultiPartFormData().first?.name, "a:b")
   }
 
   func testFileNameMayContainASemicolon() {
     let request = multipart(["Content-Disposition: form-data; name=\"f\"; filename=\"a;b.txt\"\r\n\r\nv"])
-    expectKnownIssue("H9", "parameters are split at every ';' even inside quotes") {
-      XCTAssertEqual(request.parseMultiPartFormData().first?.fileName, "a;b.txt")
-    }
+    XCTAssertEqual(request.parseMultiPartFormData().first?.fileName, "a;b.txt")
   }
 
   func testFileNameMayContainAnEqualsSign() {
     let request = multipart(["Content-Disposition: form-data; name=\"f\"; filename=\"a=b.txt\"\r\n\r\nv"])
-    expectKnownIssue("H9", "parameters are split at every '=' even inside quotes") {
-      XCTAssertEqual(request.parseMultiPartFormData().first?.fileName, "a=b.txt")
-    }
+    XCTAssertEqual(request.parseMultiPartFormData().first?.fileName, "a=b.txt")
   }
 
   func testQuotedBoundaryIsAccepted() {
@@ -277,8 +271,6 @@ final class MultipartTests: XCTestCase {
       method: "POST", path: "/",
       headers: ["Content-Type": "multipart/form-data; boundary=\"q q\""],
       body: Array("--q q\r\nContent-Disposition: form-data; name=\"f\"\r\n\r\nv\r\n--q q--\r\n".utf8))
-    expectKnownIssue("H9", "a quoted boundary parameter is not unquoted") {
-      XCTAssertEqual(request.parseMultiPartFormData().count, 1)
-    }
+    XCTAssertEqual(request.parseMultiPartFormData().count, 1)
   }
 }

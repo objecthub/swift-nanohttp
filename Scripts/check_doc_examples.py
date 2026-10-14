@@ -4,7 +4,7 @@
 Every fenced code block whose info string is exactly `swift` in
 
   * README.md and the other Markdown files of the repository root,
-  * the articles of the DocC catalog (Sources/NanoHTTP/NanoHTTP.docc/*.md), and
+  * the articles of the DocC catalogs (Sources/NanoHTTP/NanoHTTP.docc, Sources/NanoHTML/NanoHTML.docc), and
   * the documentation comments (`///`) of the Swift sources
 
 is compiled against the library. Blocks with another info string (`bash`, `text`, `swift nocompile`,
@@ -33,11 +33,12 @@ def sources():
     for name in sorted(os.listdir(ROOT)):
         if name.endswith(".md"):
             yield name, False
-    catalog = os.path.join(ROOT, "Sources", "NanoHTTP", "NanoHTTP.docc")
-    if os.path.isdir(catalog):
-        for name in sorted(os.listdir(catalog)):
-            if name.endswith(".md"):
-                yield os.path.join("Sources", "NanoHTTP", "NanoHTTP.docc", name), False
+    for module in ("NanoHTTP", "NanoHTML"):
+        catalog = os.path.join(ROOT, "Sources", module, module + ".docc")
+        if os.path.isdir(catalog):
+            for name in sorted(os.listdir(catalog)):
+                if name.endswith(".md"):
+                    yield os.path.join("Sources", module, module + ".docc", name), False
     for top in ("Sources",):
         for directory, _, names in sorted(os.walk(os.path.join(ROOT, top))):
             for name in sorted(names):
@@ -93,7 +94,7 @@ def main() -> int:
             print(f"{path}:{start}: {len(code.splitlines())} lines")
         print(f"{len(found)} examples")
         return 0
-    imports = {"import Foundation", "import NanoHTTP"}
+    imports = {"import Foundation", "import NanoHTTP", "import NanoHTML"}
     pieces = []
     for index, (path, start, code) in enumerate(found):
         found_imports, text = wrap(index, path, start, code)
@@ -108,7 +109,8 @@ let package = Package(
   name: "DocExamples",
   platforms: [.macOS(.v12), .iOS(.v15), .tvOS(.v15)],
   dependencies: [.package(path: "{ROOT}")],
-  targets: [.target(name: "DocExamples", dependencies: [.product(name: "NanoHTTP", package: "{os.path.basename(ROOT)}")])])
+  targets: [.target(name: "DocExamples", dependencies: [.product(name: "NanoHTTP", package: "{os.path.basename(ROOT)}"),
+                                                       .product(name: "NanoHTML", package: "{os.path.basename(ROOT)}")])])
 """)
         with open(os.path.join(directory, "Sources", "DocExamples", "Examples.swift"), "w") as handle:
             handle.write("\n".join(sorted(imports)) + "\n\n" + "\n".join(pieces))

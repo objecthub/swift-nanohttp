@@ -15,6 +15,8 @@ server.get["/hello/:name"] = { request in
 try server.start(8080)
 ```
 
+Pages are built with the companion library NanoHTML (a second product of the package), which escapes text for you.
+
 It is meant for servers that are used by you, your own devices or a small trusted group: tools, local
 user interfaces, companion apps, test servers. It does not provide TLS, authentication or protection against
 many hostile clients; <doc:SecurityAndLimits> says what to take care of.
@@ -70,12 +72,6 @@ many hostile clients; <doc:SecurityAndLimits> says what to take care of.
 - ``NanoWebSocket/handler(text:binary:pong:connected:disconnected:maxMessageSize:)``
 - ``NanoWebSocketSession``
 - ``NanoSocketSession``
-
-### Web pages
-
-- <doc:HTMLBuilder>
-- ``htmlHandler(_:)``
-- ``element(_:_:_:)``
 
 ### Security
 

@@ -12,13 +12,13 @@ NANOHTTP_CRASH_TESTS=1 swift test --filter <one test>   # see "Crash tests" belo
 
 | File | Covers |
 |---|---|
-| `SecurityTests.swift` | path traversal, size limits, WebSocket frame limits, bind address, HTML escaping, header injection |
+| `SecurityTests.swift` | path traversal, size limits, WebSocket frame limits, bind address, header injection |
 | `RobustnessTests.swift` | accept loop, descriptor leaks, idle connections, stop/restart, empty bodies, `NetworkInterface`, malformed requests |
 | `HTTPProtocolTests.swift` | behavior of a running server over a raw socket: framing, keep-alive, HEAD, 405, charset, file responses |
 | `RequestParsingTests.swift` | request line, query, headers, url-encoded forms, multipart |
 | `RouterBehaviorTests.swift` | routing precedence, parameters, mounting, concurrency (complements `HTTPRouterTests.swift`) |
 | `WebSocketIntegrationTests.swift` | RFC 6455 handshake and frames against a real server; concurrent writers |
-| `HTMLDSLTests.swift` | the NanoHTML builder |
+| `HTMLDSLTests.swift` | the NanoHTML module: elements, attributes, block syntax, escaping, pages as responses |
 | `Support/` | `RawClient` (blocking raw TCP client), `withTestServer`, `FileSocket`, `FileFixture`, `expectKnownIssue` |
 
 `HTTPParserTests`, `HTTPRouterTests`, `WebSocketTests`, `StringExtensionsTests`, `MimeTypeTests`,
@@ -70,7 +70,7 @@ the buffer awareness of the one-thread loop removed, the pipelining tests fail),
 of a response as a function, `Date`, bodies in memory), `ConnectionSemanticsTests.swift` (H4: keep-alive by version,
 `Connection: close`, chunked requests and responses, `Expect`, declared lengths), `HeadAndOptionsTests.swift` (H7) and
 `FileServingTests.swift` (H10: `ETag`, `304`, ranges, directories) cover batch 2 of the 2.0 plan: **H4, H7 and H10 are fixed**, only
-H9 (multipart) and the HTML builder are left of the known issues. `RequestSemanticsTests.swift` covers H1 (**fixed in 2.0**: `path`, query values and route variables are decoded once, `rawPath`/`rawQuery`
+H9 (multipart) is the only known issue that is left. `HTMLDSLTests.swift` tests the new NanoHTML module (**N1**, **N2**, **N3** and **S5** are fixed by its design: pages are values without shared state, element types do not clash with member names, void elements have no end tag, and everything is escaped except `Raw`). `RequestSemanticsTests.swift` covers H1 (**fixed in 2.0**: `path`, query values and route variables are decoded once, `rawPath`/`rawQuery`
 keep what was sent, routing works on the raw path, the file handlers do not decode again, `bodyString`, `json`).
 `SocketSessionTests.swift` covers WebSockets on the one thread (**W3**, fixed: sessions are driven by the server;
 chat and broadcast without locks, close handshake, protocol errors, stalls, `stop()`, limits) and the
@@ -82,7 +82,7 @@ threads of connections (reuse, no limit for the number of threads, idle lifetime
 Performance is not tested by the suite: `Benchmarks/` is the tool for that.
 
 Confirmed by execution and still open (each is an `expectKnownIssue` or crash test):
-H9 multipart · N3 void elements.
+H9 multipart.
 
 Hypotheses that did **not** reproduce (kept as plain regression tests):
 the leak of the listening socket after `stop()` (the port is released, restart on the same port works 25/25) · R6 (empty writes do not crash).

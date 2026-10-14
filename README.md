@@ -54,7 +54,8 @@ grouped and mounted below a prefix, and `server["/path"]` answers every method.
 - **Files**: `NanoFiles.share(file:)`, `NanoFiles.share(directory:)` and `NanoFiles.browse(directory:)`, which do not serve anything from outside
   the directory, with `ETag`, `Last-Modified`, `304 Not Modified` and byte ranges (`206`).
 - **WebSockets** (RFC 6455): fragmented messages, ping/pong, close codes, thread-safe sending, size limits.
-- **A small HTML builder** for status and admin pages.
+- **NanoHTML**, a second library for small pages: elements are Swift values (`Html { Body { H1("Hi") } }`), text and attributes are
+  escaped, and building pages needs no locks.
 - **Errors**: a handler can `throw NanoHTTPError.notFound("No such item")`, which becomes the response; other
   errors become a `500` without details.
 - **Middleware** that wraps requests (check, change, log, catch errors), and subclassing for everything else:
@@ -112,7 +113,7 @@ Add the package to your `Package.swift`:
 .package(url: "https://github.com/objecthub/swift-nanohttp.git", from: "1.0.2"),
 ```
 
-and the product `NanoHTTP` to the dependencies of your target. In Xcode, use File > Add Package Dependencies.
+and the product `NanoHTTP` (and `NanoHTML`, if you build pages with it) to the dependencies of your target. In Xcode, use File > Add Package Dependencies.
 
 ## Documentation
 

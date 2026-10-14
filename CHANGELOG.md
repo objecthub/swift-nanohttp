@@ -9,6 +9,13 @@ All notable changes to this project are documented in this file. The format is b
 Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says how to move from 1.x.
 
 ### Changed
+- **Breaking: NanoHTML is a library of its own, and it is a new builder** (N1, N2, N3, S5). Add the product `NanoHTML` and
+  `import NanoHTML`. Pages are built from values: `Html { Body { H1("Hi"); A("Home").href("/") } }`; text and attribute
+  values are escaped (`Raw(_:)` inserts HTML as it is), void elements have no end tag, attributes are written in the
+  order in which they were set, and there is no global state, no lock and no clash with member names. `htmlHandler`'s
+  block receives the request, `NanoHTTPResponse.html(_:status:headers:)` answers with any node, and `Html` writes the
+  document type. `String.htmlEscaped` stays in `NanoHTTP`. See *Names and namespaces* and *NanoHTML is a library of its
+  own* in `MIGRATION-2.0.md`.
 - **Breaking: general names got a `Nano` prefix or a namespace.** `share(file:)`, `share(directory:...)` and
   `browse(directory:...)` are `NanoFiles.share(...)` and `NanoFiles.browse(...)`, `websocket(...)` is
   `NanoWebSocket.handler(...)`, `WebSocketSession` is `NanoWebSocketSession`, `NetworkInterface` is
@@ -129,6 +136,9 @@ Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says 
   `waitUntilReadable(timeout:)`.
 
 ### Removed
+- The closure-based HTML builder of 1.x: its ~150 global attribute variables (`href`, `name`, `inner`, ...), the element
+  functions (`html`, `body`, `a`, ...), `element(_:_:_:)`, `NanoHTMLClosure` and the elements that HTML has removed
+  (`center`, `font`, `marquee`, `blink`, ...).
 - The helpers that Swifter had left on `String` are not public any more: `exists()`, `directory()`, `files()`,
   `openForReading()`, `openNewForWriting()`, `openForWritingAndReading()`, `openFileForMode(_:_:)`, `pathSeparator`,
   `File.currentWorkingDirectory()`, `unquote()`, `sha1()` and `toBase64(_:)`. `NanoFile(path:mode:)` and `FileManager`

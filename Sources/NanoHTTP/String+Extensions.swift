@@ -71,6 +71,29 @@ extension String {
 }
 
 extension String {
+  /// This text with the characters that have a meaning in HTML replaced by entities
+  /// (`&`, `<`, `>`, `"` and `'`), so that it is shown as it is when it is used as the text of an
+  /// element or as the value of an attribute. Use it for text that is put into a page by hand, for
+  /// example into ``NanoHTTPResponse/Body/htmlBody(_:)``; the pages of the NanoHTML module escape
+  /// text themselves.
+  public var htmlEscaped: String {
+    var result = ""
+    result.reserveCapacity(self.utf8.count)
+    for character in self {
+      switch character {
+        case "&": result += "&amp;"
+        case "<": result += "&lt;"
+        case ">": result += "&gt;"
+        case "\"": result += "&quot;"
+        case "'": result += "&#39;"
+        default: result.append(character)
+      }
+    }
+    return result
+  }
+}
+
+extension String {
   /// Decodes percent-encoded text: `%XX` is the byte `XX`, and the bytes are read as UTF-8. This never
   /// fails: a `%` that is not followed by two hexadecimal digits is kept as it is, and bytes that are not
   /// valid UTF-8 become the replacement character U+FFFD.

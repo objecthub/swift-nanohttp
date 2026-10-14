@@ -65,7 +65,7 @@ that *calls* a handler, in tests for example, and the handlers that `htmlHandler
 `NanoWebSocket.handler` return:
 
 ```swift
-let handler = htmlHandler { p { inner = "hi" } }
+let handler = htmlHandler { _ in P("hi") }
 let request = NanoHTTPRequest(method: "GET", path: "/")
 let response = try handler(request)                   // 1.x: handler(request)
 ```
@@ -235,3 +235,46 @@ framework: `String.exists()`, `directory()`, `files()`, `openFileForMode(_:_:)`,
 `String.File.currentWorkingDirectory()` (use `FileManager.default.currentDirectoryPath`), `String.unquote()`,
 `String.sha1()` and `String.toBase64(_:)`. `FileManager`, `CryptoKit` and `Data.base64EncodedString()` do the same
 jobs.
+
+## NanoHTML is a library of its own, and it is new
+
+The HTML builder is not part of the `NanoHTTP` module any more. It is the product `NanoHTML` (add it to the dependencies
+of your target, and `import NanoHTML`), and it is a different builder: pages are values, text and attributes are
+escaped, and nothing is global. The closures and global variables of 1.x (`html { body { ... } }`, `href = "/"`,
+`inner = "text"`) are gone, so the names `name`, `title`, `type`, `value` and about 150 more do not clash with your own
+any more, and pages are not rendered one at a time behind a lock.
+
+```swift nocompile
+// 1.x
+server["/greeting"] = { request in
+  try htmlHandler {
+    html {
+      body {
+        h1 { inner = "Hello, \(request.params["name"] ?? "world")".htmlEscaped }
+        a { href = "/"; inner = "Home" }
+      }
+    }
+  }(request)
+}
+```
+
+```swift
+// 2.0
+let server = NanoHTTPServer()
+server["/greeting"] = htmlHandler { request in
+  Html {
+    Body {
+      H1("Hello, \(request.params["name"] ?? "world")")      // escaped by itself
+      A("Home").href("/")
+    }
+  }
+}
+```
+
+The article *Building Pages* in the documentation of NanoHTML has the complete table. The main differences: element
+types are capitalized (`Div`, `Ul`, `Td`); attributes are methods that follow the element (`.href("/")`,
+`.class("card")`, `.autofocus()`); `for` and `if` replace the helpers for sequences; `Raw("...")` replaces `inner` for
+HTML that you wrote; `htmlHandler`'s block receives the request; and `Html` writes the document type itself. The
+obsolete elements (`center`, `font`, `marquee`, ...) have no type, `Data` and `Progress` are `DataValue` and
+`ProgressBar`, and `String.htmlEscaped` is still in `NanoHTTP`.
+

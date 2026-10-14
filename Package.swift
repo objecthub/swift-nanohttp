@@ -47,6 +47,7 @@ let package = Package(
   // to other packages.
   products: [
     .library(name: "NanoHTTP", targets: ["NanoHTTP"]),
+    .library(name: "NanoHTML", targets: ["NanoHTML"]),
     .library(name: "NanoHTTPDemo", targets: ["NanoHTTPDemo"]),
     .executable(name: "DemoServer", targets: ["DemoServer"])
   ],
@@ -70,9 +71,18 @@ let package = Package(
         "NanoHTTP.h"
       ]),
     .target(
-      name: "NanoHTTPDemo",
+      name: "NanoHTML",
       dependencies: [
         .target(name: "NanoHTTP")
+      ],
+      exclude: [
+        "NanoHTML.h"
+      ]),
+    .target(
+      name: "NanoHTTPDemo",
+      dependencies: [
+        .target(name: "NanoHTTP"),
+        .target(name: "NanoHTML")
       ],
       exclude: [
         "NanoHTTPDemo.h"
@@ -87,7 +97,8 @@ let package = Package(
     .testTarget(
       name: "NanoHTTPTests",
       dependencies: [
-        .target(name: "NanoHTTP")
+        .target(name: "NanoHTTP"),
+        .target(name: "NanoHTML")
       ],
       exclude: [
       ])

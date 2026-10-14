@@ -31,6 +31,21 @@
 		CC50C0992C4B1A1100482E4B /* NanoHTTP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; };
 		CC50C09F2C4B1A1100482E4B /* NanoHTTP.h in Headers */ = {isa = PBXBuildFile; fileRef = CC50C0932C4B1A1100482E4B /* NanoHTTP.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CC50C0BF2C4BA95600482E4B /* NanoHTTPDemo.h in Headers */ = {isa = PBXBuildFile; fileRef = CC50C0B32C4BA95500482E4B /* NanoHTTPDemo.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CC1D0C200000012B0CF6A02B /* NanoHTML.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		CC1D0C200000012A0CF6A02A /* NanoHTML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; };
+		CC1D0C20000001270CF6A027 /* NanoHTML.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		CC1D0C20000001260CF6A026 /* NanoHTML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; };
+		CC1D0C20000001230CF6A023 /* NanoHTML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; };
+		CC1D0C20000001200CF6A020 /* NanoHTML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; };
+		CC1D0C200000010B0CF6A00B /* NanoHTML.h in Headers */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001040CF6A004 /* NanoHTML.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CC1D0C200000010C0CF6A00C /* NanoHTTP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; };
+		CC1D0C200000010D0CF6A00D /* NanoHTTP.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		CC1D0C20000001150CF6A015 /* HTMLNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001140CF6A014 /* HTMLNode.swift */; };
+		CC1D0C20000001170CF6A017 /* HTMLElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001160CF6A016 /* HTMLElement.swift */; };
+		CC1D0C20000001190CF6A019 /* HTMLElements.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001180CF6A018 /* HTMLElements.swift */; };
+		CC1D0C200000011B0CF6A01B /* HTMLAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C200000011A0CF6A01A /* HTMLAttributes.swift */; };
+		CC1D0C200000011D0CF6A01D /* HTMLResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C200000011C0CF6A01C /* HTMLResponse.swift */; };
+		CC1D0C20000001130CF6A013 /* NanoHTML.docc in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001050CF6A005 /* NanoHTML.docc */; };
 		CC50C0C72C4BAA7B00482E4B /* NanoHTTPRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0C62C4BAA7B00482E4B /* NanoHTTPRequest.swift */; };
 		CC50C0C92C4BAC1B00482E4B /* NanoHTTPResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0C82C4BAC1B00482E4B /* NanoHTTPResponse.swift */; };
 		CC50C0CB2C4BAC7B00482E4B /* NanoHTTPSegmentRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0CA2C4BAC7B00482E4B /* NanoHTTPSegmentRouter.swift */; };
@@ -45,7 +60,6 @@
 		CC1D0C142D0000260CF6A026 /* Renamed.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C142D0000250CF6A025 /* Renamed.swift */; };
 		CC50C0DD2C4BAF2D00482E4B /* NanoWebSockets.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0DC2C4BAF2D00482E4B /* NanoWebSockets.swift */; };
 		CC50C0DF2C4BAFFC00482E4B /* NanoProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0DE2C4BAFFC00482E4B /* NanoProcess.swift */; };
-		CC50C0E12C4BB02F00482E4B /* NanoHTML.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0E02C4BB02F00482E4B /* NanoHTML.swift */; };
 		CC50C0E32C4BB0D500482E4B /* NanoHTTPDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0E22C4BB0D500482E4B /* NanoHTTPDemo.swift */; };
 		CC50C0E52C4BB10500482E4B /* NanoHTTP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; };
 		CC50C0E62C4BB10500482E4B /* NanoHTTP.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -100,6 +114,41 @@
 			remoteGlobalIDString = CC50C08F2C4B1A1100482E4B;
 			remoteInfo = NanoHTTP;
 		};
+		CC1D0C20000001280CF6A028 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC1D0C20000001010CF6A001;
+			remoteInfo = NanoHTML;
+		};
+		CC1D0C20000001240CF6A024 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC1D0C20000001010CF6A001;
+			remoteInfo = NanoHTML;
+		};
+		CC1D0C20000001210CF6A021 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC1D0C20000001010CF6A001;
+			remoteInfo = NanoHTML;
+		};
+		CC1D0C200000011E0CF6A01E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC1D0C20000001010CF6A001;
+			remoteInfo = NanoHTML;
+		};
+		CC1D0C200000010E0CF6A00E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC50C08F2C4B1A1100482E4B;
+			remoteInfo = NanoHTTP;
+		};
 		CC50C0F72C4BB47F00482E4B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
@@ -142,6 +191,17 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CC1D0C200000010A0CF6A00A /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				CC1D0C200000010D0CF6A00D /* NanoHTTP.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CC50C0EC2C4BB43A00482E4B /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -159,6 +219,7 @@
 			files = (
 				CC50C0F62C4BB47F00482E4B /* NanoHTTP.framework in Embed Frameworks */,
 				CC50C0FA2C4BB47F00482E4B /* NanoHTTPDemo.framework in Embed Frameworks */,
+				CC1D0C20000001270CF6A027 /* NanoHTML.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -171,6 +232,7 @@
 			files = (
 				CC50C1122C4BBC8A00482E4B /* NanoHTTP.framework in Embed Frameworks */,
 				CC50C1162C4BBC8A00482E4B /* NanoHTTPDemo.framework in Embed Frameworks */,
+				CC1D0C200000012B0CF6A02B /* NanoHTML.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -208,6 +270,14 @@
 		CC50C0AA2C4B1C9300482E4B /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
 		CC50C0B12C4BA95500482E4B /* NanoHTTPDemo.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = NanoHTTPDemo.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CC50C0B32C4BA95500482E4B /* NanoHTTPDemo.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NanoHTTPDemo.h; sourceTree = "<group>"; };
+		CC1D0C20000001020CF6A002 /* NanoHTML.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = NanoHTML.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		CC1D0C20000001040CF6A004 /* NanoHTML.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NanoHTML.h; sourceTree = "<group>"; };
+		CC1D0C20000001050CF6A005 /* NanoHTML.docc */ = {isa = PBXFileReference; lastKnownFileType = folder.documentationcatalog; path = NanoHTML.docc; sourceTree = "<group>"; };
+		CC1D0C20000001140CF6A014 /* HTMLNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLNode.swift; sourceTree = "<group>"; };
+		CC1D0C20000001160CF6A016 /* HTMLElement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLElement.swift; sourceTree = "<group>"; };
+		CC1D0C20000001180CF6A018 /* HTMLElements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLElements.swift; sourceTree = "<group>"; };
+		CC1D0C200000011A0CF6A01A /* HTMLAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLAttributes.swift; sourceTree = "<group>"; };
+		CC1D0C200000011C0CF6A01C /* HTMLResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLResponse.swift; sourceTree = "<group>"; };
 		CC50C0C62C4BAA7B00482E4B /* NanoHTTPRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPRequest.swift; sourceTree = "<group>"; };
 		CC50C0C82C4BAC1B00482E4B /* NanoHTTPResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPResponse.swift; sourceTree = "<group>"; };
 		CC50C0CA2C4BAC7B00482E4B /* NanoHTTPSegmentRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPSegmentRouter.swift; sourceTree = "<group>"; };
@@ -222,7 +292,6 @@
 		CC1D0C142D0000250CF6A025 /* Renamed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Renamed.swift; sourceTree = "<group>"; };
 		CC50C0DC2C4BAF2D00482E4B /* NanoWebSockets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoWebSockets.swift; sourceTree = "<group>"; };
 		CC50C0DE2C4BAFFC00482E4B /* NanoProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoProcess.swift; sourceTree = "<group>"; };
-		CC50C0E02C4BB02F00482E4B /* NanoHTML.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTML.swift; sourceTree = "<group>"; };
 		CC50C0E22C4BB0D500482E4B /* NanoHTTPDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPDemo.swift; sourceTree = "<group>"; };
 		CC50C0EE2C4BB43A00482E4B /* DemoServer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = DemoServer; sourceTree = BUILT_PRODUCTS_DIR; };
 		CC50C0F02C4BB43A00482E4B /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
@@ -270,6 +339,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CC50C0992C4B1A1100482E4B /* NanoHTTP.framework in Frameworks */,
+				CC1D0C20000001230CF6A023 /* NanoHTML.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -278,6 +348,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				CC50C0E52C4BB10500482E4B /* NanoHTTP.framework in Frameworks */,
+				CC1D0C20000001200CF6A020 /* NanoHTML.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC1D0C20000001080CF6A008 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC1D0C200000010C0CF6A00C /* NanoHTTP.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -287,6 +366,7 @@
 			files = (
 				CC50C0F52C4BB47F00482E4B /* NanoHTTP.framework in Frameworks */,
 				CC50C0F92C4BB47F00482E4B /* NanoHTTPDemo.framework in Frameworks */,
+				CC1D0C20000001260CF6A026 /* NanoHTML.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -296,6 +376,7 @@
 			files = (
 				CC50C1112C4BBC8A00482E4B /* NanoHTTP.framework in Frameworks */,
 				CC50C1152C4BBC8A00482E4B /* NanoHTTPDemo.framework in Frameworks */,
+				CC1D0C200000012A0CF6A02A /* NanoHTML.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -313,6 +394,7 @@
 				CC60E9C0307EEB98000EE746 /* SECURITY.md */,
 				CC19D6FF2C4EFC4700761AF3 /* Package.swift */,
 				CC50C0922C4B1A1100482E4B /* NanoHTTP */,
+				CC1D0C20000001030CF6A003 /* NanoHTML */,
 				CC50C0B22C4BA95500482E4B /* NanoHTTPDemo */,
 				CC50C09C2C4B1A1100482E4B /* NanoHTTPTests */,
 				CC50C0EF2C4BB43A00482E4B /* DemoServer */,
@@ -326,6 +408,7 @@
 			isa = PBXGroup;
 			children = (
 				CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */,
+				CC1D0C20000001020CF6A002 /* NanoHTML.framework */,
 				CC50C0982C4B1A1100482E4B /* NanoHTTPTests.xctest */,
 				CC50C0B12C4BA95500482E4B /* NanoHTTPDemo.framework */,
 				CC50C0EE2C4BB43A00482E4B /* DemoServer */,
@@ -360,7 +443,6 @@
 				CC1D0C0A2D000001000D0001 /* NanoHTTP.docc */,
 				CC50C0DC2C4BAF2D00482E4B /* NanoWebSockets.swift */,
 				CC50C0DE2C4BAFFC00482E4B /* NanoProcess.swift */,
-				CC50C0E02C4BB02F00482E4B /* NanoHTML.swift */,
 				CCB752102C64335300E7C1B0 /* NanoNetworkInterface.swift */,
 				CC50C0932C4B1A1100482E4B /* NanoHTTP.h */,
 			);
@@ -413,6 +495,21 @@
 			);
 			name = NanoHTTPDemo;
 			path = Sources/NanoHTTPDemo;
+			sourceTree = "<group>";
+		};
+		CC1D0C20000001030CF6A003 /* NanoHTML */ = {
+			isa = PBXGroup;
+			children = (
+				CC1D0C20000001140CF6A014 /* HTMLNode.swift */,
+				CC1D0C20000001160CF6A016 /* HTMLElement.swift */,
+				CC1D0C20000001180CF6A018 /* HTMLElements.swift */,
+				CC1D0C200000011A0CF6A01A /* HTMLAttributes.swift */,
+				CC1D0C200000011C0CF6A01C /* HTMLResponse.swift */,
+				CC1D0C20000001050CF6A005 /* NanoHTML.docc */,
+				CC1D0C20000001040CF6A004 /* NanoHTML.h */,
+			);
+			name = NanoHTML;
+			path = Sources/NanoHTML;
 			sourceTree = "<group>";
 		};
 		CC50C0E42C4BB10500482E4B /* Frameworks */ = {
@@ -481,6 +578,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CC1D0C20000001060CF6A006 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC1D0C200000010B0CF6A00B /* NanoHTML.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
@@ -514,6 +619,7 @@
 			);
 			dependencies = (
 				CC50C09B2C4B1A1100482E4B /* PBXTargetDependency */,
+				CC1D0C20000001220CF6A022 /* PBXTargetDependency */,
 			);
 			name = NanoHTTPTests;
 			productName = NanoHTTPTests;
@@ -534,10 +640,31 @@
 			);
 			dependencies = (
 				CC50C0E82C4BB10500482E4B /* PBXTargetDependency */,
+				CC1D0C200000011F0CF6A01F /* PBXTargetDependency */,
 			);
 			name = NanoHTTPDemo;
 			productName = NanoHTTPDemo;
 			productReference = CC50C0B12C4BA95500482E4B /* NanoHTTPDemo.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		CC1D0C20000001010CF6A001 /* NanoHTML */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CC1D0C20000001100CF6A010 /* Build configuration list for PBXNativeTarget "NanoHTML" */;
+			buildPhases = (
+				CC1D0C20000001060CF6A006 /* Headers */,
+				CC1D0C20000001070CF6A007 /* Sources */,
+				CC1D0C20000001080CF6A008 /* Frameworks */,
+				CC1D0C20000001090CF6A009 /* Resources */,
+				CC1D0C200000010A0CF6A00A /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CC1D0C200000010F0CF6A00F /* PBXTargetDependency */,
+			);
+			name = NanoHTML;
+			productName = NanoHTML;
+			productReference = CC1D0C20000001020CF6A002 /* NanoHTML.framework */;
 			productType = "com.apple.product-type.framework";
 		};
 		CC50C0ED2C4BB43A00482E4B /* DemoServer */ = {
@@ -554,6 +681,7 @@
 			dependencies = (
 				CC50C0F82C4BB47F00482E4B /* PBXTargetDependency */,
 				CC50C0FC2C4BB47F00482E4B /* PBXTargetDependency */,
+				CC1D0C20000001250CF6A025 /* PBXTargetDependency */,
 			);
 			name = DemoServer;
 			productName = "DemoServer-macOS";
@@ -574,6 +702,7 @@
 			dependencies = (
 				CC50C1142C4BBC8A00482E4B /* PBXTargetDependency */,
 				CC50C1182C4BBC8A00482E4B /* PBXTargetDependency */,
+				CC1D0C20000001290CF6A029 /* PBXTargetDependency */,
 			);
 			name = "DemoServer iOS";
 			productName = "DemoServer-iOS";
@@ -601,6 +730,10 @@
 						CreatedOnToolsVersion = 15.4;
 						LastSwiftMigration = 1540;
 					};
+					CC1D0C20000001010CF6A001 = {
+						CreatedOnToolsVersion = 15.4;
+						LastSwiftMigration = 1540;
+					};
 					CC50C0ED2C4BB43A00482E4B = {
 						CreatedOnToolsVersion = 15.4;
 					};
@@ -623,6 +756,7 @@
 			projectRoot = "";
 			targets = (
 				CC50C08F2C4B1A1100482E4B /* NanoHTTP */,
+				CC1D0C20000001010CF6A001 /* NanoHTML */,
 				CC50C0B02C4BA95500482E4B /* NanoHTTPDemo */,
 				CC50C0972C4B1A1100482E4B /* NanoHTTPTests */,
 				CC50C0ED2C4BB43A00482E4B /* DemoServer */,
@@ -653,6 +787,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CC1D0C20000001090CF6A009 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CC50C1012C4BB7FB00482E4B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -672,7 +813,6 @@
 				CC1D0C0F2D0000140CF6A014 /* NanoSocketSession.swift in Sources */,
 				CC1D0C0D2D0000080CF6A008 /* NanoThreadPool.swift in Sources */,
 				CC1D0C0A2D000002000D0002 /* NanoHTTP.docc in Sources */,
-				CC50C0E12C4BB02F00482E4B /* NanoHTML.swift in Sources */,
 				CC50C0D52C4BADE800482E4B /* NanoSocket.swift in Sources */,
 				CC50C0CF2C4BAD2200482E4B /* NanoHTTPServerIO.swift in Sources */,
 				CC50C0D32C4BADB600482E4B /* NanoHTTPConnection.swift in Sources */,
@@ -743,6 +883,19 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CC1D0C20000001070CF6A007 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC1D0C20000001150CF6A015 /* HTMLNode.swift in Sources */,
+				CC1D0C20000001170CF6A017 /* HTMLElement.swift in Sources */,
+				CC1D0C20000001190CF6A019 /* HTMLElements.swift in Sources */,
+				CC1D0C200000011B0CF6A01B /* HTMLAttributes.swift in Sources */,
+				CC1D0C200000011D0CF6A01D /* HTMLResponse.swift in Sources */,
+				CC1D0C20000001130CF6A013 /* NanoHTML.docc in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CC50C0EA2C4BB43A00482E4B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -773,6 +926,31 @@
 			isa = PBXTargetDependency;
 			target = CC50C08F2C4B1A1100482E4B /* NanoHTTP */;
 			targetProxy = CC50C0E72C4BB10500482E4B /* PBXContainerItemProxy */;
+		};
+		CC1D0C20000001290CF6A029 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC1D0C20000001010CF6A001 /* NanoHTML */;
+			targetProxy = CC1D0C20000001280CF6A028 /* PBXContainerItemProxy */;
+		};
+		CC1D0C20000001250CF6A025 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC1D0C20000001010CF6A001 /* NanoHTML */;
+			targetProxy = CC1D0C20000001240CF6A024 /* PBXContainerItemProxy */;
+		};
+		CC1D0C20000001220CF6A022 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC1D0C20000001010CF6A001 /* NanoHTML */;
+			targetProxy = CC1D0C20000001210CF6A021 /* PBXContainerItemProxy */;
+		};
+		CC1D0C200000011F0CF6A01F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC1D0C20000001010CF6A001 /* NanoHTML */;
+			targetProxy = CC1D0C200000011E0CF6A01E /* PBXContainerItemProxy */;
+		};
+		CC1D0C200000010F0CF6A00F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC50C08F2C4B1A1100482E4B /* NanoHTTP */;
+			targetProxy = CC1D0C200000010E0CF6A00E /* PBXContainerItemProxy */;
 		};
 		CC50C0F82C4BB47F00482E4B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1153,6 +1331,97 @@
 			};
 			name = Release;
 		};
+		CC1D0C20000001110CF6A011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = C72Z63N8M5;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTML;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INSTALL_OBJC_HEADER = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,3";
+				TVOS_DEPLOYMENT_TARGET = 15.0;
+			};
+			name = Debug;
+		};
+		CC1D0C20000001120CF6A012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = C72Z63N8M5;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTML;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INSTALL_OBJC_HEADER = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,3";
+				TVOS_DEPLOYMENT_TARGET = 15.0;
+			};
+			name = Release;
+		};
 		CC50C0F32C4BB43A00482E4B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1281,6 +1550,15 @@
 			buildConfigurations = (
 				CC50C0C12C4BA95600482E4B /* Debug */,
 				CC50C0C22C4BA95600482E4B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CC1D0C20000001100CF6A010 /* Build configuration list for PBXNativeTarget "NanoHTML" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CC1D0C20000001110CF6A011 /* Debug */,
+				CC1D0C20000001120CF6A012 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

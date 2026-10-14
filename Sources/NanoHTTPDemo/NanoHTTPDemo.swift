@@ -36,6 +36,7 @@
 
 import Foundation
 import NanoHTTP
+import NanoHTML
 
 extension NanoHTTPServer {
   /// Adds the demo routes to a server, see ``demoServer(server:directory:)``.
@@ -55,14 +56,12 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
   server.log("directory = \(publicDir)")
   server["/public/::path"] = NanoFiles.share(directory: publicDir)
   server["/files/::path"] = NanoFiles.browse(directory: publicDir)
-  server["/"] = htmlHandler {
-    html {
-      body {
-        ul(server.routes) { service in
-          if !service.isEmpty {
-            li {
-              a { href = service; inner = service }
-            }
+  server["/"] = htmlHandler { _ in
+    Html {
+      Body {
+        Ul {
+          for route in server.routes.sorted() where !route.isEmpty {
+            Li { A(route).href(route) }
           }
         }
       }
@@ -71,53 +70,43 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
   server["/magic"] = {
     return .ok(headers: ["XXX-Custom-Header" : "value"], .htmlBody("You asked for " + $0.path.htmlEscaped))
   }
-  server["/test/:param1/:param2", "/pathTest/::param/end"] = { request in
-    try htmlHandler {
-      html {
-        body {
-          h3 { inner = "Address: \(request.address ?? "unknown")".htmlEscaped }
-          h3 { inner = "Url: \(request.path)".htmlEscaped }
-          h3 { inner = "Method: \(request.method)".htmlEscaped }
-          h3 { inner = "Query:" }
-          table(request.queryParams) { param in
-            tr {
-              td { inner = param.0.htmlEscaped }
-              td { inner = param.1.htmlEscaped }
-            }
+  server["/test/:param1/:param2", "/pathTest/::param/end"] = htmlHandler { request in
+    Html {
+      Body {
+        H3("Address: \(request.address ?? "unknown")")
+        H3("Url: \(request.path)")
+        H3("Method: \(request.method)")
+        H3("Query:")
+        Table {
+          for (name, value) in request.queryParams {
+            Tr { Td(name); Td(value) }
           }
-          h3 { inner = "Headers:" }
-          table(request.availableHeaders) { header in
-            tr {
-              td { inner = header.htmlEscaped }
-              td { inner = request.header(header)?.htmlEscaped }
-            }
+        }
+        H3("Headers:")
+        Table {
+          for name in request.availableHeaders {
+            Tr { Td(name); Td(request.header(name) ?? "") }
           }
-          h3 { inner = "Route params:" }
-          table(request.params) { param in
-            tr {
-              td { inner = param.0.htmlEscaped }
-              td { inner = param.1.htmlEscaped }
-            }
+        }
+        H3("Route params:")
+        Table {
+          for (name, value) in request.params {
+            Tr { Td(name); Td(value) }
           }
         }
       }
-    }(request)
+    }
   }
-  server.get["/upload"] = htmlHandler {
-    html {
-      body {
-        form {
-          method = "POST"
-          action = "/upload"
-          enctype = "multipart/form-data"
-          input { name = "my_file1"; type = "file" }
-          input { name = "my_file2"; type = "file" }
-          input { name = "my_file3"; type = "file" }
-          button {
-            type = "submit"
-            inner = "Upload"
-          }
+  server.get["/upload"] = htmlHandler { _ in
+    Html {
+      Body {
+        Form {
+          Input().name("my_file1").type("file")
+          Input().name("my_file2").type("file")
+          Input().name("my_file3").type("file")
+          Button("Upload").type("submit")
         }
+        .method("POST").action("/upload").enctype("multipart/form-data")
       }
     }
   }
@@ -132,32 +121,24 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
     }
     return .ok(headers: ["XXX-Custom-Header" : "value"], .htmlBody(response))
   }
-  server.get["/login"] = htmlHandler {
-    html {
-      head {
-        script { src = "http://cdn.staticfile.org/jquery/2.1.4/jquery.min.js" }
-        stylesheet { href = "http://cdn.staticfile.org/twitter-bootstrap/3.3.0/css/bootstrap.min.css" }
+  server.get["/login"] = htmlHandler { _ in
+    Html {
+      Head {
+        Script().src("https://cdn.staticfile.org/jquery/2.1.4/jquery.min.js")
+        Link().rel("stylesheet")
+              .href("https://cdn.staticfile.org/twitter-bootstrap/3.3.0/css/bootstrap.min.css")
       }
-      body {
-        h3 { inner = "Sign In" }
-        form {
-          method = "POST"
-          action = "/login"
-          fieldset {
-            input { placeholder = "E-mail"; name = "email"; type = "email"; autofocus = "" }
-            input { placeholder = "Password"; name = "password"; type = "password"; autofocus = "" }
-            a {
-              href = "/login"
-              button {
-                type = "submit"
-                inner = "Login"
-              }
-            }
+      Body {
+        H3("Sign In")
+        Form {
+          Fieldset {
+            Input().placeholder("E-mail").name("email").type("email").autofocus()
+            Input().placeholder("Password").name("password").type("password")
+            A { Button("Login").type("submit") }.href("/login")
           }
         }
-        javascript {
-          src = "http://cdn.staticfile.org/twitter-bootstrap/3.3.0/js/bootstrap.min.js"
-        }
+        .method("POST").action("/login")
+        Script().src("https://cdn.staticfile.org/twitter-bootstrap/3.3.0/js/bootstrap.min.js")
       }
     }
   }
@@ -166,13 +147,15 @@ public func demoServer(server: NanoHTTPServer = NanoHTTPServer(),
     return .ok(headers: ["XXX-Custom-Header": "value"],
                .htmlBody(formFields.map({ "\($0.0.htmlEscaped) = \($0.1.htmlEscaped)" }).joined(separator: "<br>")))
   }
-  server["/demo"] = htmlHandler {
-    html {
-      body {
-        center {
-          h2 { inner = "Hello Swift" }
-          img { src = "https://devimages.apple.com.edgekey.net/swift/images/swift-hero_2x.png" }
+  server["/demo"] = htmlHandler { _ in
+    Html {
+      Body {
+        Div {
+          H2("Hello Swift")
+          Img().src("https://devimages.apple.com.edgekey.net/swift/images/swift-hero_2x.png")
+               .alt("The Swift logo")
         }
+        .style("text-align: center")
       }
     }
   }

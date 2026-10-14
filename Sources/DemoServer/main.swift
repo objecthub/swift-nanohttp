@@ -61,7 +61,7 @@ final class MacOsHttpServer: NanoHTTPServer {
 }
 
 do {
-  let path = try FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path ??
+  let path = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path ??
              FileManager.default.currentDirectoryPath
   let server: NanoHTTPServer  = .demo(server: MacOsHttpServer(), directory: path)
   server["/testAfterBaseRoute"] = { request in

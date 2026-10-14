@@ -107,8 +107,8 @@ limits, or use another server.
   never decode the values again: a check that sees `%2e%2e` while the use decodes it to `..` is a way out of a
   directory. See <doc:ReadingRequests>.
 - Text that is not under your control and is inserted into HTML must be escaped:
-  ``Swift/String/htmlEscaped``. ``NanoHTTPResponse/Body/htmlBody(_:)`` and the `inner` of the HTML builder insert
-  their content as it is. `browse` escapes file names itself.
+  ``Swift/String/htmlEscaped``. ``NanoHTTPResponse/Body/htmlBody(_:)`` inserts its content as it is. The NanoHTML
+  module escapes text and attribute values itself; only `Raw` inserts HTML as it is. `browse` escapes file names itself.
 - Values of response headers cannot inject headers: line breaks in them are replaced, and headers with invalid
   names are dropped. Still, validate a redirect target (`.movedTemporarily(location)`) that comes from a request:
   it may point to another site.

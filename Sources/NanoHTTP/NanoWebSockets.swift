@@ -311,6 +311,10 @@ public class WebSocketSession: Hashable, Equatable {
   /// must not be mixed.
   private let writeLock = NSLock()
   
+  /// Whether a close frame has been sent. An endpoint sends no data after its close frame (RFC 6455, 5.5.1), so the
+  /// session does not send a second one when it is released.
+  private var closeFrameSent = false
+  
   /// The largest frame payload `readFrame()` accepts, in bytes. A frame that announces more is
   /// rejected with `WsError.protocolError` before any of its payload is read.
   public var maxPayloadSize = 16 * 1024 * 1024
@@ -321,7 +325,9 @@ public class WebSocketSession: Hashable, Equatable {
   }
   
   deinit {
-    writeCloseFrame()
+    if !self.closeFrameSent {
+      writeCloseFrame()
+    }
     socket.close()
   }
   
@@ -348,6 +354,9 @@ public class WebSocketSession: Hashable, Equatable {
     self.writeLock.lock()
     defer {
       self.writeLock.unlock()
+    }
+    if op == .close {
+      self.closeFrameSent = true
     }
     do {
       if data.count <= WebSocketSession.coalescingLimit {

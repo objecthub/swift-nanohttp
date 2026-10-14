@@ -12,7 +12,7 @@ command-line tool, a Mac app, an iOS app. It supports macOS 12, iOS 15 and tvOS 
 Add the package to the dependencies of your `Package.swift`, and the product `NanoHTTP` to your target:
 
 ```text
-.package(url: "https://github.com/objecthub/swift-nanohttp.git", from: "1.0.2"),
+.package(url: "https://github.com/objecthub/swift-nanohttp.git", from: "1.0.3"),
 ...
 .product(name: "NanoHTTP", package: "swift-nanohttp"),
 ```

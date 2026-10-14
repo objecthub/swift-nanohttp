@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file. The format is b
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+## [1.0.3] - 2026-10-14
+
+The first release of the maintenance branch `release/1.x`: version 1.0 receives fixes for security problems and crashes
+until the end of 2027 (`SECURITY.md`). Everything else is made for 2.x.
+
+### Fixed
+- A WebSocket session no longer sends a second, empty close frame. When a connection ended, the handler answered the close
+  frame of the client, and the session sent another one when it was released. An endpoint sends no data after its close
+  frame (RFC 6455, 5.5.1).
+
+### Removed
+- The GitHub Actions workflow (`.github/workflows/ci.yml`): the project has no continuous integration. The checks it ran
+  are scripts and commands that are run by hand, listed in `CONTRIBUTING.md`.
+
 ## [1.0.2] - 2026-10-13
 
 ### Added
@@ -169,6 +185,8 @@ First release (replaces the former `0.1 (2024-07-19)` entry, which was never tag
   they are reachable.
 - Swift Package Manager support; demo server for macOS (command line) and iOS (SwiftUI app).
 
+[Unreleased]: https://github.com/objecthub/swift-nanohttp/compare/1.0.3...release/1.x
+[1.0.3]: https://github.com/objecthub/swift-nanohttp/compare/1.0.2...1.0.3
 [1.0.2]: https://github.com/objecthub/swift-nanohttp/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/objecthub/swift-nanohttp/compare/1.0...1.0.1
 [1.0]: https://github.com/objecthub/swift-nanohttp/releases/tag/1.0

@@ -2,6 +2,11 @@
 
 [![Platforms: macOS, iOS, tvOS](https://img.shields.io/badge/Platforms-macOS,%20iOS,%20tvOS-blue.svg?style=flat)](https://developer.apple.com/osx/) [![Language: Swift 5.9](https://img.shields.io/badge/Language-Swift%205.9-green.svg?style=flat)](https://developer.apple.com/swift/) [![IDE: Xcode 15](https://img.shields.io/badge/IDE-Xcode%2015-orange.svg?style=flat)](https://developer.apple.com/xcode/) [![Package managers: SwiftPM](https://img.shields.io/badge/Package%20managers-SwiftPM-8E64B0.svg?style=flat)](https://swift.org/package-manager/) [![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD%203--Clause-lightgrey.svg?style=flat)](LICENSE)
 
+> **This is the maintenance branch of version 1.** Version 2.0 is the current version (see the
+> [`main` branch](https://github.com/objecthub/swift-nanohttp) and its
+> [migration guide](https://github.com/objecthub/swift-nanohttp/blob/main/MIGRATION-2.0.md)). Version 1.0 receives
+> fixes for security problems and crashes until the end of 2027; see [SECURITY.md](SECURITY.md).
+
 NanoHTTP is a small, extensible HTTP/1.1 server framework for macOS, iOS and tvOS. It runs a web server inside your
 own process, with routing, forms, uploads, file serving and WebSockets, and no dependencies. It is based on
 [Swifter](https://github.com/httpswift/swifter) by Damian Kołakowski.
@@ -103,7 +108,7 @@ lists what to decide, with code. To report a vulnerability, see [SECURITY.md](SE
 Add the package to your `Package.swift`:
 
 ```text
-.package(url: "https://github.com/objecthub/swift-nanohttp.git", from: "1.0.2"),
+.package(url: "https://github.com/objecthub/swift-nanohttp.git", from: "1.0.3"),
 ```
 
 and the product `NanoHTTP` to the dependencies of your target. In Xcode, use File > Add Package Dependencies.

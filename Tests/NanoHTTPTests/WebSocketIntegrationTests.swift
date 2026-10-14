@@ -464,6 +464,17 @@ final class WebSocketCloseCodeTests: XCTestCase {
     }
   }
 
+  /// RFC 6455 5.5.1: an endpoint that has sent a close frame sends no more data. The session used to
+  /// send a second, empty close frame when it was released.
+  func testOnlyOneCloseFrameIsSent() throws {
+    try serve { port in
+      let client = try WS.connect(port: port)
+      client.send(WS.frame(.close, [0x03, 0xE8]))
+      XCTAssertEqual(WS.closeCode(WS.readFrame(client)), 1000)
+      XCTAssertEqual(client.readToEnd(timeout: 1), [], "nothing follows the close frame")
+    }
+  }
+
   func testACloseWithoutCodeIsAnsweredWithoutCode() throws {
     try serve { port in
       let client = try WS.connect(port: port)

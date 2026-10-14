@@ -14,6 +14,12 @@ The tests start servers on free loopback ports; they do not need the network. `T
 the suite is organized, how known bugs are recorded (`expectKnownIssue`), and the helpers for writing tests (a
 raw socket client for the exact bytes of a request, `withTestServer`, fixtures).
 
+## This branch
+
+`release/1.x` maintains version 1 of the framework until the end of 2027, with fixes for security problems and
+crashes only (see [SECURITY.md](SECURITY.md)). Features, and fixes that change behavior, are made on `main`, for
+version 2.
+
 ## Rules
 
 - **A change comes with a test.** For a bug fix, the test fails without the fix.
@@ -29,8 +35,9 @@ raw socket client for the exact bytes of a request, `withTestServer`, fixtures).
 
 ## Pull requests
 
-Describe what the change does and why, and mention behavior changes. CI (GitHub Actions) builds the package,
-runs the tests (also under the address and thread sanitizers), builds the iOS demo, and runs the checks above.
+Describe what the change does and why, and mention behavior changes. There is no continuous integration: before you
+send a pull request run the tests (`swift test`, also with `--sanitize=address` and `--sanitize=thread`) and the
+checks above.
 
 ## Security
 

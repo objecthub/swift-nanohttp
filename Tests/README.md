@@ -115,7 +115,8 @@ sanitizer, which also checks the claim of `ExampleStatus` that a server with one
 
 ## Not covered yet
 
-Performance (R8: `Benchmarks/` is the tool), `NanoHTTPDemo`.
+Performance (R8: `Benchmarks/` is the tool). The demo server (`NanoHTTPDemo`) has no unit tests: `python3 Scripts/check_demo.py` runs it in both
+threading modes against `curl` and a WebSocket client.
 
 ## Keeping the Xcode project in sync
 

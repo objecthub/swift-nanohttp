@@ -42,7 +42,8 @@ Describe what the change does and why, and mention behavior changes. The project
 run the checks yourself before you send a change:
 
 1. `swift test`, `swift test --sanitize=address` and `swift test --sanitize=thread`: all green, no sanitizer reports.
-2. The four checks of `Scripts/`: `check_xcodeproj.py`, `check_doc_examples.py`, `check_docs.py` and `check_examples.py`.
+2. The checks of `Scripts/`: `check_xcodeproj.py`, `check_doc_examples.py`, `check_docs.py`, `check_examples.py` and, for a
+   change that users can see (the demo, headers, files, forms), `check_demo.py`, which tests the demo server with `curl`.
 3. The Xcode builds: the scheme `NanoHTTP` and the scheme `NanoHTML` for the iOS and the tvOS simulator, `DemoServer iOS`
    (`-destination 'generic/platform=iOS Simulator'`), `DemoServer` and `NanoHTTPDemo`
    (`xcodebuild -project NanoHTTP.xcodeproj -scheme <scheme> -destination <destination> build`).

@@ -14,7 +14,7 @@ is for. A failed check prints what the program wrote.
 Everything is done with the Python standard library.
 """
 
-import base64, http.client, json, os, re, signal, socket, struct, subprocess, sys, tempfile, time
+import base64, http.client, json, os, re, signal, socket, struct, subprocess, sys, tempfile, threading, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -238,17 +238,19 @@ def run(name, program, checks, binaries):
     process = subprocess.Popen([os.path.join(binaries, program)] + arguments, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, text=True)
     output = []
+
+    def read_output():
+        # Somebody has to read what the program writes all the time: a full pipe would block it.
+        for line in process.stdout:
+            output.append(line)
+    threading.Thread(target=read_output, daemon=True).start()
     try:
         port = None
         deadline = time.time() + 15
         while port is None and time.time() < deadline:
-            line = process.stdout.readline()
-            if not line:
-                break
-            output.append(line)
-            match = re.search(r"http://[^:\s]+:(\d+)", line)
-            if match:
-                port = int(match.group(1))
+            match = re.search(r"http://[^:\s]+:(\d+)", "".join(output))
+            port = int(match.group(1)) if match else None
+            time.sleep(0.05)
         check(port, "the program did not say where it listens")
         checks(port, directory)
         process.send_signal(signal.SIGTERM)
@@ -256,11 +258,11 @@ def run(name, program, checks, binaries):
             process.wait(timeout=10)
         except subprocess.TimeoutExpired:
             raise Failure("the program did not stop after SIGTERM")
-        output.append(process.stdout.read())
+        time.sleep(0.2)                                  # the last lines of the program
         check(process.returncode == 0, f"the program ended with status {process.returncode}")
         check("Sanitizer" not in "".join(output), "the sanitizer has reported something")
     except Exception:
-        print("".join(output) + (process.stdout.read() if process.poll() is not None else ""), file=sys.stderr)
+        print("".join(output), file=sys.stderr)
         raise
     finally:
         if process.poll() is None:

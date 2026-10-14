@@ -148,5 +148,5 @@ server affects the next run, and connections read the copy once instead of locki
   feature has a test in both threading modes. There is no CI: these are run by hand before every commit (CONTRIBUTING.md).
 * `Scripts/check_xcodeproj.py` (the hand-maintained Xcode project lists every Swift file), `check_doc_examples.py` (every
   example in the documentation compiles), `check_docs.py` (DocC builds without warnings), `check_examples.py` (the
-  programs in `Examples/` run and stop on `SIGTERM`).
+  programs in `Examples/` run and stop on `SIGTERM`), `check_demo.py` (the demo server against `curl` and a WebSocket client).
 * `Benchmarks/run.py`: throughput, latency and CPU per request against a release, with paired runs, in both modes.

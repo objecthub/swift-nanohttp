@@ -24,7 +24,7 @@ server.get["/teapot"] = { _ in NanoHTTPResponse(statusCode: 418, body: "short an
 ```
 
 `.ok`, `.badRequest`, `.notFound` and the other helpers take optional `headers` and a body; a string literal
-is a text body. ``NanoHTTPResponse/init(statusCode:headers:body:cookies:)`` creates a response with any status.
+is a text body. ``NanoHTTPResponse/init(statusCode:headers:body:)`` creates a response with any status.
 
 ### Errors
 

@@ -163,7 +163,9 @@ public final class NanoOSLogger: NanoHTTPLogger {
 }
 
 /// A logger that prints one line for every message, such as `[WARNING] Unable to accept a connection`,
-/// for command-line tools and for tests. By default the lines are printed to the standard output.
+/// for command-line tools and for tests. By default the lines are printed to the standard output, and every line is
+/// flushed: when the output goes to a pipe or a file (`tool | tee log`), the standard output is buffered, and the
+/// lines would otherwise show up late.
 public final class NanoConsoleLogger: NanoHTTPLogger {
   private let output: (String) -> Void
   
@@ -172,8 +174,9 @@ public final class NanoConsoleLogger: NanoHTTPLogger {
   
   /// - Parameters:
   ///   - minimumLevel: The lowest level that is logged; messages below it are not even built.
-  ///   - output: Receives every line. It is called from any thread: the default `print` is safe for that.
-  public init(minimumLevel: NanoLogLevel = .info, output: @escaping (String) -> Void = { print($0) }) {
+  ///   - output: Receives every line. It is called from any thread: the default (`print`, and a flush) is safe for that.
+  public init(minimumLevel: NanoLogLevel = .info,
+              output: @escaping (String) -> Void = { print($0); fflush(stdout) }) {
     self.minimumLevel = minimumLevel
     self.output = output
   }

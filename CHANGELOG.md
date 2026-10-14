@@ -6,6 +6,20 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-14
+
+2.1 adds to 2.0 without breaking anything (`swift package diagnose-api-breaking-changes 2.0.0` reports no breaking
+change, and paired benchmarks against 2.0.0 show no difference in speed): servers that hand requests to other threads can answer later (**deferred
+responses**), responses can set cookies and be built from any `Encodable` value, the parser of `multipart/form-data`
+bodies works on bytes, signal callbacks can stop a server, and six runnable examples show how the pieces fit together.
+
+Upgrading from 2.0.x: nothing has to change, but three behaviors are different on purpose. A `multipart/form-data` body that
+is not well-formed gives no parts (it used to give the parts before the error), see *Changed*. The callbacks of
+`NanoProcess.watchSignals(_:)` run on a queue of their own and no longer inside the signal handler, and after the first call
+the process does not end by itself on `SIGINT`, `SIGTERM` or `SIGHUP`: a callback has to see to that, see *Fixed*. Several
+`Cookie` headers in a request are joined with `; ` instead of `, `. New: `Limits.maxMultipartParts` (1000) and
+`Limits.maxMultipartHeaderBytes` (16 KiB), which can be raised if a form needs more.
+
 ### Added
 - **Deferred responses.** A subclass of `NanoHTTPServerIO` whose `handle(connection:)` hands requests to other threads can
   answer later, from any thread: `connection.deferResponse()` returns a `NanoHTTPDeferredResponse`, and
@@ -35,6 +49,11 @@ All notable changes to this project are documented in this file. The format is b
   (`--sanitize=thread` runs them under the thread sanitizer).
 - `ARCHITECTURE.md` describes the layers, the two threading modes, deferred responses, the locks and the design decisions
   for people who change the package.
+- The demo tool takes `--directory` (the folder that it shares, instead of the Downloads folder) and `--port` (`0` picks a
+  free port), and `Scripts/check_demo.py` runs it in both threading modes and tests it with `curl`: ranges, conditional
+  requests, HEAD and OPTIONS, forms (also in chunks), an upload with `Expect: 100-continue`, keep-alive reuse, HTTP/1.0,
+  `--compressed`, streaming, attempts to leave the shared folder, requests for another host name or from another site, a
+  WebSocket echo and 40 requests at the same time.
 
 ### Fixed
 - **Signals** (S8). `NanoProcess.watchSignals(_:)` ran its callbacks inside the signal handler of the system, where almost
@@ -42,6 +61,8 @@ All notable changes to this project are documented in this file. The format is b
   to catch `SIGSTOP`, which no process can. The callbacks run on a queue of their own now (a dispatch source), so they can do
   what they need, such as stopping a server, which makes `run(_:)` return. `SIGSTOP` is no longer on the list. After the
   first call the process no longer ends by itself on `SIGINT`, `SIGTERM` or `SIGHUP`; the callback has to see to that.
+- `NanoConsoleLogger` flushes the standard output after every line: with the output going to a pipe or a file, the lines
+  of a server showed up late, or not before the program ended.
 - Writing an empty slice of bytes to a socket (`writeUInt8`) cannot crash on a missing buffer address any more (R6).
 - **Multipart bodies** (H9). `parseMultiPartFormData()` works on the bytes now (and is faster: 20 MB in 14 ms instead of
   40 ms). A part ends at the line break before the next boundary line and keeps every other byte, a boundary followed by more
@@ -439,7 +460,8 @@ First release (replaces the former `0.1 (2024-07-19)` entry, which was never tag
   they are reachable.
 - Swift Package Manager support; demo server for macOS (command line) and iOS (SwiftUI app).
 
-[Unreleased]: https://github.com/objecthub/swift-nanohttp/compare/2.0.0...HEAD
+[Unreleased]: https://github.com/objecthub/swift-nanohttp/compare/2.1.0...HEAD
+[2.1.0]: https://github.com/objecthub/swift-nanohttp/compare/2.0.0...2.1.0
 [2.0.0]: https://github.com/objecthub/swift-nanohttp/compare/1.0.2...2.0.0
 [1.0.3]: https://github.com/objecthub/swift-nanohttp/compare/1.0.2...1.0.3
 [1.0.2]: https://github.com/objecthub/swift-nanohttp/compare/1.0.1...1.0.2

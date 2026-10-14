@@ -60,8 +60,19 @@ final class MacOsHttpServer: NanoHTTPServer {
   }
 }
 
+/// The value after an option of the command line (`--port 9000`).
+func option(_ name: String) -> String? {
+  let arguments = CommandLine.arguments
+  guard let index = arguments.firstIndex(of: name), index + 1 < arguments.count else {
+    return nil
+  }
+  return arguments[index + 1]
+}
+
 do {
-  let path = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path ??
+  // The folder that is shared: the Downloads folder, or the one that `--directory` names.
+  let path = option("--directory").map { ($0 as NSString).expandingTildeInPath } ??
+             FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path ??
              FileManager.default.currentDirectoryPath
   let macServer = MacOsHttpServer()
   // A command-line tool shows what the server reports in its terminal; the default logger writes to the
@@ -76,7 +87,7 @@ do {
     print("Received request: \(request)")
     return .ok(.htmlBody("ok !"))
   }
-  // The server shares the Downloads folder: only this machine can reach it, unless asked otherwise.
+  // The server shares a folder (Downloads by default): only this machine can reach it, unless asked otherwise.
   if CommandLine.arguments.contains("--network") {
     server.configuration.listenAddress = .allInterfaces
   }
@@ -84,7 +95,7 @@ do {
   if CommandLine.arguments.contains("--single-thread") {
     server.configuration.threading = .singleThread
   }
-  try server.start(9080)
+  try server.start(UInt16(option("--port") ?? "") ?? 9080)          // `--port 0` picks a free port
   RunLoop.main.run()
 } catch {
   print("Server start error: \(error)")

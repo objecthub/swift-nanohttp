@@ -10,8 +10,11 @@ It is made for servers that are used by you, your own devices or a small trusted
 interfaces, companion apps, test servers. It does not provide TLS or authentication, and it is not built to withstand
 many hostile clients; see [Security](#security).
 
-**Version 2.0** is a major release with a new API in many places, safer defaults and a faster server. If you come
-from 1.x, [MIGRATION-2.0.md](MIGRATION-2.0.md) tells what to change, and the [CHANGELOG](CHANGELOG.md) what is new.
+**Version 2.1** is the current version. Compared with 2.0 it adds deferred responses (a server that hands requests to
+other threads answers later), cookies, JSON responses from any `Encodable` value, a multipart parser that works on bytes,
+signal callbacks that can stop a server, and six runnable [examples](#examples). Version 2.0 was a major release with a new
+API in many places, safer defaults and a faster server; if you come from 1.x, [MIGRATION-2.0.md](MIGRATION-2.0.md) tells
+what to change. The [CHANGELOG](CHANGELOG.md) says what is new in every version.
 
 ## A first server
 
@@ -166,15 +169,19 @@ ratios mean something):
 | Workload | Requests per second | CPU per request |
 |---|---|---|
 | one client, persistent connection | 1.3x | 0.5x |
-| 16 clients, persistent connections | 4.8x | 0.1x |
-| 100 KB file served by `NanoFiles.share(file:)`, 4 clients | 11x | 0.4x |
-| WebSocket echo, 1 client / 16 clients | 1.15x / 1.05x | 0.8x / 0.7x |
-| a new connection for every request, 1 client / 16 clients | 1.0x / 1.0x | 0.7x / 0.45x |
+| 16 clients, persistent connections | about 5x | 0.1x |
+| 100 KB file served by `NanoFiles.share(file:)`, 4 clients | 7x to 11x | 0.4x to 0.8x |
+| WebSocket echo, 1 client / 16 clients | about 1.1x / 1.1x | 0.8x / 0.65x |
+| a new connection for every request, 1 client / 16 clients | 1.0x / 1.0x | 0.7x / 0.5x |
 | 100 KB and 10 MB responses, 1 MB uploads | 1.0x | 0.8x, 1.0x, 1.0x |
+
+Where two numbers are given, they are the results of two full runs (of 2.0 and of 2.1): the throughput of the file scenario
+varies by a third from run to run, so only the paired ratios mean something. Version 2.1 is as fast as 2.0 (paired runs
+against the 2.0.0 tag: 0.99x to 1.03x in both modes).
 
 The one-thread mode (`threading = .singleThread`) gains about the same against the one-thread mode of 1.0.2: 1.3x with
 one persistent connection, the same speed for a new connection per request, and 0.5x to 0.9x of the CPU per request.
-The one-thread mode of 1.0.2 did not serve several persistent connections at the same time; now 16 of them get 4.9x the
+The one-thread mode of 1.0.2 did not serve several persistent connections at the same time; now 16 of them get 4.8x the
 requests per second. What the scenarios do is described in [Benchmarks/README.md](Benchmarks/README.md), together with the way to repeat
 the measurement.
 
@@ -183,7 +190,7 @@ the measurement.
 Add the package to your `Package.swift`:
 
 ```text
-.package(url: "https://github.com/objecthub/swift-nanohttp.git", from: "2.0.0"),
+.package(url: "https://github.com/objecthub/swift-nanohttp.git", from: "2.1.0"),
 ```
 
 and the product `NanoHTTP` (and `NanoHTML`, if you build pages with it) to the dependencies of your target. In Xcode, use File > Add Package Dependencies.
@@ -232,6 +239,7 @@ with `--network` to let other devices connect, on networks you trust:
 swift run DemoServer                 # http://localhost:9080
 swift run DemoServer --network       # reachable from the network
 swift run DemoServer --single-thread # everything on one thread
+swift run DemoServer --directory ~/Public --port 9000   # another folder and port
 ```
 
 The iOS app listens on all network interfaces, because its purpose is to be reached from other devices.
@@ -251,6 +259,7 @@ python3 Scripts/check_xcodeproj.py                # the Xcode project lists ever
 python3 Scripts/check_doc_examples.py             # the examples of the documentation compile
 python3 Scripts/check_docs.py                     # the DocC documentation builds without warnings
 python3 Scripts/check_examples.py                 # the programs in Examples/ run and stop (also: --sanitize=thread)
+python3 Scripts/check_demo.py                     # the demo server, in both threading modes, against curl and a WebSocket client
 python3 Benchmarks/run.py --baseline 1.0.2        # throughput, latency and CPU use against a release (see Benchmarks/README.md)
 ```
 

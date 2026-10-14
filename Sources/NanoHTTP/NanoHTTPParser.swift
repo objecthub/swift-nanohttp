@@ -98,8 +98,18 @@ public struct NanoHTTPParser {
     /// Creates limits; the defaults are the limits of a new server.
     public init(maxLineLength: Int = 8 * 1024,
                 maxHeaderBytes: Int = 64 * 1024,
+                maxBodyBytes: Int = 64 * 1024 * 1024) {
+      self.init(maxLineLength: maxLineLength,
+                maxHeaderBytes: maxHeaderBytes,
+                maxBodyBytes: maxBodyBytes,
+                maxMultipartParts: 1000)
+    }
+    
+    /// Creates limits, including the ones for `multipart/form-data` bodies; the defaults are the limits of a new server.
+    public init(maxLineLength: Int = 8 * 1024,
+                maxHeaderBytes: Int = 64 * 1024,
                 maxBodyBytes: Int = 64 * 1024 * 1024,
-                maxMultipartParts: Int = 1000,
+                maxMultipartParts: Int,
                 maxMultipartHeaderBytes: Int = 16 * 1024) {
       self.maxLineLength = maxLineLength
       self.maxHeaderBytes = maxHeaderBytes

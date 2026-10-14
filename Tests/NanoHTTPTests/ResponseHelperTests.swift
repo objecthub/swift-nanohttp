@@ -149,6 +149,36 @@ final class StatusHelperTests: XCTestCase {
   }
 }
 
+/// The initializers of 2.0 are still there next to the ones that 2.1 added, and no call is ambiguous: the diff of the API
+/// against 2.0.0 shows additions only.
+final class InitializerCompatibilityTests: XCTestCase {
+  
+  func testTheInitializersOfAResponse() {
+    XCTAssertEqual(NanoHTTPResponse(statusCode: 200).cookies.count, 0)
+    XCTAssertEqual(NanoHTTPResponse(statusCode: 201, headers: ["A": "b"]).headers["A"], "b")
+    XCTAssertEqual(NanoHTTPResponse(statusCode: 202, body: .text("x")).statusCode, 202)
+    XCTAssertEqual(NanoHTTPResponse(statusCode: 203, headers: [:], body: .empty).statusCode, 203)
+    let cookie = NanoHTTPCookie(name: "a", value: "1")
+    XCTAssertEqual(NanoHTTPResponse(statusCode: 204, cookies: [cookie]).cookies, [cookie])
+    XCTAssertEqual(NanoHTTPResponse(statusCode: 205, headers: ["A": "b"], cookies: [cookie]).cookies, [cookie])
+    XCTAssertEqual(NanoHTTPResponse(statusCode: 206, headers: [:], body: .empty, cookies: [cookie]).cookies, [cookie])
+    // The initializer of 2.0 can still be used as a function.
+    let make: (Int, [String: String], NanoHTTPResponse.Body) -> NanoHTTPResponse = NanoHTTPResponse.init(statusCode:headers:body:)
+    XCTAssertEqual(make(207, [:], .empty).statusCode, 207)
+  }
+  
+  func testTheInitializersOfTheLimits() {
+    XCTAssertEqual(NanoHTTPParser.Limits(), NanoHTTPParser.Limits(maxMultipartParts: 1000))
+    XCTAssertEqual(NanoHTTPParser.Limits(maxBodyBytes: 5).maxBodyBytes, 5)
+    XCTAssertEqual(NanoHTTPParser.Limits(maxLineLength: 1, maxHeaderBytes: 2, maxBodyBytes: 3).maxMultipartParts, 1000)
+    XCTAssertEqual(NanoHTTPParser.Limits(maxMultipartParts: 7).maxMultipartHeaderBytes, 16 * 1024)
+    let limits = NanoHTTPParser.Limits(maxLineLength: 1, maxHeaderBytes: 2, maxBodyBytes: 3,
+                                       maxMultipartParts: 4, maxMultipartHeaderBytes: 5)
+    XCTAssertEqual([limits.maxLineLength, limits.maxHeaderBytes, limits.maxBodyBytes,
+                    limits.maxMultipartParts, limits.maxMultipartHeaderBytes], [1, 2, 3, 4, 5])
+  }
+}
+
 private extension NanoHTTPResponse.Body {
   /// The number of bytes of a body in memory, for comparing with what arrives.
   var contentLength: Int {

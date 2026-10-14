@@ -165,10 +165,15 @@ public struct NanoHTTPResponse {
   public var cookies: [NanoHTTPCookie]
   
   /// Creates a response with any status code.
+  public init(statusCode: Int, headers: [String : String] = [:], body: Body = .empty) {
+    self.init(statusCode: statusCode, headers: headers, body: body, cookies: [])
+  }
+  
+  /// Creates a response with any status code, and cookies.
   public init(statusCode: Int,
               headers: [String : String] = [:],
               body: Body = .empty,
-              cookies: [NanoHTTPCookie] = []) {
+              cookies: [NanoHTTPCookie]) {
     self.statusCode = statusCode
     self.headers = headers
     self.body = body

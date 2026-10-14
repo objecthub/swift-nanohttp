@@ -138,15 +138,22 @@ server, and goes on when descriptors are free again. Connections that arrive dur
 
 ### Reacting to termination
 
-A command-line tool can stop the server when it is terminated. The callback runs inside the signal handler, so it should
-do very little:
+A command-line tool can stop the server when it is terminated (Ctrl-C, `kill`, closing the terminal).
+``NanoProcess/watchSignals(_:)`` calls a function when the process receives `SIGINT`, `SIGTERM` or `SIGHUP`. The function
+runs on a queue of its own, not inside the signal handler, so it may do what it needs to: stopping the server makes
+``NanoHTTPServerIO/run(_:)`` return, and the program ends normally.
 
 ```swift
 let server = NanoHTTPServer()
 NanoProcess.watchSignals { _ in
-  exit(0)
+  server.stop()
 }
+try server.run(8080)
+print("The server has stopped.")
 ```
+
+Once the process watches these signals, it no longer ends by itself when it receives one: the function has to see to that.
+(A program that does not return from `run` can call `exit(0)` in the function instead.)
 
 ## Topics
 

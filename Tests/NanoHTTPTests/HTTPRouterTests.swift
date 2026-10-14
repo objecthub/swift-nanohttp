@@ -36,7 +36,7 @@
 import XCTest
 @testable import NanoHTTP
 
-class SwifterTestsNanoHTTPRouter: XCTestCase {
+class HTTPRouterTests: XCTestCase {
   var router: NanoHTTPSegmentRouter!
   
   override func setUp() {

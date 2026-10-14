@@ -37,7 +37,7 @@
 import XCTest
 @testable import NanoHTTP
 
-class SwifterTestsWebSocketSession: XCTestCase {
+class WebSocketSessionTests: XCTestCase {
   
   class TestSocket: NanoSocket {
     var content = [UInt8]()

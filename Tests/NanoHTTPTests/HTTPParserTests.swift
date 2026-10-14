@@ -36,7 +36,7 @@
 import XCTest
 @testable import NanoHTTP
 
-class SwifterTestsHttpParser: XCTestCase {
+class HTTPParserTests: XCTestCase {
   
   /// A specialized Socket which creates a linked socket pair with a pipe, and
   /// immediately writes in fixed data. This enables tests to static fixture

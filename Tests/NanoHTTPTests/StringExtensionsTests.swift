@@ -36,7 +36,7 @@
 import XCTest
 @testable import NanoHTTP
 
-class SwifterTestsStringExtensions: XCTestCase {
+class StringExtensionsTests: XCTestCase {
   
   func testSHA1() {
     XCTAssertEqual("".sha1Hex(), "da39a3ee5e6b4b0d3255bfef95601890afd80709")

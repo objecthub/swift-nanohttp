@@ -30,6 +30,12 @@ All notable changes to this project are documented in this file. The format is b
   `serviceUnavailable`.
 
 ### Fixed
+- **Signals** (S8). `NanoProcess.watchSignals(_:)` ran its callbacks inside the signal handler of the system, where almost
+  nothing is allowed (no locks, no allocation, no Foundation), read a list that another thread could be changing, and tried
+  to catch `SIGSTOP`, which no process can. The callbacks run on a queue of their own now (a dispatch source), so they can do
+  what they need, such as stopping a server, which makes `run(_:)` return. `SIGSTOP` is no longer on the list. After the
+  first call the process no longer ends by itself on `SIGINT`, `SIGTERM` or `SIGHUP`; the callback has to see to that.
+- Writing an empty slice of bytes to a socket (`writeUInt8`) cannot crash on a missing buffer address any more (R6).
 - **Multipart bodies** (H9). `parseMultiPartFormData()` works on the bytes now (and is faster: 20 MB in 14 ms instead of
   40 ms). A part ends at the line break before the next boundary line and keeps every other byte, a boundary followed by more
   text (`--boundaryX`) inside the content does not end it, text before the first and after the closing boundary is ignored,

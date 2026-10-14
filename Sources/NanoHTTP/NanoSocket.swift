@@ -403,6 +403,9 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   
   /// Writes bytes. Blocks until all bytes are written; throws if the peer went away.
   public func writeUInt8(_ data: ArraySlice<UInt8>) throws {
+    guard !data.isEmpty else {
+      return // an empty buffer may have no address at all
+    }
     try data.withUnsafeBufferPointer {
       try self.writeBuffer($0.baseAddress!, length: data.count)
     }

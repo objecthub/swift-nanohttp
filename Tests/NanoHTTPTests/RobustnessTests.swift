@@ -537,6 +537,25 @@ final class EmptyBodyTests: XCTestCase {
     }
   }
 
+  func testEmptyBuffersOfEveryKindAreWrittenAsNothing() throws {
+    var fds: [Int32] = [0, 0]
+    XCTAssertEqual(socketpair(AF_UNIX, SOCK_STREAM, 0, &fds), 0)
+    NanoSocket.setNoSigPipe(fds[0])
+    defer { close(fds[1]) }
+    let socket = NanoSocket(socketFileDescriptor: fds[0])
+    try socket.writeUInt8([])
+    try socket.writeUInt8(ArraySlice<UInt8>())
+    try socket.writeUInt8(Array([1, 2, 3])[1..<1])        // an empty slice of an array that has bytes
+    try socket.writeUInt8(Array([1, 2, 3])[3...])
+    try socket.writeUTF8("")
+    try socket.writeData(Data())
+    try socket.writeData(NSData())
+    try socket.writeUInt8([7])                            // what arrives first is this, so nothing was written before
+    var received = [UInt8](repeating: 0, count: 1)
+    XCTAssertEqual(read(fds[1], &received, 1), 1)
+    XCTAssertEqual(received, [7])
+  }
+  
   func testEmptyWebSocketCloseFrameCanBeWritten() throws {
     var fds: [Int32] = [0, 0]
     XCTAssertEqual(socketpair(AF_UNIX, SOCK_STREAM, 0, &fds), 0)

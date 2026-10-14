@@ -14,14 +14,15 @@
 		CC1D0C0B2D0000040CF6A004 /* TimeoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0B2D0000030CF6A003 /* TimeoutTests.swift */; };
 		CC1D0C0C2D0000060CF6A006 /* SingleThreadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0C2D0000050CF6A005 /* SingleThreadTests.swift */; };
 		CC1D0C0D2D0000080CF6A008 /* NanoThreadPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D2D0000070CF6A007 /* NanoThreadPool.swift */; };
-		CC1D0C0D300000020CF6A302 /* NanoHTTPCookie.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D300000010CF6A301 /* NanoHTTPCookie.swift */; };
-		CC1D0C0D2F0000020CF6A202 /* NanoHTTPMultipart.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D2F0000010CF6A201 /* NanoHTTPMultipart.swift */; };
-		CC1D0C0D2E0000020CF6A102 /* NanoHTTPDeferredResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D2E0000010CF6A101 /* NanoHTTPDeferredResponse.swift */; };
 		CC1D0C0D2D00000A0CF6A00A /* ThreadPoolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D2D0000090CF6A009 /* ThreadPoolTests.swift */; };
-		CC1D0C0D300000060CF6A306 /* ResponseHelperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D300000050CF6A305 /* ResponseHelperTests.swift */; };
-		CC1D0C0D300000040CF6A304 /* CookieTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D300000030CF6A303 /* CookieTests.swift */; };
-		CC1D0C0D2F0000040CF6A204 /* MultipartParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D2F0000030CF6A203 /* MultipartParserTests.swift */; };
+		CC1D0C0D2E0000020CF6A102 /* NanoHTTPDeferredResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D2E0000010CF6A101 /* NanoHTTPDeferredResponse.swift */; };
 		CC1D0C0D2E0000040CF6A104 /* DeferredResponseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D2E0000030CF6A103 /* DeferredResponseTests.swift */; };
+		CC1D0C0D2F0000020CF6A202 /* NanoHTTPMultipart.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D2F0000010CF6A201 /* NanoHTTPMultipart.swift */; };
+		CC1D0C0D2F0000040CF6A204 /* MultipartParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D2F0000030CF6A203 /* MultipartParserTests.swift */; };
+		CC1D0C0D300000020CF6A302 /* NanoHTTPCookie.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D300000010CF6A301 /* NanoHTTPCookie.swift */; };
+		CC1D0C0D300000040CF6A304 /* CookieTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D300000030CF6A303 /* CookieTests.swift */; };
+		CC1D0C0D300000060CF6A306 /* ResponseHelperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D300000050CF6A305 /* ResponseHelperTests.swift */; };
+		CC1D0C0D310000020CF6A402 /* NanoProcessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D310000010CF6A401 /* NanoProcessTests.swift */; };
 		CC1D0C0E2D00000C0CF6A00C /* NanoHTTPError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0E2D00000B0CF6A00B /* NanoHTTPError.swift */; };
 		CC1D0C0E2D00000E0CF6A00E /* HandlerErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0E2D00000D0CF6A00D /* HandlerErrorTests.swift */; };
 		CC1D0C0E2D0000100CF6A010 /* MiddlewareTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0E2D00000F0CF6A00F /* MiddlewareTests.swift */; };
@@ -35,24 +36,33 @@
 		CC1D0C122D0000200CF6A020 /* NanoHTTPBodyWriters.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C122D00001F0CF6A01F /* NanoHTTPBodyWriters.swift */; };
 		CC1D0C132D0000220CF6A022 /* HeadAndOptionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C132D0000210CF6A021 /* HeadAndOptionsTests.swift */; };
 		CC1D0C132D0000240CF6A024 /* FileServingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C132D0000230CF6A023 /* FileServingTests.swift */; };
-		CC50C0992C4B1A1100482E4B /* NanoHTTP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; };
-		CC50C09F2C4B1A1100482E4B /* NanoHTTP.h in Headers */ = {isa = PBXBuildFile; fileRef = CC50C0932C4B1A1100482E4B /* NanoHTTP.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		CC50C0BF2C4BA95600482E4B /* NanoHTTPDemo.h in Headers */ = {isa = PBXBuildFile; fileRef = CC50C0B32C4BA95500482E4B /* NanoHTTPDemo.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		CC1D0C200000012B0CF6A02B /* NanoHTML.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		CC1D0C200000012A0CF6A02A /* NanoHTML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; };
-		CC1D0C20000001270CF6A027 /* NanoHTML.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		CC1D0C20000001260CF6A026 /* NanoHTML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; };
-		CC1D0C20000001230CF6A023 /* NanoHTML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; };
-		CC1D0C20000001200CF6A020 /* NanoHTML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; };
+		CC1D0C142D0000260CF6A026 /* Renamed.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C142D0000250CF6A025 /* Renamed.swift */; };
 		CC1D0C200000010B0CF6A00B /* NanoHTML.h in Headers */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001040CF6A004 /* NanoHTML.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CC1D0C200000010C0CF6A00C /* NanoHTTP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; };
 		CC1D0C200000010D0CF6A00D /* NanoHTTP.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		CC1D0C20000001130CF6A013 /* NanoHTML.docc in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001050CF6A005 /* NanoHTML.docc */; };
 		CC1D0C20000001150CF6A015 /* HTMLNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001140CF6A014 /* HTMLNode.swift */; };
 		CC1D0C20000001170CF6A017 /* HTMLElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001160CF6A016 /* HTMLElement.swift */; };
 		CC1D0C20000001190CF6A019 /* HTMLElements.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001180CF6A018 /* HTMLElements.swift */; };
 		CC1D0C200000011B0CF6A01B /* HTMLAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C200000011A0CF6A01A /* HTMLAttributes.swift */; };
 		CC1D0C200000011D0CF6A01D /* HTMLResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C200000011C0CF6A01C /* HTMLResponse.swift */; };
-		CC1D0C20000001130CF6A013 /* NanoHTML.docc in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001050CF6A005 /* NanoHTML.docc */; };
+		CC1D0C20000001200CF6A020 /* NanoHTML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; };
+		CC1D0C20000001230CF6A023 /* NanoHTML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; };
+		CC1D0C20000001260CF6A026 /* NanoHTML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; };
+		CC1D0C20000001270CF6A027 /* NanoHTML.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		CC1D0C200000012A0CF6A02A /* NanoHTML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; };
+		CC1D0C200000012B0CF6A02B /* NanoHTML.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		CC1D0C300000000200000A02 /* NanoLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000100000A01 /* NanoLogger.swift */; };
+		CC1D0C300000000400000A04 /* LoggerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000300000A03 /* LoggerTests.swift */; };
+		CC1D0C300000000600000A06 /* NanoRequestPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000500000A05 /* NanoRequestPolicy.swift */; };
+		CC1D0C300000000800000A08 /* NanoMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000700000A07 /* NanoMiddleware.swift */; };
+		CC1D0C300000000A00000A0A /* HostAndOriginTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000900000A09 /* HostAndOriginTests.swift */; };
+		CC1D0C300000000C00000A0C /* CORSTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000B00000A0B /* CORSTests.swift */; };
+		CC1D0C300000000E00000A0E /* NanoWebSocketHub.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000D00000A0D /* NanoWebSocketHub.swift */; };
+		CC1D0C300000001000000A10 /* WebSocketHubTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000F00000A0F /* WebSocketHubTests.swift */; };
+		CC50C0992C4B1A1100482E4B /* NanoHTTP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */; };
+		CC50C09F2C4B1A1100482E4B /* NanoHTTP.h in Headers */ = {isa = PBXBuildFile; fileRef = CC50C0932C4B1A1100482E4B /* NanoHTTP.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CC50C0BF2C4BA95600482E4B /* NanoHTTPDemo.h in Headers */ = {isa = PBXBuildFile; fileRef = CC50C0B32C4BA95500482E4B /* NanoHTTPDemo.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CC50C0C72C4BAA7B00482E4B /* NanoHTTPRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0C62C4BAA7B00482E4B /* NanoHTTPRequest.swift */; };
 		CC50C0C92C4BAC1B00482E4B /* NanoHTTPResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0C82C4BAC1B00482E4B /* NanoHTTPResponse.swift */; };
 		CC50C0CB2C4BAC7B00482E4B /* NanoHTTPSegmentRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0CA2C4BAC7B00482E4B /* NanoHTTPSegmentRouter.swift */; };
@@ -64,11 +74,6 @@
 		CC50C0D72C4BAE5400482E4B /* String+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0D62C4BAE5400482E4B /* String+Extensions.swift */; };
 		CC50C0D92C4BAE8F00482E4B /* NanoFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0D82C4BAE8F00482E4B /* NanoFile.swift */; };
 		CC50C0DB2C4BAEDF00482E4B /* NanoFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0DA2C4BAEDF00482E4B /* NanoFiles.swift */; };
-		CC1D0C300000000200000A02 /* NanoLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000100000A01 /* NanoLogger.swift */; };
-		CC1D0C300000000E00000A0E /* NanoWebSocketHub.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000D00000A0D /* NanoWebSocketHub.swift */; };
-		CC1D0C300000000800000A08 /* NanoMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000700000A07 /* NanoMiddleware.swift */; };
-		CC1D0C300000000600000A06 /* NanoRequestPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000500000A05 /* NanoRequestPolicy.swift */; };
-		CC1D0C142D0000260CF6A026 /* Renamed.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C142D0000250CF6A025 /* Renamed.swift */; };
 		CC50C0DD2C4BAF2D00482E4B /* NanoWebSockets.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0DC2C4BAF2D00482E4B /* NanoWebSockets.swift */; };
 		CC50C0DF2C4BAFFC00482E4B /* NanoProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0DE2C4BAFFC00482E4B /* NanoProcess.swift */; };
 		CC50C0E32C4BB0D500482E4B /* NanoHTTPDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0E22C4BB0D500482E4B /* NanoHTTPDemo.swift */; };
@@ -93,10 +98,6 @@
 		CC60E9B1307E5051000EE746 /* RequestParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9A8307E5051000EE746 /* RequestParsingTests.swift */; };
 		CC60E9B2307E5051000EE746 /* WebSocketIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9AD307E5051000EE746 /* WebSocketIntegrationTests.swift */; };
 		CC60E9B3307E5051000EE746 /* RobustnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9A9307E5051000EE746 /* RobustnessTests.swift */; };
-		CC1D0C300000000400000A04 /* LoggerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000300000A03 /* LoggerTests.swift */; };
-		CC1D0C300000001000000A10 /* WebSocketHubTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000F00000A0F /* WebSocketHubTests.swift */; };
-		CC1D0C300000000C00000A0C /* CORSTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000B00000A0B /* CORSTests.swift */; };
-		CC1D0C300000000A00000A0A /* HostAndOriginTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000900000A09 /* HostAndOriginTests.swift */; };
 		CC60E9B4307E5051000EE746 /* RouterBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9AA307E5051000EE746 /* RouterBehaviorTests.swift */; };
 		CC60E9B7307E5051000EE746 /* SecurityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9AB307E5051000EE746 /* SecurityTests.swift */; };
 		CC60E9BC307E5070000EE746 /* KnownIssue.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9B8307E5070000EE746 /* KnownIssue.swift */; };
@@ -115,28 +116,14 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		CC50C09A2C4B1A1100482E4B /* PBXContainerItemProxy */ = {
+		CC1D0C200000010E0CF6A00E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = CC50C08F2C4B1A1100482E4B;
 			remoteInfo = NanoHTTP;
 		};
-		CC50C0E72C4BB10500482E4B /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = CC50C08F2C4B1A1100482E4B;
-			remoteInfo = NanoHTTP;
-		};
-		CC1D0C20000001280CF6A028 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = CC1D0C20000001010CF6A001;
-			remoteInfo = NanoHTML;
-		};
-		CC1D0C20000001240CF6A024 /* PBXContainerItemProxy */ = {
+		CC1D0C200000011E0CF6A01E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
 			proxyType = 1;
@@ -150,14 +137,28 @@
 			remoteGlobalIDString = CC1D0C20000001010CF6A001;
 			remoteInfo = NanoHTML;
 		};
-		CC1D0C200000011E0CF6A01E /* PBXContainerItemProxy */ = {
+		CC1D0C20000001240CF6A024 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = CC1D0C20000001010CF6A001;
 			remoteInfo = NanoHTML;
 		};
-		CC1D0C200000010E0CF6A00E /* PBXContainerItemProxy */ = {
+		CC1D0C20000001280CF6A028 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC1D0C20000001010CF6A001;
+			remoteInfo = NanoHTML;
+		};
+		CC50C09A2C4B1A1100482E4B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC50C08F2C4B1A1100482E4B;
+			remoteInfo = NanoHTTP;
+		};
+		CC50C0E72C4BB10500482E4B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = CC50C0872C4B1A1100482E4B /* Project object */;
 			proxyType = 1;
@@ -195,17 +196,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		CC50C0E92C4BB10500482E4B /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				CC50C0E62C4BB10500482E4B /* NanoHTTP.framework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		CC1D0C200000010A0CF6A00A /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -213,6 +203,17 @@
 			dstSubfolderSpec = 10;
 			files = (
 				CC1D0C200000010D0CF6A00D /* NanoHTTP.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC50C0E92C4BB10500482E4B /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				CC50C0E62C4BB10500482E4B /* NanoHTTP.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -263,14 +264,15 @@
 		CC1D0C0B2D0000030CF6A003 /* TimeoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeoutTests.swift; sourceTree = "<group>"; };
 		CC1D0C0C2D0000050CF6A005 /* SingleThreadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleThreadTests.swift; sourceTree = "<group>"; };
 		CC1D0C0D2D0000070CF6A007 /* NanoThreadPool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoThreadPool.swift; sourceTree = "<group>"; };
-		CC1D0C0D300000010CF6A301 /* NanoHTTPCookie.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPCookie.swift; sourceTree = "<group>"; };
-		CC1D0C0D2F0000010CF6A201 /* NanoHTTPMultipart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPMultipart.swift; sourceTree = "<group>"; };
-		CC1D0C0D2E0000010CF6A101 /* NanoHTTPDeferredResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPDeferredResponse.swift; sourceTree = "<group>"; };
 		CC1D0C0D2D0000090CF6A009 /* ThreadPoolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadPoolTests.swift; sourceTree = "<group>"; };
-		CC1D0C0D300000050CF6A305 /* ResponseHelperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponseHelperTests.swift; sourceTree = "<group>"; };
-		CC1D0C0D300000030CF6A303 /* CookieTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CookieTests.swift; sourceTree = "<group>"; };
-		CC1D0C0D2F0000030CF6A203 /* MultipartParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultipartParserTests.swift; sourceTree = "<group>"; };
+		CC1D0C0D2E0000010CF6A101 /* NanoHTTPDeferredResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPDeferredResponse.swift; sourceTree = "<group>"; };
 		CC1D0C0D2E0000030CF6A103 /* DeferredResponseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeferredResponseTests.swift; sourceTree = "<group>"; };
+		CC1D0C0D2F0000010CF6A201 /* NanoHTTPMultipart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPMultipart.swift; sourceTree = "<group>"; };
+		CC1D0C0D2F0000030CF6A203 /* MultipartParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultipartParserTests.swift; sourceTree = "<group>"; };
+		CC1D0C0D300000010CF6A301 /* NanoHTTPCookie.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPCookie.swift; sourceTree = "<group>"; };
+		CC1D0C0D300000030CF6A303 /* CookieTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CookieTests.swift; sourceTree = "<group>"; };
+		CC1D0C0D300000050CF6A305 /* ResponseHelperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponseHelperTests.swift; sourceTree = "<group>"; };
+		CC1D0C0D310000010CF6A401 /* NanoProcessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoProcessTests.swift; sourceTree = "<group>"; };
 		CC1D0C0E2D00000B0CF6A00B /* NanoHTTPError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPError.swift; sourceTree = "<group>"; };
 		CC1D0C0E2D00000D0CF6A00D /* HandlerErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandlerErrorTests.swift; sourceTree = "<group>"; };
 		CC1D0C0E2D00000F0CF6A00F /* MiddlewareTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiddlewareTests.swift; sourceTree = "<group>"; };
@@ -284,14 +286,7 @@
 		CC1D0C122D00001F0CF6A01F /* NanoHTTPBodyWriters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPBodyWriters.swift; sourceTree = "<group>"; };
 		CC1D0C132D0000210CF6A021 /* HeadAndOptionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadAndOptionsTests.swift; sourceTree = "<group>"; };
 		CC1D0C132D0000230CF6A023 /* FileServingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileServingTests.swift; sourceTree = "<group>"; };
-		CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = NanoHTTP.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		CC50C0932C4B1A1100482E4B /* NanoHTTP.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NanoHTTP.h; sourceTree = "<group>"; };
-		CC50C0982C4B1A1100482E4B /* NanoHTTPTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NanoHTTPTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		CC50C0A82C4B1B5100482E4B /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
-		CC50C0A92C4B1B5F00482E4B /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
-		CC50C0AA2C4B1C9300482E4B /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
-		CC50C0B12C4BA95500482E4B /* NanoHTTPDemo.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = NanoHTTPDemo.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		CC50C0B32C4BA95500482E4B /* NanoHTTPDemo.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NanoHTTPDemo.h; sourceTree = "<group>"; };
+		CC1D0C142D0000250CF6A025 /* Renamed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Renamed.swift; sourceTree = "<group>"; };
 		CC1D0C20000001020CF6A002 /* NanoHTML.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = NanoHTML.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CC1D0C20000001040CF6A004 /* NanoHTML.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NanoHTML.h; sourceTree = "<group>"; };
 		CC1D0C20000001050CF6A005 /* NanoHTML.docc */ = {isa = PBXFileReference; lastKnownFileType = folder.documentationcatalog; path = NanoHTML.docc; sourceTree = "<group>"; };
@@ -300,6 +295,22 @@
 		CC1D0C20000001180CF6A018 /* HTMLElements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLElements.swift; sourceTree = "<group>"; };
 		CC1D0C200000011A0CF6A01A /* HTMLAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLAttributes.swift; sourceTree = "<group>"; };
 		CC1D0C200000011C0CF6A01C /* HTMLResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLResponse.swift; sourceTree = "<group>"; };
+		CC1D0C300000000100000A01 /* NanoLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoLogger.swift; sourceTree = "<group>"; };
+		CC1D0C300000000300000A03 /* LoggerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggerTests.swift; sourceTree = "<group>"; };
+		CC1D0C300000000500000A05 /* NanoRequestPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoRequestPolicy.swift; sourceTree = "<group>"; };
+		CC1D0C300000000700000A07 /* NanoMiddleware.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoMiddleware.swift; sourceTree = "<group>"; };
+		CC1D0C300000000900000A09 /* HostAndOriginTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostAndOriginTests.swift; sourceTree = "<group>"; };
+		CC1D0C300000000B00000A0B /* CORSTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CORSTests.swift; sourceTree = "<group>"; };
+		CC1D0C300000000D00000A0D /* NanoWebSocketHub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoWebSocketHub.swift; sourceTree = "<group>"; };
+		CC1D0C300000000F00000A0F /* WebSocketHubTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketHubTests.swift; sourceTree = "<group>"; };
+		CC50C0902C4B1A1100482E4B /* NanoHTTP.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = NanoHTTP.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		CC50C0932C4B1A1100482E4B /* NanoHTTP.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NanoHTTP.h; sourceTree = "<group>"; };
+		CC50C0982C4B1A1100482E4B /* NanoHTTPTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NanoHTTPTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		CC50C0A82C4B1B5100482E4B /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
+		CC50C0A92C4B1B5F00482E4B /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		CC50C0AA2C4B1C9300482E4B /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
+		CC50C0B12C4BA95500482E4B /* NanoHTTPDemo.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = NanoHTTPDemo.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		CC50C0B32C4BA95500482E4B /* NanoHTTPDemo.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NanoHTTPDemo.h; sourceTree = "<group>"; };
 		CC50C0C62C4BAA7B00482E4B /* NanoHTTPRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPRequest.swift; sourceTree = "<group>"; };
 		CC50C0C82C4BAC1B00482E4B /* NanoHTTPResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPResponse.swift; sourceTree = "<group>"; };
 		CC50C0CA2C4BAC7B00482E4B /* NanoHTTPSegmentRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPSegmentRouter.swift; sourceTree = "<group>"; };
@@ -309,13 +320,8 @@
 		CC50C0D22C4BADB600482E4B /* NanoHTTPConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPConnection.swift; sourceTree = "<group>"; };
 		CC50C0D42C4BADE800482E4B /* NanoSocket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoSocket.swift; sourceTree = "<group>"; };
 		CC50C0D62C4BAE5400482E4B /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
-		CC50C0D82C4BAE8F00482E4B /* NanoFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NanoFile.swift"; sourceTree = "<group>"; };
+		CC50C0D82C4BAE8F00482E4B /* NanoFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoFile.swift; sourceTree = "<group>"; };
 		CC50C0DA2C4BAEDF00482E4B /* NanoFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoFiles.swift; sourceTree = "<group>"; };
-		CC1D0C300000000100000A01 /* NanoLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoLogger.swift; sourceTree = "<group>"; };
-		CC1D0C300000000D00000A0D /* NanoWebSocketHub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoWebSocketHub.swift; sourceTree = "<group>"; };
-		CC1D0C300000000700000A07 /* NanoMiddleware.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoMiddleware.swift; sourceTree = "<group>"; };
-		CC1D0C300000000500000A05 /* NanoRequestPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoRequestPolicy.swift; sourceTree = "<group>"; };
-		CC1D0C142D0000250CF6A025 /* Renamed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Renamed.swift; sourceTree = "<group>"; };
 		CC50C0DC2C4BAF2D00482E4B /* NanoWebSockets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoWebSockets.swift; sourceTree = "<group>"; };
 		CC50C0DE2C4BAFFC00482E4B /* NanoProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoProcess.swift; sourceTree = "<group>"; };
 		CC50C0E22C4BB0D500482E4B /* NanoHTTPDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPDemo.swift; sourceTree = "<group>"; };
@@ -331,10 +337,6 @@
 		CC60E9A5307E5051000EE746 /* HTTPProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPProtocolTests.swift; sourceTree = "<group>"; };
 		CC60E9A8307E5051000EE746 /* RequestParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestParsingTests.swift; sourceTree = "<group>"; };
 		CC60E9A9307E5051000EE746 /* RobustnessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RobustnessTests.swift; sourceTree = "<group>"; };
-		CC1D0C300000000300000A03 /* LoggerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggerTests.swift; sourceTree = "<group>"; };
-		CC1D0C300000000F00000A0F /* WebSocketHubTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketHubTests.swift; sourceTree = "<group>"; };
-		CC1D0C300000000B00000A0B /* CORSTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CORSTests.swift; sourceTree = "<group>"; };
-		CC1D0C300000000900000A09 /* HostAndOriginTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostAndOriginTests.swift; sourceTree = "<group>"; };
 		CC60E9AA307E5051000EE746 /* RouterBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouterBehaviorTests.swift; sourceTree = "<group>"; };
 		CC60E9AB307E5051000EE746 /* SecurityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityTests.swift; sourceTree = "<group>"; };
 		CC60E9AD307E5051000EE746 /* WebSocketIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketIntegrationTests.swift; sourceTree = "<group>"; };
@@ -357,6 +359,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		CC1D0C20000001080CF6A008 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC1D0C200000010C0CF6A00C /* NanoHTTP.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CC50C08D2C4B1A1100482E4B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -379,14 +389,6 @@
 			files = (
 				CC50C0E52C4BB10500482E4B /* NanoHTTP.framework in Frameworks */,
 				CC1D0C20000001200CF6A020 /* NanoHTML.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		CC1D0C20000001080CF6A008 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				CC1D0C200000010C0CF6A00C /* NanoHTTP.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -413,6 +415,21 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		CC1D0C20000001030CF6A003 /* NanoHTML */ = {
+			isa = PBXGroup;
+			children = (
+				CC1D0C20000001140CF6A014 /* HTMLNode.swift */,
+				CC1D0C20000001160CF6A016 /* HTMLElement.swift */,
+				CC1D0C20000001180CF6A018 /* HTMLElements.swift */,
+				CC1D0C200000011A0CF6A01A /* HTMLAttributes.swift */,
+				CC1D0C200000011C0CF6A01C /* HTMLResponse.swift */,
+				CC1D0C20000001050CF6A005 /* NanoHTML.docc */,
+				CC1D0C20000001040CF6A004 /* NanoHTML.h */,
+			);
+			name = NanoHTML;
+			path = Sources/NanoHTML;
+			sourceTree = "<group>";
+		};
 		CC50C0862C4B1A1100482E4B = {
 			isa = PBXGroup;
 			children = (
@@ -490,43 +507,44 @@
 		CC50C09C2C4B1A1100482E4B /* NanoHTTPTests */ = {
 			isa = PBXGroup;
 			children = (
-				CC80DA832C4E744300FCFF2E /* PingServer.swift */,
-				CC80DA812C4E73A700FCFF2E /* ServerThreadingTests.swift */,
+				CC1D0C112D0000170CF6A017 /* BufferedReadingTests.swift */,
+				CC1D0C0B2D0000010CF6A001 /* ConfigurationTests.swift */,
+				CC1D0C122D00001D0CF6A01D /* ConnectionSemanticsTests.swift */,
+				CC1D0C0D300000030CF6A303 /* CookieTests.swift */,
+				CC1D0C300000000B00000A0B /* CORSTests.swift */,
+				CC1D0C0D2E0000030CF6A103 /* DeferredResponseTests.swift */,
+				CC1D0C132D0000230CF6A023 /* FileServingTests.swift */,
+				CC1D0C0E2D00000D0CF6A00D /* HandlerErrorTests.swift */,
+				CC1D0C132D0000210CF6A021 /* HeadAndOptionsTests.swift */,
+				CC1D0C300000000900000A09 /* HostAndOriginTests.swift */,
+				CC60E9A4307E5051000EE746 /* HTMLDSLTests.swift */,
 				CC80DA852C4E74F900FCFF2E /* HTTPParserTests.swift */,
+				CC60E9A5307E5051000EE746 /* HTTPProtocolTests.swift */,
 				CC80DA872C4E775F00FCFF2E /* HTTPRouterTests.swift */,
 				CC80DA8B2C4E797800FCFF2E /* IOSafetyTests.swift */,
-				CC80DA8F2C4E851000FCFF2E /* WebSocketTests.swift */,
-				CC80DA892C4E790C00FCFF2E /* MimeTypeTests.swift */,
-				CC80DA8D2C4E7A1000FCFF2E /* StringExtensionsTests.swift */,
-				CC60E9A4307E5051000EE746 /* HTMLDSLTests.swift */,
-				CC60E9A5307E5051000EE746 /* HTTPProtocolTests.swift */,
-				CC60E9A8307E5051000EE746 /* RequestParsingTests.swift */,
-				CC60E9A9307E5051000EE746 /* RobustnessTests.swift */,
 				CC1D0C300000000300000A03 /* LoggerTests.swift */,
-				CC1D0C300000000F00000A0F /* WebSocketHubTests.swift */,
-				CC1D0C300000000B00000A0B /* CORSTests.swift */,
-				CC1D0C300000000900000A09 /* HostAndOriginTests.swift */,
-				CC1D0C132D0000230CF6A023 /* FileServingTests.swift */,
-				CC1D0C132D0000210CF6A021 /* HeadAndOptionsTests.swift */,
-				CC1D0C122D00001D0CF6A01D /* ConnectionSemanticsTests.swift */,
-				CC1D0C112D0000190CF6A019 /* ResponseSerializerTests.swift */,
-				CC1D0C112D0000170CF6A017 /* BufferedReadingTests.swift */,
-				CC1D0C102D0000150CF6A015 /* RequestSemanticsTests.swift */,
-				CC1D0C0F2D0000110CF6A011 /* SocketSessionTests.swift */,
 				CC1D0C0E2D00000F0CF6A00F /* MiddlewareTests.swift */,
-				CC1D0C0E2D00000D0CF6A00D /* HandlerErrorTests.swift */,
-				CC1D0C0D2D0000090CF6A009 /* ThreadPoolTests.swift */,
-				CC1D0C0D300000050CF6A305 /* ResponseHelperTests.swift */,
-				CC1D0C0D300000030CF6A303 /* CookieTests.swift */,
+				CC80DA892C4E790C00FCFF2E /* MimeTypeTests.swift */,
 				CC1D0C0D2F0000030CF6A203 /* MultipartParserTests.swift */,
-				CC1D0C0D2E0000030CF6A103 /* DeferredResponseTests.swift */,
-				CC1D0C0C2D0000050CF6A005 /* SingleThreadTests.swift */,
-				CC1D0C0B2D0000030CF6A003 /* TimeoutTests.swift */,
-				CC1D0C0B2D0000010CF6A001 /* ConfigurationTests.swift */,
+				CC1D0C0D310000010CF6A401 /* NanoProcessTests.swift */,
+				CC80DA832C4E744300FCFF2E /* PingServer.swift */,
+				CC60E9A8307E5051000EE746 /* RequestParsingTests.swift */,
+				CC1D0C102D0000150CF6A015 /* RequestSemanticsTests.swift */,
+				CC1D0C0D300000050CF6A305 /* ResponseHelperTests.swift */,
+				CC1D0C112D0000190CF6A019 /* ResponseSerializerTests.swift */,
+				CC60E9A9307E5051000EE746 /* RobustnessTests.swift */,
 				CC60E9AA307E5051000EE746 /* RouterBehaviorTests.swift */,
 				CC60E9AB307E5051000EE746 /* SecurityTests.swift */,
-				CC60E9AD307E5051000EE746 /* WebSocketIntegrationTests.swift */,
+				CC80DA812C4E73A700FCFF2E /* ServerThreadingTests.swift */,
+				CC1D0C0C2D0000050CF6A005 /* SingleThreadTests.swift */,
+				CC1D0C0F2D0000110CF6A011 /* SocketSessionTests.swift */,
+				CC80DA8D2C4E7A1000FCFF2E /* StringExtensionsTests.swift */,
 				CC60E9BB307E5070000EE746 /* Support */,
+				CC1D0C0D2D0000090CF6A009 /* ThreadPoolTests.swift */,
+				CC1D0C0B2D0000030CF6A003 /* TimeoutTests.swift */,
+				CC1D0C300000000F00000A0F /* WebSocketHubTests.swift */,
+				CC60E9AD307E5051000EE746 /* WebSocketIntegrationTests.swift */,
+				CC80DA8F2C4E851000FCFF2E /* WebSocketTests.swift */,
 			);
 			name = NanoHTTPTests;
 			path = Tests/NanoHTTPTests;
@@ -540,21 +558,6 @@
 			);
 			name = NanoHTTPDemo;
 			path = Sources/NanoHTTPDemo;
-			sourceTree = "<group>";
-		};
-		CC1D0C20000001030CF6A003 /* NanoHTML */ = {
-			isa = PBXGroup;
-			children = (
-				CC1D0C20000001140CF6A014 /* HTMLNode.swift */,
-				CC1D0C20000001160CF6A016 /* HTMLElement.swift */,
-				CC1D0C20000001180CF6A018 /* HTMLElements.swift */,
-				CC1D0C200000011A0CF6A01A /* HTMLAttributes.swift */,
-				CC1D0C200000011C0CF6A01C /* HTMLResponse.swift */,
-				CC1D0C20000001050CF6A005 /* NanoHTML.docc */,
-				CC1D0C20000001040CF6A004 /* NanoHTML.h */,
-			);
-			name = NanoHTML;
-			path = Sources/NanoHTML;
 			sourceTree = "<group>";
 		};
 		CC50C0E42C4BB10500482E4B /* Frameworks */ = {
@@ -607,6 +610,14 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
+		CC1D0C20000001060CF6A006 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC1D0C200000010B0CF6A00B /* NanoHTML.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CC50C08B2C4B1A1100482E4B /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -623,17 +634,29 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		CC1D0C20000001060CF6A006 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				CC1D0C200000010B0CF6A00B /* NanoHTML.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		CC1D0C20000001010CF6A001 /* NanoHTML */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CC1D0C20000001100CF6A010 /* Build configuration list for PBXNativeTarget "NanoHTML" */;
+			buildPhases = (
+				CC1D0C20000001060CF6A006 /* Headers */,
+				CC1D0C20000001070CF6A007 /* Sources */,
+				CC1D0C20000001080CF6A008 /* Frameworks */,
+				CC1D0C20000001090CF6A009 /* Resources */,
+				CC1D0C200000010A0CF6A00A /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CC1D0C200000010F0CF6A00F /* PBXTargetDependency */,
+			);
+			name = NanoHTML;
+			productName = NanoHTML;
+			productReference = CC1D0C20000001020CF6A002 /* NanoHTML.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		CC50C08F2C4B1A1100482E4B /* NanoHTTP */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = CC50C0A22C4B1A1100482E4B /* Build configuration list for PBXNativeTarget "NanoHTTP" */;
@@ -692,26 +715,6 @@
 			productReference = CC50C0B12C4BA95500482E4B /* NanoHTTPDemo.framework */;
 			productType = "com.apple.product-type.framework";
 		};
-		CC1D0C20000001010CF6A001 /* NanoHTML */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = CC1D0C20000001100CF6A010 /* Build configuration list for PBXNativeTarget "NanoHTML" */;
-			buildPhases = (
-				CC1D0C20000001060CF6A006 /* Headers */,
-				CC1D0C20000001070CF6A007 /* Sources */,
-				CC1D0C20000001080CF6A008 /* Frameworks */,
-				CC1D0C20000001090CF6A009 /* Resources */,
-				CC1D0C200000010A0CF6A00A /* Embed Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				CC1D0C200000010F0CF6A00F /* PBXTargetDependency */,
-			);
-			name = NanoHTML;
-			productName = NanoHTML;
-			productReference = CC1D0C20000001020CF6A002 /* NanoHTML.framework */;
-			productType = "com.apple.product-type.framework";
-		};
 		CC50C0ED2C4BB43A00482E4B /* DemoServer */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = CC50C0F22C4BB43A00482E4B /* Build configuration list for PBXNativeTarget "DemoServer" */;
@@ -764,6 +767,10 @@
 				LastSwiftUpdateCheck = 1540;
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
+					CC1D0C20000001010CF6A001 = {
+						CreatedOnToolsVersion = 15.4;
+						LastSwiftMigration = 1540;
+					};
 					CC50C08F2C4B1A1100482E4B = {
 						CreatedOnToolsVersion = 15.4;
 						LastSwiftMigration = 1540;
@@ -772,10 +779,6 @@
 						CreatedOnToolsVersion = 15.4;
 					};
 					CC50C0B02C4BA95500482E4B = {
-						CreatedOnToolsVersion = 15.4;
-						LastSwiftMigration = 1540;
-					};
-					CC1D0C20000001010CF6A001 = {
 						CreatedOnToolsVersion = 15.4;
 						LastSwiftMigration = 1540;
 					};
@@ -811,6 +814,13 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		CC1D0C20000001090CF6A009 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CC50C08E2C4B1A1100482E4B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -832,13 +842,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		CC1D0C20000001090CF6A009 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		CC50C1012C4BB7FB00482E4B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -851,6 +854,19 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		CC1D0C20000001070CF6A007 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC1D0C20000001150CF6A015 /* HTMLNode.swift in Sources */,
+				CC1D0C20000001170CF6A017 /* HTMLElement.swift in Sources */,
+				CC1D0C20000001190CF6A019 /* HTMLElements.swift in Sources */,
+				CC1D0C200000011B0CF6A01B /* HTMLAttributes.swift in Sources */,
+				CC1D0C200000011D0CF6A01D /* HTMLResponse.swift in Sources */,
+				CC1D0C20000001130CF6A013 /* NanoHTML.docc in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CC50C08C2C4B1A1100482E4B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -919,6 +935,7 @@
 				CC1D0C0E2D0000100CF6A010 /* MiddlewareTests.swift in Sources */,
 				CC1D0C0E2D00000E0CF6A00E /* HandlerErrorTests.swift in Sources */,
 				CC1D0C0D2D00000A0CF6A00A /* ThreadPoolTests.swift in Sources */,
+				CC1D0C0D310000020CF6A402 /* NanoProcessTests.swift in Sources */,
 				CC1D0C0D300000060CF6A306 /* ResponseHelperTests.swift in Sources */,
 				CC1D0C0D300000040CF6A304 /* CookieTests.swift in Sources */,
 				CC1D0C0D2F0000040CF6A204 /* MultipartParserTests.swift in Sources */,
@@ -943,19 +960,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		CC1D0C20000001070CF6A007 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				CC1D0C20000001150CF6A015 /* HTMLNode.swift in Sources */,
-				CC1D0C20000001170CF6A017 /* HTMLElement.swift in Sources */,
-				CC1D0C20000001190CF6A019 /* HTMLElements.swift in Sources */,
-				CC1D0C200000011B0CF6A01B /* HTMLAttributes.swift in Sources */,
-				CC1D0C200000011D0CF6A01D /* HTMLResponse.swift in Sources */,
-				CC1D0C20000001130CF6A013 /* NanoHTML.docc in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		CC50C0EA2C4BB43A00482E4B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -977,6 +981,31 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		CC1D0C200000010F0CF6A00F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC50C08F2C4B1A1100482E4B /* NanoHTTP */;
+			targetProxy = CC1D0C200000010E0CF6A00E /* PBXContainerItemProxy */;
+		};
+		CC1D0C200000011F0CF6A01F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC1D0C20000001010CF6A001 /* NanoHTML */;
+			targetProxy = CC1D0C200000011E0CF6A01E /* PBXContainerItemProxy */;
+		};
+		CC1D0C20000001220CF6A022 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC1D0C20000001010CF6A001 /* NanoHTML */;
+			targetProxy = CC1D0C20000001210CF6A021 /* PBXContainerItemProxy */;
+		};
+		CC1D0C20000001250CF6A025 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC1D0C20000001010CF6A001 /* NanoHTML */;
+			targetProxy = CC1D0C20000001240CF6A024 /* PBXContainerItemProxy */;
+		};
+		CC1D0C20000001290CF6A029 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC1D0C20000001010CF6A001 /* NanoHTML */;
+			targetProxy = CC1D0C20000001280CF6A028 /* PBXContainerItemProxy */;
+		};
 		CC50C09B2C4B1A1100482E4B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = CC50C08F2C4B1A1100482E4B /* NanoHTTP */;
@@ -986,31 +1015,6 @@
 			isa = PBXTargetDependency;
 			target = CC50C08F2C4B1A1100482E4B /* NanoHTTP */;
 			targetProxy = CC50C0E72C4BB10500482E4B /* PBXContainerItemProxy */;
-		};
-		CC1D0C20000001290CF6A029 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = CC1D0C20000001010CF6A001 /* NanoHTML */;
-			targetProxy = CC1D0C20000001280CF6A028 /* PBXContainerItemProxy */;
-		};
-		CC1D0C20000001250CF6A025 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = CC1D0C20000001010CF6A001 /* NanoHTML */;
-			targetProxy = CC1D0C20000001240CF6A024 /* PBXContainerItemProxy */;
-		};
-		CC1D0C20000001220CF6A022 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = CC1D0C20000001010CF6A001 /* NanoHTML */;
-			targetProxy = CC1D0C20000001210CF6A021 /* PBXContainerItemProxy */;
-		};
-		CC1D0C200000011F0CF6A01F /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = CC1D0C20000001010CF6A001 /* NanoHTML */;
-			targetProxy = CC1D0C200000011E0CF6A01E /* PBXContainerItemProxy */;
-		};
-		CC1D0C200000010F0CF6A00F /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = CC50C08F2C4B1A1100482E4B /* NanoHTTP */;
-			targetProxy = CC1D0C200000010E0CF6A00E /* PBXContainerItemProxy */;
 		};
 		CC50C0F82C4BB47F00482E4B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1035,6 +1039,97 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		CC1D0C20000001110CF6A011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = C72Z63N8M5;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 2.0.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTML;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INSTALL_OBJC_HEADER = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,3";
+				TVOS_DEPLOYMENT_TARGET = 15.0;
+			};
+			name = Debug;
+		};
+		CC1D0C20000001120CF6A012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = C72Z63N8M5;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 2.0.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTML;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INSTALL_OBJC_HEADER = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,3";
+				TVOS_DEPLOYMENT_TARGET = 15.0;
+			};
+			name = Release;
+		};
 		CC50C0A02C4B1A1100482E4B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1391,97 +1486,6 @@
 			};
 			name = Release;
 		};
-		CC1D0C20000001110CF6A011 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
-				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
-				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_IDENTITY = "";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEAD_CODE_STRIPPING = YES;
-				DEFINES_MODULE = YES;
-				DEVELOPMENT_TEAM = C72Z63N8M5;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				ENABLE_MODULE_VERIFIER = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
-					"@executable_path/../Frameworks",
-					"@loader_path/Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 2.0.0;
-				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
-				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
-				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTML;
-				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
-				SDKROOT = auto;
-				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INSTALL_OBJC_HEADER = NO;
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,3";
-				TVOS_DEPLOYMENT_TARGET = 15.0;
-			};
-			name = Debug;
-		};
-		CC1D0C20000001120CF6A012 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
-				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
-				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_IDENTITY = "";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEAD_CODE_STRIPPING = YES;
-				DEFINES_MODULE = YES;
-				DEVELOPMENT_TEAM = C72Z63N8M5;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				ENABLE_MODULE_VERIFIER = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
-					"@executable_path/../Frameworks",
-					"@loader_path/Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 2.0.0;
-				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
-				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
-				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTML;
-				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
-				SDKROOT = auto;
-				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INSTALL_OBJC_HEADER = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,3";
-				TVOS_DEPLOYMENT_TARGET = 15.0;
-			};
-			name = Release;
-		};
 		CC50C0F32C4BB43A00482E4B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1578,6 +1582,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		CC1D0C20000001100CF6A010 /* Build configuration list for PBXNativeTarget "NanoHTML" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CC1D0C20000001110CF6A011 /* Debug */,
+				CC1D0C20000001120CF6A012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		CC50C08A2C4B1A1100482E4B /* Build configuration list for PBXProject "NanoHTTP" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1610,15 +1623,6 @@
 			buildConfigurations = (
 				CC50C0C12C4BA95600482E4B /* Debug */,
 				CC50C0C22C4BA95600482E4B /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		CC1D0C20000001100CF6A010 /* Build configuration list for PBXNativeTarget "NanoHTML" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				CC1D0C20000001110CF6A011 /* Debug */,
-				CC1D0C20000001120CF6A012 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

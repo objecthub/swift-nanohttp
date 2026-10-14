@@ -9,6 +9,12 @@ All notable changes to this project are documented in this file. The format is b
 Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says how to move from 1.x.
 
 ### Changed
+- **Breaking: the server logs through a logger, with levels, and no longer prints.** `Configuration.logger` takes a
+  `NanoHTTPLogger`; the default, `NanoOSLogger`, writes to the unified logging system (Xcode console, Console app), so a
+  command-line tool has to set a `NanoConsoleLogger` to see the messages in its terminal. `NanoHTTPServerIO.log(_:)` is no
+  longer `open` (it logs at the level `info`; `log(_:_:)` takes a level), so subclasses that overrode it do not compile
+  until they use a logger. `NanoSocketSession.start(socket:drainTimeout:)` has a third parameter, `logger:`. The messages of
+  WebSocket sessions go to the logger instead of `print`. See *Logging* in `MIGRATION-2.0.md`.
 - **Breaking: NanoHTML is a library of its own, and it is a new builder** (N1, N2, N3, S5). Add the product `NanoHTML` and
   `import NanoHTML`. Pages are built from values: `Html { Body { H1("Hi"); A("Home").href("/") } }`; text and attribute
   values are escaped (`Raw(_:)` inserts HTML as it is), void elements have no end tag, attributes are written in the
@@ -75,6 +81,9 @@ Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says 
   "connection closed by peer" instead of "Undefined error: 0".
 
 ### Added
+- `NanoHTTPLogger`, `NanoLogLevel` (`debug`, `info`, `warning`, `error`), `NanoOSLogger`, `NanoConsoleLogger` and
+  `NanoSilentLogger`; `NanoHTTPServerIO.logger`, `log(_:_:)` (the message is only built if the logger wants it) and
+  `NanoWebSocketSession.logger`. The documentation has an article, *Logging*.
 - `NanoFile(path:mode:)` opens a file (`.read`, `.create`, `.update`) for a response body writer, and
   `NanoFiles.mimeType(forPath:)` is the public way to look up a MIME type.
 - **HTTP/1.1 behavior** (batch 2 of 2.0):
@@ -147,6 +156,9 @@ Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says 
   are scripts and commands that are run by hand, listed in `CONTRIBUTING.md`.
 
 ### Fixed
+- A WebSocket session no longer writes a second close frame to a connection that has been closed when it is released: that
+  write always failed, and the failure was printed as `writeFailed("Bad file descriptor")` for every connection.
+- A server that is stopped no longer reports the accept that its closed listening socket made fail.
 - Idle connections no longer starve the server: between 60 and 70 silent connections used up the threads of the
   dispatch pool, and no request was served after that (R3).
 

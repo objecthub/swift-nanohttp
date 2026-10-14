@@ -59,7 +59,9 @@ grouped and mounted below a prefix, and `server["/path"]` answers every method.
 - **Errors**: a handler can `throw NanoHTTPError.notFound("No such item")`, which becomes the response; other
   errors become a `500` without details.
 - **Middleware** that wraps requests (check, change, log, catch errors), and subclassing for everything else:
-  how requests are dispatched, how connections are handled, logging.
+  how requests are dispatched and how connections are handled.
+- **Logging** with levels: what the server reports goes to a logger (the unified log by default, the console or your own),
+  not to `print`.
 - **Limits** for lines, headers and bodies, timeouts for idle and stalled connections, a limit for the number of
   connections, and answers (`400`, `408`, `413`, `414`, `431`, `503`) for requests that exceed them.
 

@@ -48,6 +48,22 @@ func raiseFileDescriptorLimit(to wanted: rlim_t = 4096) {
   }
 }
 
+/// The number of open file descriptors once it has stopped changing: the servers of earlier tests close their
+/// connections on threads of their own, a moment after their tests have ended, which would free descriptors
+/// in the middle of a test that has used up all of them.
+func settledDescriptorCount() -> Int {
+  var last = openFileDescriptorCount()
+  var unchanged = 0
+  let end = Date(timeIntervalSinceNow: 3)
+  while unchanged < 4 && Date() < end {
+    usleep(50_000)
+    let now = openFileDescriptorCount()
+    unchanged = now == last ? unchanged + 1 : 0
+    last = now
+  }
+  return last
+}
+
 /// Lowers the soft descriptor limit and fills *every* free descriptor slot below it, except
 /// `free` of them, so the next `free` socket()/accept()/open() calls succeed and the one after
 /// that fails with EMFILE. Returns a closure that restores the limit and releases the fillers.
@@ -212,6 +228,43 @@ final class Gate {
     self.isOpen = true
     self.condition.broadcast()
     self.condition.unlock()
+  }
+}
+
+/// A logger that remembers what it receives (at every level), for tests of what the server reports.
+final class CapturingLogger: NanoHTTPLogger {
+  private let lock = NSLock()
+  private var recorded = [(level: NanoLogLevel, message: String)]()
+
+  func log(_ level: NanoLogLevel, _ message: @autoclosure () -> String) {
+    let text = message()
+    self.lock.lock()
+    self.recorded.append((level, text))
+    self.lock.unlock()
+  }
+
+  var entries: [(level: NanoLogLevel, message: String)] {
+    self.lock.lock()
+    defer { self.lock.unlock() }
+    return self.recorded
+  }
+
+  var messages: [String] {
+    return self.entries.map { $0.message }
+  }
+
+  /// The messages that contain `text`, at the level if one is given.
+  func messages(containing text: String, level: NanoLogLevel? = nil) -> [String] {
+    return self.entries.filter { (level == nil || $0.level == level) && $0.message.contains(text) }.map { $0.message }
+  }
+
+  func contains(_ text: String, level: NanoLogLevel? = nil) -> Bool {
+    return !self.messages(containing: text, level: level).isEmpty
+  }
+
+  /// Waits for a message, which a connection thread may log a moment after the client has its answer.
+  func waitFor(_ text: String, level: NanoLogLevel? = nil, timeout: TimeInterval = 5) -> Bool {
+    return eventually(timeout: timeout) { self.contains(text, level: level) }
   }
 }
 

@@ -39,7 +39,7 @@ import Foundation
 /// (``NanoHTTPResponse/switchProtocols(_:session:)``) turns the connection over to it once the `101` response
 /// has been sent.
 ///
-/// The server calls ``start(socket:drainTimeout:)`` once, then ``receive()`` whenever the socket has
+/// The server calls ``start(socket:drainTimeout:logger:)`` once, then ``receive()`` whenever the socket has
 /// something to read, and ``end()`` once the session is over. This lets a server that has only one thread
 /// (``NanoHTTPServerIO/Configuration/Threading/singleThread``) serve many sessions and all its other
 /// connections: it waits for all of them together, and a session never holds the thread longer than
@@ -55,7 +55,7 @@ import Foundation
 /// final class ExampleUppercaseSession: NanoSocketSession {
 ///   private var socket: NanoSocket?
 ///
-///   func start(socket: NanoSocket, drainTimeout: TimeInterval) {
+///   func start(socket: NanoSocket, drainTimeout: TimeInterval, logger: NanoHTTPLogger) {
 ///     self.socket = socket
 ///     try? socket.writeUTF8("HELLO\n")
 ///   }
@@ -84,8 +84,10 @@ public protocol NanoSocketSession: AnyObject {
   /// for the next message itself, without a limit.) `drainTimeout` is how long to read and drop what a client
   /// still sends when the connection is closed because of an error: a connection that is closed while the peer is
   /// still sending is reset, and the peer then loses the last message that the session sent (the close frame of a
-  /// WebSocket).
-  func start(socket: NanoSocket, drainTimeout: TimeInterval)
+  /// WebSocket). `logger` is the logger of the server (``NanoHTTPServerIO/Configuration/logger``): report
+  /// what goes wrong in the session with it, for example a client that does not follow the protocol, instead of
+  /// printing it.
+  func start(socket: NanoSocket, drainTimeout: TimeInterval, logger: NanoHTTPLogger)
   
   /// Called when the socket has data to read, or has been closed by the peer or the server. Reads and
   /// handles what has arrived and returns without waiting for more: a message that is only partly there

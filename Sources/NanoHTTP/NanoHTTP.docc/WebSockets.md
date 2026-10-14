@@ -66,7 +66,7 @@ server["/chat"] = NanoWebSocket.handler(
 ```
 
 Always remove a session in `disconnected`. Writing to a session whose connection has ended does nothing harmful (it
-logs an error), but a collection that keeps such sessions grows forever.
+is logged at the level ``NanoLogLevel/info``), but a collection that keeps such sessions grows forever.
 
 ### On a server with one thread
 

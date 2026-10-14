@@ -36,6 +36,12 @@ many hostile clients; <doc:SecurityAndLimits> says what to take care of.
 - ``NanoHTTPServerIO``
 - ``NanoHTTPServerDelegate``
 - <doc:ThreadingAndLifecycle>
+- <doc:Logging>
+- ``NanoHTTPLogger``
+- ``NanoLogLevel``
+- ``NanoOSLogger``
+- ``NanoConsoleLogger``
+- ``NanoSilentLogger``
 - <doc:MiddlewareAndExtending>
 - <doc:HowARequestIsServed>
 

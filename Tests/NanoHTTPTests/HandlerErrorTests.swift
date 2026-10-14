@@ -11,19 +11,15 @@ import XCTest
 
 /// A server that remembers what it logs.
 private final class LoggingServer: NanoHTTPServer {
-  private let lock = NSLock()
-  private var lines = [String]()
+  let captured = CapturingLogger()
 
   var messages: [String] {
-    self.lock.lock()
-    defer { self.lock.unlock() }
-    return self.lines
+    return self.captured.messages
   }
 
-  override func log(_ str: String) {
-    self.lock.lock()
-    self.lines.append(str)
-    self.lock.unlock()
+  public override init(configuration: Configuration = Configuration()) {
+    super.init(configuration: configuration)
+    self.configuration.logger = self.captured
   }
 }
 
@@ -141,6 +137,7 @@ final class HandlerErrorTests: XCTestCase {
       let logged = server.messages.joined(separator: "\n")
       XCTAssertTrue(logged.contains("GET /db"), logged)
       XCTAssertTrue(logged.contains("hunter2"), logged)
+      XCTAssertTrue(server.captured.contains("GET /db", level: .error), "a failing handler is an error")
     }
   }
 

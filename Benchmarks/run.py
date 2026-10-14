@@ -53,11 +53,11 @@ for name in ["1k", "100k", "1m", "10m"] {
   server.get["/blob/\\(name)"] = { _ in .ok(.data(blob, contentType: "application/octet-stream")) }
 }
 server.post["/upload"] = { request in .ok(.text("\\(request.body.count)")) }
-server["/ws"] = websocket(text: { session, text in session.writeText(text) })
+server["/ws"] = WEBSOCKET_HANDLER(text: { session, text in session.writeText(text) })
 // A file of 100 KB, which `share(file:)` serves (a file that is closed after every response in 1.x).
 let benchmarkFile = NSTemporaryDirectory() + "nanohttp-benchmark-100k.bin"
 try? blobs["100k"]!.write(to: URL(fileURLWithPath: benchmarkFile))
-server["/file/100k"] = share(file: benchmarkFile)
+server["/file/100k"] = SHARE_FILE(file: benchmarkFile)
 """
 
 # NanoHTTP 1.x: listenAddressIPv4 and the parameters of start(); "serial" is handlerPriority: nil
@@ -81,6 +81,14 @@ def sh(*args, cwd=None, check=True, quiet=True):
         sys.exit(f"failed: {' '.join(args)}\n{result.stdout}\n{result.stderr}")
     return result
 
+def has_namespaces(source_root):
+    """Whether this version has `NanoFiles` and `NanoWebSocket` (2.0), or still the global `share` and `websocket`."""
+    try:
+        with open(os.path.join(source_root, "Sources", "NanoHTTP", "NanoFiles.swift")) as handle:
+            return "enum NanoFiles" in handle.read()
+    except OSError:
+        return False
+
 def build_server(name, source_root, uses_configuration):
     """Creates and builds a server package that depends on the NanoHTTP package at `source_root`."""
     directory = os.path.join(WORK, name)
@@ -97,7 +105,12 @@ let package = Package(
   targets: [.executableTarget(name: "benchserver", dependencies: [.product(name: "NanoHTTP", package: "{package}")])])
 ''')
     with open(os.path.join(directory, "Sources", "benchserver", "main.swift"), "w") as handle:
-        handle.write(COMMON + (TAIL_2X if uses_configuration else TAIL_1X))
+        common = COMMON
+        if has_namespaces(source_root):
+            common = common.replace("WEBSOCKET_HANDLER", "NanoWebSocket.handler").replace("SHARE_FILE", "NanoFiles.share")
+        else:
+            common = common.replace("WEBSOCKET_HANDLER", "websocket").replace("SHARE_FILE", "share")
+        handle.write(common + (TAIL_2X if uses_configuration else TAIL_1X))
     print(f"building {name} ...", flush=True)
     sh("swift", "build", "-c", "release", cwd=directory)
     return os.path.join(directory, ".build", "release", "benchserver")

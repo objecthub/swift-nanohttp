@@ -190,6 +190,13 @@ open class NanoHTTPServerIO {
     /// The priority of the threads that serve the connections.
     public var connectionQoS: QualityOfService = .userInitiated
     
+    /// Receives what the server reports: a response that could not be written, a pause in accepting
+    /// connections, a handler that threw an error, a WebSocket client that broke the protocol. The default
+    /// is a ``NanoOSLogger``, which writes to the unified logging system (the console of Xcode, the Console
+    /// app). A command-line tool that should print to its terminal uses a ``NanoConsoleLogger``; a
+    /// ``NanoSilentLogger`` switches logging off.
+    public var logger: NanoHTTPLogger = NanoOSLogger()
+    
     /// Creates the configuration of a new server: loopback only, default limits.
     public init() {
     }
@@ -486,7 +493,7 @@ open class NanoHTTPServerIO {
   
   private func acceptSucceeded(_ failures: inout AcceptFailures) {
     if failures.count > 0 {
-      self.log("Accepting connections again")
+      self.log(.info, "Accepting connections again")
     }
     failures = AcceptFailures()
   }
@@ -499,9 +506,13 @@ open class NanoHTTPServerIO {
       case .accepted, .wouldBlock:
         return .immediately
       case .transient(let reason):
+        guard self.isRunning(listener) else {
+          return .giveUp // `stop` closed the listening socket, which makes the accept that waits for it fail
+        }
         failures.count += 1
         if failures.count == 1 {
-          self.log("Unable to accept a connection (\(reason)); retrying")
+          // Routine: a client that gave up before it was accepted (a reset connection) is no problem of the server.
+          self.log(.info, "Unable to accept a connection (\(reason)); retrying")
         }
         guard failures.count > 100 else {
           return .immediately
@@ -511,9 +522,12 @@ open class NanoHTTPServerIO {
         failures.delay = min(delay * 2, 1.0)
         return .after(delay)
       case .exhausted(let reason):
+        guard self.isRunning(listener) else {
+          return .giveUp
+        }
         failures.count += 1
         if failures.count == 1 {
-          self.log("Unable to accept a connection (\(reason)); retrying")
+          self.log(.warning, "Unable to accept a connection (\(reason)); retrying")
         }
         let delay = failures.delay
         failures.delay = min(delay * 2, 1.0)
@@ -543,7 +557,7 @@ open class NanoHTTPServerIO {
     self.forget(socket: socket)
     if !refusing {
       refusing = true
-      self.log("There are \(limit) open connections; refusing new ones until some are closed")
+      self.log(.warning, "There are \(limit) open connections; refusing new ones until some are closed")
     }
     let refuse = {
       NanoHTTPConnection.reject("503 Service Unavailable", headers: "Retry-After: 1\r\n", on: socket,
@@ -750,7 +764,7 @@ open class NanoHTTPServerIO {
     if let error = error as? NanoHTTPError {
       return error.response
     }
-    self.log("\(request.method) \(request.rawPath) failed: \(error)")
+    self.log(.error, "\(request.method) \(request.rawPath) failed: \(error)")
     return NanoHTTPError.internalServerError("Internal Server Error").response
   }
   
@@ -787,11 +801,27 @@ open class NanoHTTPServerIO {
     }
   }
   
-  /// Logs a message. The server reports problems that nobody else can see: a response that could not
-  /// be written, a pause in accepting connections, a response header that was dropped. The implementation
-  /// prints to the console; override to log elsewhere. May be called from any thread.
-  open func log(_ str: String) {
-    print(str)
+  /// The logger of the server: the one of ``Configuration/logger`` of the run that is going on, or, if the
+  /// server is not running, the one that the next run will use.
+  public var logger: NanoHTTPLogger {
+    self.stateLock.lock()
+    defer {
+      self.stateLock.unlock()
+    }
+    return self.stateValue == .stopped ? self.configurationValue.logger : self.activeConfigurationValue.logger
+  }
+  
+  /// Logs a message with the ``logger`` of the server. The server reports problems that nobody else
+  /// can see (a response that could not be written, a pause in accepting connections, a response header
+  /// that was dropped); your own code can use it too. May be called from any thread. The message is only
+  /// built if the logger wants it.
+  public func log(_ level: NanoLogLevel, _ message: @autoclosure () -> String) {
+    self.logger.log(level, message())
+  }
+  
+  /// Logs a message of the level ``NanoLogLevel/info``.
+  public func log(_ message: String) {
+    self.logger.log(.info, message)
   }
   
   /// Registers an open connection so that ``stop()`` and ``closeAndforgetAllConnections()`` can close

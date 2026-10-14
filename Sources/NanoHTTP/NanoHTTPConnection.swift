@@ -152,7 +152,7 @@ public struct NanoHTTPConnection {
                          self.respond(response: response,
                                       keepAlive: keepConnection && !dontKeepAlive)
     } catch {
-      server.log("Failed to send response: \(error)")
+      server.log(.info, "Failed to send response: \(error)")
       keepConnection = false // the client has a response that is cut off
     }
     if let session = response.eventSession() {
@@ -164,7 +164,7 @@ public struct NanoHTTPConnection {
         // The server waits for the socket together with all other sockets, and calls the session when there
         // is something to read: this thread has more to do than to wait for one session.
         server.adopt(session: session, on: socket)
-        session.start(socket: socket, drainTimeout: 0.1)
+        session.start(socket: socket, drainTimeout: 0.1, logger: self.configuration.logger)
         return nil
       }
       self.run(session: session, on: server)
@@ -172,7 +172,7 @@ public struct NanoHTTPConnection {
       // The session decides how long it waits for data: a WebSocket may be silent for hours.
       socket.setReceiveTimeout(nil)
       if self.configuration.threading == .singleThread {
-        server.log("A socket session in the form of a function runs on the only thread of the server; nothing else is served until it returns (a NanoSocketSession does not have this problem)")
+        server.log(.warning, "A socket session in the form of a function runs on the only thread of the server; nothing else is served until it returns (a NanoSocketSession does not have this problem)")
       }
       server.delegate?.connectionReceived(server: server, socket: socket)
       session(socket)
@@ -201,7 +201,7 @@ public struct NanoHTTPConnection {
   /// session when there is something to read. The wait ends after the read timeout (the receive timeout of the
   /// socket) without anything to read, and then goes on: a session may be silent for as long as it likes.
   private func run(session: NanoSocketSession, on server: NanoHTTPServerIO) {
-    session.start(socket: self.socket, drainTimeout: 1)
+    session.start(socket: self.socket, drainTimeout: 1, logger: self.configuration.logger)
     while server.operating {
       guard let dataIsThere = try? self.socket.awaitData() else {
         break // the socket has been closed
@@ -303,7 +303,7 @@ public struct NanoHTTPConnection {
     } catch {
       // The body could not be produced (a `.json` body that is not JSON). Nothing has been sent
       // yet, so the client can still be told that the server failed.
-      server.log("Unable to produce the body of the response: \(error)")
+      server.log(.error, "Unable to produce the body of the response: \(error)")
       response = NanoHTTPResponse.internalServerError(.text("Internal Server Error"))
       inline = try response.body.inline()
     }
@@ -351,7 +351,7 @@ public struct NanoHTTPConnection {
                                                   framing: framing,
                                                   connection: connection,
                                                   date: (100..<200).contains(status) ? nil : NanoHTTPDate.string(),
-                                                  dropped: { server.log("Dropped a response header with an invalid name: \(String(reflecting: $0))") })
+                                                  dropped: { server.log(.warning, "Dropped a response header with an invalid name: \(String(reflecting: $0))") })
     if isHead && status != 101 {
       try self.socket.writeUInt8(message) // the head only
     } else if let inline, bodyAllowed {
@@ -373,7 +373,7 @@ public struct NanoHTTPConnection {
             let writer = LengthLimitedBodyWriter(socket: self.socket, length: length)
             try write(writer)
             if !writer.isComplete {
-              server.log("The body of a response has \(writer.overflowed ? "more" : "fewer") bytes than the \(length) of its Content-Length; the connection is closed")
+              server.log(.error, "The body of a response has \(writer.overflowed ? "more" : "fewer") bytes than the \(length) of its Content-Length; the connection is closed")
               keeping = false
             }
           case .chunked:

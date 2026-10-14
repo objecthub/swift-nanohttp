@@ -351,7 +351,7 @@ private final class ShoutingSession: NanoSocketSession {
     self.lock.unlock()
   }
 
-  func start(socket: NanoSocket, drainTimeout: TimeInterval) {
+  func start(socket: NanoSocket, drainTimeout: TimeInterval, logger: NanoHTTPLogger) {
     self.socket = socket
     self.note("start")
     try? socket.writeUTF8("HELLO\n")

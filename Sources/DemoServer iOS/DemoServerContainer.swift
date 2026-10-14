@@ -37,17 +37,19 @@ import NanoHTTPDemo
 
 final class DemoServerContainer: ObservableObject {
   
-  final class iOSHttpServer: NanoHTTPServer {
+  /// Shows what the server reports in the window of the app.
+  final class OutputLogger: NanoHTTPLogger {
     weak var container: DemoServerContainer? = nil
-    public override func log(_ str: String) {
-      if let container {
-        DispatchQueue.main.async {
-          container.output += str + "\n"
-        }
-      } else {
-        print(str)
+    
+    func log(_ level: NanoLogLevel, _ message: @autoclosure () -> String) {
+      let text = message()
+      DispatchQueue.main.async { [weak container] in
+        container?.output += text + "\n"
       }
     }
+  }
+  
+  final class iOSHttpServer: NanoHTTPServer {
     public override func stop() {
       if self.operating {
         super.stop()
@@ -74,7 +76,9 @@ final class DemoServerContainer: ObservableObject {
   init() {
     let server = iOSHttpServer()
     self.server = server
-    server.container = self
+    let logger = OutputLogger()
+    logger.container = self
+    server.configuration.logger = logger
     _ = NanoHTTPServer.demo(server: server,
                             directory: FileManager.default.urls(for: .downloadsDirectory,
                                                                 in: .userDomainMask).first?.path ??

@@ -18,6 +18,7 @@ NANOHTTP_CRASH_TESTS=1 swift test --filter <one test>   # see "Crash tests" belo
 | `RequestParsingTests.swift` | request line, query, headers, url-encoded forms, multipart |
 | `RouterBehaviorTests.swift` | routing precedence, parameters, mounting, concurrency (complements `HTTPRouterTests.swift`) |
 | `WebSocketIntegrationTests.swift` | RFC 6455 handshake and frames against a real server; concurrent writers |
+| `LoggerTests.swift` | the logger: levels, the built-in loggers, lazy messages, what the server and WebSocket sessions report (both threading modes) |
 | `HTMLDSLTests.swift` | the NanoHTML module: elements, attributes, block syntax, escaping, pages as responses |
 | `Support/` | `RawClient` (blocking raw TCP client), `withTestServer`, `FileSocket`, `FileFixture`, `expectKnownIssue` |
 

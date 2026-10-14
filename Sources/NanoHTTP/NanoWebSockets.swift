@@ -116,6 +116,7 @@ final class NanoWebSocketSessionDriver: NanoSocketSession {
   
   private var session: NanoWebSocketSession?
   private var drainTimeout: TimeInterval = 1
+  private var logger: NanoHTTPLogger = NanoSilentLogger()
   private var fragmentedOpCode = NanoWebSocketSession.OpCode.close
   private var payload = [UInt8]() // Used for fragmented frames.
   private var closeCode: UInt16? = nil // The status code of the close frame of the client, if it has one.
@@ -136,8 +137,10 @@ final class NanoWebSocketSessionDriver: NanoSocketSession {
     self.maxMessageSize = maxMessageSize
   }
   
-  func start(socket: NanoSocket, drainTimeout: TimeInterval) {
+  func start(socket: NanoSocket, drainTimeout: TimeInterval, logger: NanoHTTPLogger) {
     let session = NanoWebSocketSession(socket)
+    session.logger = logger
+    self.logger = logger
     session.maxPayloadSize = self.maxMessageSize
     self.session = session
     self.drainTimeout = drainTimeout
@@ -276,22 +279,22 @@ final class NanoWebSocketSessionDriver: NanoSocketSession {
         // Normal close: answer with the status code of the client.
         code = self.closeCode
       case NanoWebSocketSession.WsError.unknownOpCode:
-        print("Unknown Op Code: \(error)")
+        self.logger.info("WebSocket: unknown operation code (\(error))")
         code = NanoWebSocketSession.CloseCode.protocolError
       case NanoWebSocketSession.WsError.unMaskedFrame:
-        print("Unmasked frame: \(error)")
+        self.logger.info("WebSocket: unmasked frame (\(error))")
         code = NanoWebSocketSession.CloseCode.protocolError
       case NanoWebSocketSession.WsError.invalidUTF8:
-        print("Invalid UTF8 character: \(error)")
+        self.logger.info("WebSocket: invalid UTF-8 text (\(error))")
         code = NanoWebSocketSession.CloseCode.invalidPayload
       case NanoWebSocketSession.WsError.messageTooBig:
-        print("Message too big: \(error)")
+        self.logger.info("WebSocket: message too big (\(error))")
         code = NanoWebSocketSession.CloseCode.messageTooBig
       case NanoWebSocketSession.WsError.protocolError:
-        print("Protocol error: \(error)")
+        self.logger.info("WebSocket: protocol error (\(error))")
         code = NanoWebSocketSession.CloseCode.protocolError
       default:
-        print("Unkown error \(error)")
+        self.logger.warning("WebSocket: the session ended because of an unexpected error (\(error))")
     }
     // If an error occurs, send the close handshake.
     if let code {
@@ -310,7 +313,7 @@ final class NanoWebSocketSessionDriver: NanoSocketSession {
 ///
 /// All `write...` methods may be called from any thread at any time: concurrent calls are
 /// serialized, so frames never interleave. After the connection has ended, writing is a harmless
-/// no-op that logs an error.
+/// no-op that is logged at the level ``NanoLogLevel/info`` (if the session has a ``logger``).
 public class NanoWebSocketSession: Hashable, Equatable {
   
   /// Violations of the WebSocket protocol that end a connection.
@@ -376,14 +379,23 @@ public class NanoWebSocketSession: Hashable, Equatable {
   /// rejected with `WsError.protocolError` before any of its payload is read.
   public var maxPayloadSize = 16 * 1024 * 1024
   
+  /// Receives what goes wrong when the session writes (a frame that cannot be written because the
+  /// client has gone). The server sets the logger of its sessions to its own; a session that is created
+  /// by hand logs nothing.
+  public var logger: NanoHTTPLogger?
+  
   /// Creates a session for an established connection. Sessions are normally created by ``NanoWebSocket/handler(text:binary:pong:connected:disconnected:maxMessageSize:)``.
   public init(_ socket: NanoSocket) {
     self.socket = socket
   }
   
   deinit {
-    writeCloseFrame()
-    socket.close()
+    // A courtesy for a session that is dropped while its connection is still open. When the connection
+    // has ended already (the server closes it after the close handshake), there is nobody to tell.
+    if !self.socket.isClosed {
+      self.writeCloseFrame()
+    }
+    self.socket.close()
   }
   
   /// Sends a text message in one frame.
@@ -419,7 +431,7 @@ public class NanoWebSocketSession: Hashable, Equatable {
         try self.socket.writeUInt8(data)
       }
     } catch {
-      print(error)
+      self.logger?.info("WebSocket: unable to write a frame (\(error))")
     }
   }
   

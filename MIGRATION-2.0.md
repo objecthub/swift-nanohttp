@@ -278,3 +278,39 @@ HTML that you wrote; `htmlHandler`'s block receives the request; and `Html` writ
 obsolete elements (`center`, `font`, `marquee`, ...) have no type, `Data` and `Progress` are `DataValue` and
 `ProgressBar`, and `String.htmlEscaped` is still in `NanoHTTP`.
 
+## Logging
+
+What the server reports (a handler that threw, a response that could not be written, a pause in accepting connections, a
+WebSocket client that broke the protocol) goes to a **logger** with a level, no longer to `print`. The messages are the same
+ones, but their destination changed:
+
+- The default logger, `NanoOSLogger`, writes to the unified logging system: you see the messages in the console of Xcode
+  and in the Console app, but **a command-line tool does not print them to its terminal any more**. Set a `NanoConsoleLogger`
+  for that (`server.configuration.logger = NanoConsoleLogger()`), or a `NanoSilentLogger` to switch logging off.
+- `NanoHTTPServerIO.log(_:)` is not `open` any more. Subclasses that overrode it (to show the messages in a window, to
+  collect them in a test) no longer compile; write a type that conforms to `NanoHTTPLogger` and set it in the configuration:
+
+```swift nocompile
+// 1.x
+final class MyServer: NanoHTTPServer {
+  override func log(_ str: String) { output += str + "\n" }
+}
+```
+
+```swift
+// 2.0
+final class MyLogger: NanoHTTPLogger {
+  func log(_ level: NanoLogLevel, _ message: @autoclosure () -> String) {
+    print("[\(level)] \(message())")
+  }
+}
+let server = NanoHTTPServer()
+server.configuration.logger = MyLogger()
+server.log("calling the logger from your own code")   // as before: logs at the level info
+```
+
+- `NanoSocketSession.start` got a third parameter, the logger of the server (`start(socket:drainTimeout:logger:)`); sessions of
+  your own that implement the protocol have to add it.
+- A WebSocket session no longer prints `Unkown error ...` or `Protocol error: ...`; those lines are messages at the level
+  `info` (a client's mistake) or `warning` now.
+

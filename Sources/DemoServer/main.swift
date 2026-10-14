@@ -63,7 +63,11 @@ final class MacOsHttpServer: NanoHTTPServer {
 do {
   let path = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path ??
              FileManager.default.currentDirectoryPath
-  let server: NanoHTTPServer  = .demo(server: MacOsHttpServer(), directory: path)
+  let macServer = MacOsHttpServer()
+  // A command-line tool shows what the server reports in its terminal; the default logger writes to the
+  // unified logging system (Console app), which a terminal does not show.
+  macServer.configuration.logger = NanoConsoleLogger()
+  let server: NanoHTTPServer = .demo(server: macServer, directory: path)
   server["/testAfterBaseRoute"] = { request in
     print("Received request: \(request)")
     return .ok(.htmlBody("ok !"))

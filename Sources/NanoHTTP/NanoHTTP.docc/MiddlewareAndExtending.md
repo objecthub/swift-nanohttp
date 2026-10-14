@@ -68,26 +68,23 @@ The server is built to be subclassed. These methods are `open`:
 | ``NanoHTTPServerIO/dispatch(request:)`` | for every request | change how handlers are found (``NanoHTTPServer`` overrides it to run the middleware and the router) |
 | ``NanoHTTPServerIO/handle(connection:)`` | once per connection | wrap the handling of a connection, for example to measure its duration |
 | ``NanoHTTPServerIO/response(for:to:)`` | when a handler or middleware throws | decide how an error is answered (``NanoHTTPServer/errorHandler`` does this without subclassing) |
-| ``NanoHTTPServerIO/log(_:)`` | when the server reports something | send messages to your logger instead of the console |
 | ``NanoHTTPServerIO/listen()`` | when the server starts accepting | do something when the server is up (call `super`) |
 | ``NanoHTTPServerIO/stop()`` | when the server stops | do something when it stops (call `super`) |
 | ``NanoHTTPServer/initialRouter()`` | when a server is created | use another ``NanoHTTPRouter`` |
 
 ```swift
 // file scope
-final class ExampleLoggingServer: NanoHTTPServer {
-  override func log(_ str: String) {
-    print("[nanohttp] \(str)")
-  }
-
+final class ExampleTimingServer: NanoHTTPServer {
   override func handle(connection: NanoHTTPConnection) {
     let start = Date()
     let client = connection.request.address ?? "unknown"
     super.handle(connection: connection)
-    log("connection from \(client) lasted \(Date().timeIntervalSince(start)) s")
+    log(.info, "connection from \(client) lasted \(Date().timeIntervalSince(start)) s")
   }
 }
 ```
+
+What the server reports does not go through a method that you override, but to a logger that you set: see <doc:Logging>.
 
 `handle(connection:)` returns when the connection has ended, which can be long after the first request if the client keeps
 the connection open.
@@ -120,7 +117,7 @@ your own:
 final class ExampleShoutingSession: NanoSocketSession {
   private var socket: NanoSocket?
 
-  func start(socket: NanoSocket, drainTimeout: TimeInterval) {
+  func start(socket: NanoSocket, drainTimeout: TimeInterval, logger: NanoHTTPLogger) {
     self.socket = socket
     try? socket.writeUTF8("HELLO\n")
   }

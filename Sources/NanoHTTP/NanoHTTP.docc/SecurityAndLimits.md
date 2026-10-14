@@ -23,27 +23,55 @@ Or listen at the address of one network interface, `.address("192.168.1.20")`. `
 address of this machine, instead of listening everywhere.
 
 Even a server that listens on the loopback address can be reached by every web page that the user opens, because the
-browser runs on the same machine. The next two points matter for such servers too.
+browser runs on the same machine. The next point matters for such servers too.
 
 ### 2. Which sites may use it: `Host` and `Origin`
 
-A web page can send requests to `http://localhost:8080` (and open WebSockets to it), and with *DNS rebinding* a
-page can make its own domain point to your machine. The server does not look at the `Host` or `Origin` headers; do
-that in middleware:
+A web page can send requests to `http://localhost:8080` (and open WebSockets to it). Two attacks use that:
+
+- **DNS rebinding:** the page's own domain is made to point to `127.0.0.1`. The browser then treats your server as part of
+  the page's site and lets the page read every answer, with the domain of the attacker in the `Host` header.
+- **Requests of other sites:** a page makes the browser send a form, a `fetch` or a WebSocket handshake to your server;
+  the request carries the `Origin` of the page. A server that changes something when it is asked to (a `POST` that
+  deletes a file) does so for any page the user has open.
+
+The server can refuse both. The checks are **off by default**, so that nothing changes for servers that are reached under other
+names, and you switch them on in the configuration:
 
 ```swift
 let server = NanoHTTPServer()
-let allowedHosts: Set<String> = ["localhost:8080", "127.0.0.1:8080"]
-server.middleware.append { request, next in
-  guard let host = request.header("host")?.lowercased(), allowedHosts.contains(host) else {
-    throw NanoHTTPError.forbidden("Unexpected Host header")
-  }
-  // Browsers send `Origin` with WebSocket handshakes and with cross-site POSTs.
-  if let origin = request.header("origin"), !allowedHosts.contains(where: { origin == "http://\($0)" }) {
-    throw NanoHTTPError.forbidden("Unexpected Origin")
-  }
-  return try next(request)
-}
+server.configuration.hostPolicy = .automatic       // only localhost, 127.0.0.1 and [::1] (a server on the loopback address)
+server.configuration.originPolicy = .sameOrigin    // pages of the server itself, not the pages of other sites
+try server.start(8080)
+```
+
+- ``NanoHTTPServerIO/Configuration/HostPolicy/automatic`` accepts the names of the loopback address (`localhost`,
+  `127.0.0.1`, `[::1]`, at any port, so that a tunnel works) when the server listens only there, and every name when it
+  listens at other addresses, because it cannot know the names under which it is reached. For those servers use
+  ``NanoHTTPServerIO/Configuration/HostPolicy/hosts(_:)``: `.hosts(["mac.local", "192.168.1.20:8080"])`; an entry without a
+  port accepts every port.
+- ``NanoHTTPServerIO/Configuration/OriginPolicy/sameOrigin`` looks at the requests that change something (everything but
+  `GET`, `HEAD` and `OPTIONS`) and at WebSocket handshakes: when such a request has an `Origin` header, the origin has to be the
+  address that the request was sent to. Requests without an `Origin` (`curl`, apps, other tools) are served, and so are the
+  reads of pages of other sites: the browser keeps those pages from reading the answer, unless you allow it with CORS (below).
+  ``NanoHTTPServerIO/Configuration/OriginPolicy/origins(_:)`` adds the pages of other origins that you trust:
+  `.origins(["https://app.example", "http://localhost:3000"])`.
+- A request that is refused is answered with `403 Forbidden` before the middleware sees it, and logged as a warning with
+  the offending header. A request without a `Host` (HTTP/1.0) is served.
+
+The same checks exist as middleware, for the parts of a server that need other rules than the rest: ``NanoMiddleware/hostAllowlist(_:)``
+and ``NanoMiddleware/originAllowlist(_:)``.
+
+**Sites that may use the server:** if a page of another site is meant to talk to your server, the browser has to be told so:
+add ``NanoMiddleware/cors(_:)``, which answers the preflight requests of browsers and adds the headers that give the page access.
+CORS decides what a page may *read*; it does not keep the request from reaching your server, which is what the `originPolicy`
+is for. List the same origins in both:
+
+```swift
+let server = NanoHTTPServer()
+let trusted = ["https://app.example", "http://localhost:3000"]
+server.configuration.originPolicy = .origins(trusted)
+server.middleware.append(NanoMiddleware.cors(NanoCORSPolicy(allowedOrigins: trusted)))
 ```
 
 ### 3. Who is it: authentication and encryption

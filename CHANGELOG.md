@@ -81,6 +81,12 @@ Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says 
   "connection closed by peer" instead of "Undefined error: 0".
 
 ### Added
+- **Host and Origin policies, and CORS** (S6), all off by default. `Configuration.hostPolicy` (`.any`, `.automatic`,
+  `.hosts([...])`) refuses requests for other host names (DNS rebinding); `Configuration.originPolicy` (`.any`,
+  `.sameOrigin`, `.origins([...])`) refuses requests that change something, and WebSocket handshakes, from pages of other
+  sites. Refused requests get `403 Forbidden` before the middleware runs, and a warning in the log. `NanoMiddleware.cors`
+  with a `NanoCORSPolicy` answers preflight requests and adds the permission headers; `NanoMiddleware.hostAllowlist` and
+  `originAllowlist` are the same checks as middleware. See *Security and Limits*.
 - `NanoHTTPLogger`, `NanoLogLevel` (`debug`, `info`, `warning`, `error`), `NanoOSLogger`, `NanoConsoleLogger` and
   `NanoSilentLogger`; `NanoHTTPServerIO.logger`, `log(_:_:)` (the message is only built if the logger wants it) and
   `NanoWebSocketSession.logger`. The documentation has an article, *Logging*.

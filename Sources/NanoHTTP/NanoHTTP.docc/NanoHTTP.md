@@ -51,6 +51,8 @@ many hostile clients; <doc:SecurityAndLimits> says what to take care of.
 - ``NanoHTTPResponse``
 - ``NanoHTTPRequestHandler``
 - ``NanoHTTPMiddleware``
+- ``NanoMiddleware``
+- ``NanoCORSPolicy``
 - ``NanoHTTPError``
 - ``NanoHTTPResponseBodyWriter``
 - ``NanoHTTPParser``

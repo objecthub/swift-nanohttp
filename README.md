@@ -102,8 +102,10 @@ server.configuration.listenAddress = .allInterfaces
 try server.start(8080)
 ```
 
-Even a server that listens at the loopback address can be reached by web pages in the user's browser: check the `Host`
-and `Origin` headers in a middleware if that matters. There is no TLS, no authentication and no rate limiting: do not
+Even a server that listens at the loopback address can be reached by web pages in the user's browser. Two checks, off by
+default, close the usual ways in: `server.configuration.hostPolicy = .automatic` refuses requests for other host names
+(DNS rebinding), and `originPolicy = .sameOrigin` refuses requests that change something, and WebSocket handshakes, from
+pages of other sites. `NanoMiddleware.cors` lets the pages that you trust use the server. There is no TLS, no authentication and no rate limiting: do not
 expose a server to the internet without a reverse proxy that provides them. The documentation article *Security and Limits*
 lists what to decide, with code. To report a vulnerability, see [SECURITY.md](SECURITY.md).
 

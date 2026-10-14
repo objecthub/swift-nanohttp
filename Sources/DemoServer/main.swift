@@ -67,6 +67,10 @@ do {
   // A command-line tool shows what the server reports in its terminal; the default logger writes to the
   // unified logging system (Console app), which a terminal does not show.
   macServer.configuration.logger = NanoConsoleLogger()
+  // The pages of the demo are used from the browser of this machine: other sites should not be able to use the server
+  // through that browser (DNS rebinding, forms and WebSockets of other pages).
+  macServer.configuration.hostPolicy = .automatic
+  macServer.configuration.originPolicy = .sameOrigin
   let server: NanoHTTPServer = .demo(server: macServer, directory: path)
   server["/testAfterBaseRoute"] = { request in
     print("Received request: \(request)")

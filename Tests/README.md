@@ -18,6 +18,8 @@ NANOHTTP_CRASH_TESTS=1 swift test --filter <one test>   # see "Crash tests" belo
 | `RequestParsingTests.swift` | request line, query, headers, url-encoded forms, multipart |
 | `RouterBehaviorTests.swift` | routing precedence, parameters, mounting, concurrency (complements `HTTPRouterTests.swift`) |
 | `WebSocketIntegrationTests.swift` | RFC 6455 handshake and frames against a real server; concurrent writers |
+| `HostAndOriginTests.swift` | the Host and Origin policies and middleware: parsing, DNS rebinding, requests of other sites, WebSocket handshakes (both threading modes) |
+| `CORSTests.swift` | the CORS middleware: preflight requests, permission headers, credentials, errors |
 | `LoggerTests.swift` | the logger: levels, the built-in loggers, lazy messages, what the server and WebSocket sessions report (both threading modes) |
 | `HTMLDSLTests.swift` | the NanoHTML module: elements, attributes, block syntax, escaping, pages as responses |
 | `Support/` | `RawClient` (blocking raw TCP client), `withTestServer`, `FileSocket`, `FileFixture`, `expectKnownIssue` |
@@ -100,7 +102,7 @@ Pinned current behavior that is probably wrong but needs a decision (not marked 
 
 ## Not covered yet
 
-Performance (R8), Host/Origin validation and CORS (feature gaps, S6), signal handling (S8), the
+Performance (R8), signal handling (S8), the
 delegate callback semantics (H11), `NanoHTTPDemo`.
 
 ## Keeping the Xcode project in sync

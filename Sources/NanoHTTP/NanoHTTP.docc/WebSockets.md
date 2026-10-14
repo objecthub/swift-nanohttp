@@ -109,10 +109,11 @@ subject to the idle timeout, but they count towards ``NanoHTTPServerIO/Configura
 
 ### Security
 
-The handshake does not look at the `Origin` header. A web page in any browser tab can open a WebSocket to a server
-that is reachable from the browser, including one on the user's own machine or network, and use it with the
-privileges of the user. Servers that are not meant for such pages should check the origin; see
-<doc:SecurityAndLimits>.
+A web page in any browser tab can open a WebSocket to a server that is reachable from the browser, including one on the
+user's own machine or network, and use it with the privileges of the user. By default the handshake does not look at the
+`Origin` header, which a browser sends with it. Servers that are not meant for such pages switch on the origin check:
+`server.configuration.originPolicy = .sameOrigin` refuses handshakes of pages of other sites (and lists the origins that
+are allowed with `.origins([...])`); see <doc:SecurityAndLimits>.
 
 ## Topics
 

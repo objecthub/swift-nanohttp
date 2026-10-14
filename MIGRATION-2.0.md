@@ -314,3 +314,22 @@ server.log("calling the logger from your own code")   // as before: logs at the 
 - A WebSocket session no longer prints `Unkown error ...` or `Protocol error: ...`; those lines are messages at the level
   `info` (a client's mistake) or `warning` now.
 
+## Host, Origin and CORS (new, off by default)
+
+Nothing changes for your server unless you switch these on. A server that web pages can reach (every server on the loopback
+address, since the browser is on the same machine) can refuse the two kinds of requests that pages of other sites make it
+receive:
+
+```swift
+let server = NanoHTTPServer()
+server.configuration.hostPolicy = .automatic       // DNS rebinding: only localhost, 127.0.0.1 and [::1] on the loopback address
+server.configuration.originPolicy = .sameOrigin    // requests that change something, and WebSocket handshakes, of other sites
+```
+
+A refused request gets `403 Forbidden` before the middleware runs, and a warning in the log. `.hosts([...])` and `.origins([...])`
+list the names and the pages that are allowed on a server that listens at other addresses or is used by other sites.
+`NanoMiddleware.cors(NanoCORSPolicy(...))` answers the preflight requests of browsers and gives the pages that you trust
+access to the answers. If you wrote middleware for this in 1.x (the example of the article *Security and Limits* checked
+`request.header("host")` and `request.header("origin")`), the policies replace it; they also handle IPv6 hosts, ports, the
+case of host names and `Origin: null`, which a hand-written comparison usually does not. The article has the details.
+

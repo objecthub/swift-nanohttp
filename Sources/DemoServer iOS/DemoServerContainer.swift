@@ -83,8 +83,10 @@ final class DemoServerContainer: ObservableObject {
                             directory: FileManager.default.urls(for: .downloadsDirectory,
                                                                 in: .userDomainMask).first?.path ??
                                        FileManager.default.currentDirectoryPath)
-    // This app is meant to be reached from other devices.
+    // This app is meant to be reached from other devices. Their pages are the pages of the app's own server: pages of
+    // other sites may not make the browsers of those devices change anything here.
     server.configuration.listenAddress = .allInterfaces
+    server.configuration.originPolicy = .sameOrigin
     try? server.start(9080)
   }
 }

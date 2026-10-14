@@ -151,6 +151,36 @@ open class NanoHTTPServerIO {
       case singleThread
     }
     
+    /// The `Host` headers that a server answers, see ``hostPolicy``.
+    public enum HostPolicy: Equatable {
+      /// Every `Host`, and requests without one. This is the default.
+      case any
+      
+      /// A server that listens at the loopback address only answers `localhost`, `127.0.0.1` and `[::1]`
+      /// (at any port, so that a tunnel to another port works); a server that listens at other addresses
+      /// answers every `Host`, because the names under which it is reached are not known.
+      case automatic
+      
+      /// Only the given hosts: `"example.com"` (at any port), `"example.com:8080"` (at that port only),
+      /// `"[::1]"`. The case of the names does not matter.
+      case hosts([String])
+    }
+    
+    /// The `Origin` headers that a server answers, see ``originPolicy``.
+    public enum OriginPolicy: Equatable {
+      /// Every `Origin`. This is the default.
+      case any
+      
+      /// Only pages of the server itself: the `Origin` of a request has to be the address that the request was
+      /// sent to (its `Host`). A request from the page of another site, and one from a page that has no origin
+      /// (`Origin: null`: a local file, a sandboxed frame) is refused.
+      case sameOrigin
+      
+      /// Pages of the server itself, and the pages of the given origins: `"https://app.example"`,
+      /// `"http://localhost:3000"`.
+      case origins([String])
+    }
+    
     /// Where the server listens. The default is ``NanoListenAddress/loopback``: only programs on this
     /// machine can connect. Use ``NanoListenAddress/allInterfaces`` for a server that is meant to
     /// be reached from other devices.
@@ -183,6 +213,23 @@ open class NanoHTTPServerIO {
     
     /// Which threads run the server, see ``Threading``. The default is ``Threading/perConnection``.
     public var threading: Threading = .perConnection
+    
+    /// Which `Host` headers the server answers. A web page can reach a server on this machine too: with
+    /// *DNS rebinding* the page's own domain is made to point to `127.0.0.1`, and the browser then sends
+    /// requests to the server with that domain as `Host`, and lets the page read the answers. A server that
+    /// only accepts its own names is not fooled. The default is ``HostPolicy/any``, which accepts every
+    /// `Host`; ``HostPolicy/automatic`` is what a server that is used from the browser of the same machine
+    /// should switch on. Requests that are refused get `403 Forbidden`.
+    public var hostPolicy: HostPolicy = .any
+    
+    /// Which `Origin` headers the server answers, for the requests that change something (everything but
+    /// `GET`, `HEAD` and `OPTIONS`) and for WebSocket handshakes. A browser sends the `Origin` of the page
+    /// with them, so that a page of another site that makes the browser send a request to this server
+    /// (a form that is submitted, a `fetch`, a WebSocket) can be told from the pages of the server itself.
+    /// Requests without an `Origin` (from tools that are not browsers) are always served. The default is
+    /// ``OriginPolicy/any``; ``OriginPolicy/sameOrigin`` refuses requests that come from pages of other
+    /// sites with `403 Forbidden`.
+    public var originPolicy: OriginPolicy = .any
     
     /// The priority of the thread that accepts connections.
     public var acceptQoS: QualityOfService = .userInitiated

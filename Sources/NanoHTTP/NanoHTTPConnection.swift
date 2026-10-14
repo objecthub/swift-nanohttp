@@ -114,7 +114,15 @@ public struct NanoHTTPConnection {
   /// Calls the handler of the request, and returns its response. If the handler throws an error, the
   /// server decides what the response is (``NanoHTTPServerIO/response(for:to:)``): the response of a
   /// ``NanoHTTPError``, or `500 Internal Server Error`.
+  ///
+  /// A request that the ``NanoHTTPServerIO/Configuration/hostPolicy`` or ``NanoHTTPServerIO/Configuration/originPolicy``
+  /// of the server does not allow is answered with `403 Forbidden` (and logged as a warning) without calling the
+  /// handler, so before the middleware.
   public func response() -> NanoHTTPResponse {
+    if let refusal = NanoRequestPolicy.refusal(for: self.request, self.configuration) {
+      self.server?.log(.warning, "Refused \(self.request.method) \(self.request.rawPath): \(refusal.detail)")
+      return NanoHTTPError.forbidden(refusal.message).response
+    }
     do {
       return try self.handler(self.request)
     } catch {

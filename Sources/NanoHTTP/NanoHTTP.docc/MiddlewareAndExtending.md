@@ -59,6 +59,10 @@ server.middleware.insert({ request, next in
 Middleware runs on the threads of the connections (on one thread if the server has only one), so it has to be
 thread-safe, and the array should be set up before the server starts.
 
+``NanoMiddleware`` has the ones that servers for web pages need: ``NanoMiddleware/cors(_:)`` (cross-origin resource sharing,
+with a ``NanoCORSPolicy``), ``NanoMiddleware/hostAllowlist(_:)`` and ``NanoMiddleware/originAllowlist(_:)``; see
+<doc:SecurityAndLimits>.
+
 ### Subclassing
 
 The server is built to be subclassed. These methods are `open`:

@@ -158,11 +158,71 @@ public struct NanoHTTPResponse {
   /// The body of the response.
   public var body: Body
   
+  /// The cookies that the response asks the client to store. The server writes one `Set-Cookie` header for each of
+  /// them (the dictionary ``headers`` cannot hold several headers of the same name), after the other headers;
+  /// a header `Set-Cookie` in ``headers`` is still sent too. See ``NanoHTTPCookie`` for what a cookie that is sent
+  /// looks like, and what makes the server leave one out. ``allHeaders()`` does not have the cookies.
+  public var cookies: [NanoHTTPCookie]
+  
   /// Creates a response with any status code.
-  public init(statusCode: Int, headers: [String : String] = [:], body: Body = .empty) {
+  public init(statusCode: Int,
+              headers: [String : String] = [:],
+              body: Body = .empty,
+              cookies: [NanoHTTPCookie] = []) {
     self.statusCode = statusCode
     self.headers = headers
     self.body = body
+    self.cookies = cookies
+  }
+  
+  /// Adds a cookie to the response, replacing the cookie that has the same name, path and domain.
+  public mutating func setCookie(_ cookie: NanoHTTPCookie) {
+    if let index = self.cookies.firstIndex(where: {
+      $0.name == cookie.name && $0.path == cookie.path && $0.domain == cookie.domain
+    }) {
+      self.cookies[index] = cookie
+    } else {
+      self.cookies.append(cookie)
+    }
+  }
+  
+  /// Asks the client to delete the cookie with this name. The path and domain have to be the ones that the cookie
+  /// was set with.
+  public mutating func deleteCookie(named name: String, path: String? = "/", domain: String? = nil) {
+    self.setCookie(NanoHTTPCookie.expired(name: name, path: path, domain: domain))
+  }
+  
+  /// A response with a JSON body that encodes `value`, which is the way to answer with a model.
+  ///
+  /// ```swift
+  /// // file scope
+  /// struct ExampleProduct: Encodable {
+  ///   let id: Int
+  ///   let name: String
+  /// }
+  /// ```
+  ///
+  /// ```swift
+  /// let server = NanoHTTPServer()
+  /// server.get["/products/:id"] = { request in
+  ///   try .json(ExampleProduct(id: 7, name: "Lamp"))   // {"id":7,"name":"Lamp"}
+  /// }
+  /// ```
+  ///
+  /// - Parameters:
+  ///   - value: What to encode.
+  ///   - status: The status code of the response.
+  ///   - headers: The headers of the response.
+  ///   - encoder: The encoder to use, for dates or a pretty-printed form, for example.
+  /// - Throws: The error of the encoder, which the server answers with `500 Internal Server Error` and logs, like any
+  ///     error that a handler throws.
+  public static func json<T: Encodable>(_ value: T,
+                                        status: Int = 200,
+                                        headers: [String : String] = [:],
+                                        encoder: JSONEncoder = JSONEncoder()) throws -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: status,
+                            headers: headers,
+                            body: .data(try encoder.encode(value), contentType: "application/json"))
   }
   
   /// A `200 OK` response.
@@ -216,6 +276,42 @@ public struct NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 307, headers: headers)
   }
   
+  /// A `303 See Other` response that points to `location`: the client fetches it with `GET`, whatever the method of
+  /// the request was. This is how to answer a form that was posted (the post/redirect/get pattern).
+  public static func seeOther(_ location: String,
+                              _ headers: [String : String] = [:]) -> NanoHTTPResponse {
+    var headers = headers
+    headers["Location"] = location
+    return NanoHTTPResponse(statusCode: 303, headers: headers)
+  }
+  
+  /// A `307 Temporary Redirect` response that points to `location` (the method and the body of the request are
+  /// kept). The same as ``movedTemporarily(_:_:)``.
+  public static func temporaryRedirect(_ location: String,
+                                       _ headers: [String : String] = [:]) -> NanoHTTPResponse {
+    return NanoHTTPResponse.movedTemporarily(location, headers)
+  }
+  
+  /// A `308 Permanent Redirect` response that points to `location` (the method and the body of the request are
+  /// kept, unlike with ``movedPermanently(_:_:)``).
+  public static func permanentRedirect(_ location: String,
+                                       _ headers: [String : String] = [:]) -> NanoHTTPResponse {
+    var headers = headers
+    headers["Location"] = location
+    return NanoHTTPResponse(statusCode: 308, headers: headers)
+  }
+  
+  /// A `204 No Content` response: the request succeeded and there is nothing to send back.
+  public static func noContent(headers: [String : String] = [:]) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 204, headers: headers)
+  }
+  
+  /// A `304 Not Modified` response: the copy of the client is current. Send the `ETag` (and `Last-Modified`) that
+  /// the response with the content would have.
+  public static func notModified(headers: [String : String] = [:]) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 304, headers: headers)
+  }
+  
   /// A `400 Bad Request` response.
   public static func badRequest(headers: [String : String] = [:],
                                 _ body: Body = .empty) -> NanoHTTPResponse {
@@ -257,10 +353,23 @@ public struct NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 409, headers: headers, body: body)
   }
   
+  /// A `413 Content Too Large` response.
+  public static func payloadTooLarge(headers: [String : String] = [:],
+                                     _ body: Body = .empty) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 413, headers: headers, body: body)
+  }
+  
   /// A `415 Unsupported Media Type` response.
   public static func unsupportedMediaType(headers: [String : String] = [:],
                                           _ body: Body = .empty) -> NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 415, headers: headers, body: body)
+  }
+  
+  /// A `422 Unprocessable Content` response: the request is well-formed, but its content is not acceptable (a
+  /// field that is missing, a value that is out of range).
+  public static func unprocessableContent(headers: [String : String] = [:],
+                                          _ body: Body = .empty) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 422, headers: headers, body: body)
   }
   
   /// A `429 Too Many Requests` response.
@@ -279,6 +388,12 @@ public struct NanoHTTPResponse {
   public static func notImplemented(headers: [String : String] = [:],
                                     _ body: Body = .empty) -> NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 501, headers: headers, body: body)
+  }
+  
+  /// A `503 Service Unavailable` response. Add a `Retry-After` header (seconds) if the client can try again later.
+  public static func serviceUnavailable(headers: [String : String] = [:],
+                                        _ body: Body = .empty) -> NanoHTTPResponse {
+    return NanoHTTPResponse(statusCode: 503, headers: headers, body: body)
   }
   
   /// A response whose body is written by `writer`, see ``Body/custom(_:contentType:)``. The writer receives

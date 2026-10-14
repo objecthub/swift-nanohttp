@@ -16,6 +16,19 @@ All notable changes to this project are documented in this file. The format is b
   and logs a warning. Works with threads per connection and with one thread. See *Middleware and Extending*, which has a
   complete example: a worker pool behind one network thread, with a bounded queue.
 
+- **Cookies.** `NanoHTTPCookie` (name, value, path, domain, `maxAge`, `expires`, `secure`, `httpOnly`, `sameSite`) and
+  `NanoHTTPResponse.cookies`: the server writes one `Set-Cookie` header for each cookie, which the header dictionary
+  could not do. A new cookie has the safe defaults `Path=/`, `HttpOnly` and `SameSite=Lax`; `setCookie(_:)` replaces
+  the cookie of the same name, path and domain, and `deleteCookie(named:)` asks the client to delete one. Values are
+  percent-encoded where RFC 6265 does not allow a character, and a cookie with a name that is not a token, or a path or
+  domain with a `;` or a control character, is left out and logged (it could add attributes or headers). A request has
+  `cookies` and `cookie(_:)`, which decode the values again; repeated `Cookie` headers are joined with `; ` instead of
+  `, `.
+- **Response helpers.** `NanoHTTPResponse.json(_:status:headers:encoder:)` answers with any `Encodable` value (it
+  throws, so that an error becomes the usual `500` with a log line), `seeOther` (`303`), `temporaryRedirect` (`307`) and
+  `permanentRedirect` (`308`), and `noContent`, `notModified`, `payloadTooLarge`, `unprocessableContent` and
+  `serviceUnavailable`.
+
 ### Fixed
 - **Multipart bodies** (H9). `parseMultiPartFormData()` works on the bytes now (and is faster: 20 MB in 14 ms instead of
   40 ms). A part ends at the line break before the next boundary line and keeps every other byte, a boundary followed by more

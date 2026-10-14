@@ -50,8 +50,8 @@ grouped and mounted below a prefix, and `server["/path"]` answers every method.
 - **Routing** with `:variables`, wildcards and path variables, per-method registration, sub-routers.
 - **Requests**: headers, query, route variables, URL-encoded forms, multipart uploads, bodies of up to 64 MiB
   (configurable).
-- **Responses**: text, HTML, JSON, bytes, redirects, streamed bodies (in chunks, so that connections are reused), any
-  status code.
+- **Responses**: text, HTML, JSON (from any `Encodable`), bytes, redirects, cookies, streamed bodies (in chunks, so that
+  connections are reused), any status code.
 - **HTTP/1.1 as clients expect it**: persistent connections, chunked request bodies, `Expect: 100-continue`, `HEAD`,
   `405` with `Allow`, `OPTIONS`, a `Date` header.
 - **Files**: `NanoFiles.share(file:)`, `NanoFiles.share(directory:)` and `NanoFiles.browse(directory:)`, which do not serve anything from outside

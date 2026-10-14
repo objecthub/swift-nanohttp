@@ -51,7 +51,27 @@ Two things follow from this:
 Text that is not valid percent-encoding is kept as it is (`/100%` stays `/100%`), and bytes that are not valid UTF-8
 become the replacement character U+FFFD.
 - Header names are case-insensitive. If a header was sent several times, ``NanoHTTPRequest/header(_:)`` returns
-  the values joined with `, `.
+  the values joined with `, ` (the `Cookie` headers with `; `).
+
+### Cookies
+
+``NanoHTTPRequest/cookie(_:)`` returns the value of a cookie that the client sent, and ``NanoHTTPRequest/cookies`` all of
+them, by name. The values are percent-decoded once, like everything else of a request (``NanoHTTPCookie`` writes
+them that way), and a pair of quotes around a value is removed. If a name appears twice, the first counts: it is the one
+with the most specific path. A cookie has no attributes in a request: the client does not say where it came from or when
+it ends. Treat the value as untrusted input, like any other.
+
+```swift
+let server = NanoHTTPServer()
+server.get["/home"] = { request in
+  guard let session = request.cookie("session") else {
+    return .seeOther("/login")
+  }
+  return .ok(.text("Welcome back, session \(session)"))
+}
+```
+
+Setting cookies is described in <doc:HandlersAndResponses#Cookies>.
 
 ### The body
 

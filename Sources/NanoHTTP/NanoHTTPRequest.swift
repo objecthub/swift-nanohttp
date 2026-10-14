@@ -115,6 +115,9 @@ public final class NanoHTTPRequest: Hashable {
   /// The token of the deferred answer. Weak: the token holds the connection, which holds this request.
   weak var deferral: NanoHTTPDeferredResponse? = nil
   
+  /// The parsed `Cookie` header, see ``cookies``.
+  private var cookieCache: [String: String]? = nil
+  
   /// The bounds for `parseMultiPartFormData()`: the most parts, and the most bytes for the headers of a part. The
   /// parser sets them from the limits of the server.
   var multipartLimits: (parts: Int, headerBytes: Int) = (1000, 16 * 1024)
@@ -224,6 +227,7 @@ public final class NanoHTTPRequest: Hashable {
   /// Sets a header, replacing an existing one of the same (case-insensitive) name.
   public func setHeader(_ headerName: String, to headerValue: String) {
     self.headers[headerName.lowercased()] = headerValue
+    self.cookieCache = nil
   }
   
   /// Sets all the given headers; see ``setHeader(_:to:)``.
@@ -236,6 +240,28 @@ public final class NanoHTTPRequest: Hashable {
   /// Removes a header; the name is case-insensitive.
   public func removeHeader(_ headerName: String) {
     self.headers.removeValue(forKey: headerName.lowercased())
+    self.cookieCache = nil
+  }
+  
+  /// The cookies that the client sent (the `Cookie` header), by name. The values are percent-decoded once, as the
+  /// values of the query and the route variables are, which is how ``NanoHTTPCookie`` writes them; a pair of quotes
+  /// around a value is removed. If a name appears twice the first cookie counts: it is the one with the most
+  /// specific path. Entries without a name or without `=` are ignored.
+  ///
+  /// The cookies are parsed when they are first needed, and kept. Like the rest of the request, they are not
+  /// meant to be read from several threads at the same time.
+  public var cookies: [String : String] {
+    if let cookies = self.cookieCache {
+      return cookies
+    }
+    let cookies = self.header("cookie").map { NanoHTTPCookie.parse(requestHeader: $0) } ?? [:]
+    self.cookieCache = cookies
+    return cookies
+  }
+  
+  /// The value of the cookie with this name, or `nil`; see ``cookies``.
+  public func cookie(_ name: String) -> String? {
+    return self.cookies[name]
   }
   
   /// The names of the headers of the request, in lower case, in no particular order.

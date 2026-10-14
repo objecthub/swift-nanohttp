@@ -357,7 +357,8 @@ public struct NanoHTTPConnection {
                                                   framing: framing,
                                                   connection: connection,
                                                   date: (100..<200).contains(status) ? nil : NanoHTTPDate.string(),
-                                                  dropped: { server.log(.warning, "Dropped a response header with an invalid name: \(String(reflecting: $0))") })
+                                                  dropped: { server.log(.warning, "Dropped a response header with an invalid name: \(String(reflecting: $0))") },
+                                                  droppedCookie: { server.log(.warning, "Dropped a cookie that cannot be sent safely: \($0)") })
     if isHead && status != 101 {
       try self.socket.writeUInt8(message) // the head only
     } else if let inline, bodyAllowed {

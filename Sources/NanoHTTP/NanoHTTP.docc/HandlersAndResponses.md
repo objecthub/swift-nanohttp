@@ -24,7 +24,7 @@ server.get["/teapot"] = { _ in NanoHTTPResponse(statusCode: 418, body: "short an
 ```
 
 `.ok`, `.badRequest`, `.notFound` and the other helpers take optional `headers` and a body; a string literal
-is a text body. ``NanoHTTPResponse/init(statusCode:headers:body:)`` creates a response with any status.
+is a text body. ``NanoHTTPResponse/init(statusCode:headers:body:cookies:)`` creates a response with any status.
 
 ### Errors
 
@@ -80,9 +80,10 @@ Middleware can catch errors as well, see <doc:MiddlewareAndExtending>.
 
 ### JSON
 
-A `.json` body is written with `JSONSerialization`. A value that is not valid JSON (a `Date`, say) cannot be
-written; the client then gets `500 Internal Server Error` and the reason is logged. To send a `Codable` value,
-encode it yourself:
+To answer with a model, use ``NanoHTTPResponse/json(_:status:headers:encoder:)``: it encodes any `Encodable` value
+(a struct, an array, a dictionary) with a `JSONEncoder` that you can configure, and sets the `Content-Type`. It throws if
+the value cannot be encoded, which the server answers with `500 Internal Server Error` and logs, like any error that a
+handler throws.
 
 ```swift
 // file scope
@@ -95,13 +96,58 @@ struct ExampleItem: Codable {
 ```swift
 let server = NanoHTTPServer()
 server.get["/items/:id"] = { request in
-  let item = ExampleItem(id: Int(request.params["id"] ?? "") ?? 0, name: "Example")
-  guard let data = try? JSONEncoder().encode(item) else {
-    return .internalServerError()
-  }
-  return .ok(.data(data, contentType: "application/json"))
+  try .json(ExampleItem(id: Int(request.params["id"] ?? "") ?? 0, name: "Example"))
+}
+server.post["/items"] = { request in
+  let item = try request.json(ExampleItem.self)                   // 400 if the body does not fit
+  return try .json(item, status: 201, headers: ["Location": "/items/\(item.id)"])
 }
 ```
+
+A `.json` body (`.ok(.json(["id": 7]))`) is the other way: it takes a dictionary or an array of Foundation values, and
+writes it with `JSONSerialization`. A value that is not valid JSON (a `Date`, say) cannot be written; the client then
+gets `500 Internal Server Error` and the reason is logged.
+
+### Redirects and other status responses
+
+The helpers for redirects take the target and optional headers: ``NanoHTTPResponse/seeOther(_:_:)`` (`303`: fetch the
+target with `GET`, the way to answer a posted form), ``NanoHTTPResponse/temporaryRedirect(_:_:)`` (`307`) and
+``NanoHTTPResponse/permanentRedirect(_:_:)`` (`308`) keep the method and the body of the request, and
+``NanoHTTPResponse/movedPermanently(_:_:)`` (`301`) and ``NanoHTTPResponse/movedTemporarily(_:_:)`` (`307`) are the older
+forms. A line break in the target is replaced by a space, so that a target taken from a request cannot add headers.
+
+The other statuses have their helpers too: ``NanoHTTPResponse/noContent(headers:)`` (`204`),
+``NanoHTTPResponse/notModified(headers:)`` (`304`), ``NanoHTTPResponse/payloadTooLarge(headers:_:)`` (`413`),
+``NanoHTTPResponse/unprocessableContent(headers:_:)`` (`422`) and ``NanoHTTPResponse/serviceUnavailable(headers:_:)``
+(`503`, with a `Retry-After` header if the client can try again later).
+
+### Cookies
+
+``NanoHTTPResponse/cookies`` holds the cookies that a response sets; the server writes one `Set-Cookie` header for each
+(a header dictionary cannot hold several). A ``NanoHTTPCookie`` is meant for the common case: it is sent for every path,
+hidden from scripts (`HttpOnly`) and not sent along with requests that other sites cause (`SameSite=Lax`).
+
+```swift
+let server = NanoHTTPServer()
+server.post["/login"] = { request in
+  var response = NanoHTTPResponse.seeOther("/home")
+  response.setCookie(NanoHTTPCookie(name: "session", value: "a1b2c3", maxAge: 3600))
+  response.setCookie(NanoHTTPCookie(name: "theme", value: "dark", maxAge: 86400 * 365, httpOnly: false))
+  return response
+}
+server.post["/logout"] = { request in
+  var response = NanoHTTPResponse.seeOther("/")
+  response.deleteCookie(named: "session")              // the path (and domain) have to match the ones it was set with
+  return response
+}
+```
+
+The value can be any text: what a cookie cannot hold is percent-encoded and decoded again by
+``NanoHTTPRequest/cookies``. A cookie that cannot be sent safely (a name that is not a token, a path or domain that
+contains `;` or a control character) is left out of the response, and a warning is logged. Read what the client sends
+back with ``NanoHTTPRequest/cookie(_:)``, see <doc:ReadingRequests>. A cookie is not a session: nothing makes the
+value hard to guess or tamper with, so keep what matters (who is logged in) on the server and put a random identifier
+in the cookie. Set ``NanoHTTPCookie/secure`` when the server is reached over TLS (behind a proxy that terminates it).
 
 ### Streaming
 
@@ -187,6 +233,7 @@ request with both a `Content-Length` and chunks, or with another `Transfer-Encod
 
 - ``NanoHTTPResponse``
 - ``NanoHTTPResponse/Body``
+- ``NanoHTTPCookie``
 - ``NanoHTTPRequestHandler``
 - ``NanoHTTPError``
 - ``NanoHTTPResponseBodyWriter``

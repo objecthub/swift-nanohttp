@@ -330,8 +330,9 @@ public struct NanoHTTPParser {
       let value = headerLine[headerLine.index(after: colon)...].trimmingCharacters(in: .whitespaces)
       if let earlier = headers[name] {
         // Several headers of the same name are the same as one header with a comma-separated list
-        // (RFC 9110 5.3), so none of them gets lost.
-        headers[name] = earlier + ", " + value
+        // (RFC 9110 5.3), so none of them gets lost. The cookies are the exception: they are separated by
+        // semicolons (RFC 9113 8.2.3), and a comma could be part of a value.
+        headers[name] = earlier + (name == "cookie" ? "; " : ", ") + value
       } else {
         headers[name] = value
       }

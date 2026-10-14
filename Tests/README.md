@@ -23,6 +23,8 @@ NANOHTTP_CRASH_TESTS=1 swift test --filter <one test>   # see "Crash tests" belo
 | `WebSocketHubTests.swift` | origins and subprotocols of the WebSocket handler, the hub (join and leave, broadcast, 100 sessions, clients that do not read) in both threading modes |
 | `CORSTests.swift` | the CORS middleware: preflight requests, permission headers, credentials, errors |
 | `DeferredResponseTests.swift` | answers sent later from other threads (`deferResponse()`): the sender never waits, no timeouts while an answer is pending, dropped tokens, pipelining, limits, a slow client, a switch to a session; both threading modes; plus the worker-pool example of the documentation, run end to end |
+| `CookieTests.swift` | cookies: the `Set-Cookie` lines, encoding of values, cookies that are left out (injection attempts), reading the `Cookie` header, a round trip through a server, several cookies and several `Cookie` headers |
+| `ResponseHelperTests.swift` | `json(_:)` from `Encodable`, the redirects and the status responses, in both threading modes |
 | `LoggerTests.swift` | the logger: levels, the built-in loggers, lazy messages, what the server and WebSocket sessions report (both threading modes) |
 | `HTMLDSLTests.swift` | the NanoHTML module: elements, attributes, block syntax, escaping, pages as responses |
 | `Support/` | `RawClient` (blocking raw TCP client), `withTestServer`, `FileSocket`, `FileFixture`, `expectKnownIssue` |

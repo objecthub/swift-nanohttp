@@ -122,12 +122,14 @@ enum NanoHTTPResponseSerializer {
   /// The framing, the connection and the date that are given replace the headers of the response with the same
   /// names. Headers whose names are no tokens are left out (and reported to `dropped`), and carriage returns,
   /// line feeds and NUL characters in values are replaced by spaces, so that a value taken from a request cannot
-  /// inject headers or a body.
+  /// inject headers or a body. The cookies of the response are written as `Set-Cookie` headers; a cookie that
+  /// cannot be sent safely is left out and reported to `droppedCookie`.
   static func head(_ response: NanoHTTPResponse,
                    framing: Framing,
                    connection: Connection = .unspecified,
                    date: String? = nil,
-                   dropped: (String) -> Void = { _ in }) -> [UInt8] {
+                   dropped: (String) -> Void = { _ in },
+                   droppedCookie: (String) -> Void = { _ in }) -> [UInt8] {
     var text = "HTTP/1.1 \(response.statusCode) \(response.reasonPhrase)\r\n"
     var replaced = Set<String>() // lower case names of headers that this function writes itself
     switch framing {
@@ -165,6 +167,14 @@ enum NanoHTTPResponseSerializer {
         continue
       }
       text += "\(name): \(sanitizedHeaderValue(value))\r\n"
+    }
+    // One `Set-Cookie` line for every cookie: the dictionary of headers cannot hold several of them.
+    for cookie in response.cookies {
+      do {
+        text += "Set-Cookie: \(try cookie.headerValue())\r\n"
+      } catch {
+        droppedCookie("\(String(reflecting: cookie.name)): \(error)")
+      }
     }
     text += "\r\n"
     return Array(text.utf8)
@@ -211,6 +221,12 @@ enum NanoHTTPDate {
     cachedSecond = second
     cachedText = text
     return text
+  }
+  
+  /// The text of any date. (Unlike ``string(for:)`` it does not use the cache of the current second, which a
+  /// date in the future, like the end of a cookie, would evict again and again.)
+  static func text(for date: Date) -> String {
+    return format(Int(date.timeIntervalSince1970.rounded(.down)))
   }
   
   private static let lock = UnfairLock()

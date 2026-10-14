@@ -14,9 +14,12 @@
 		CC1D0C0B2D0000040CF6A004 /* TimeoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0B2D0000030CF6A003 /* TimeoutTests.swift */; };
 		CC1D0C0C2D0000060CF6A006 /* SingleThreadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0C2D0000050CF6A005 /* SingleThreadTests.swift */; };
 		CC1D0C0D2D0000080CF6A008 /* NanoThreadPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D2D0000070CF6A007 /* NanoThreadPool.swift */; };
+		CC1D0C0D300000020CF6A302 /* NanoHTTPCookie.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D300000010CF6A301 /* NanoHTTPCookie.swift */; };
 		CC1D0C0D2F0000020CF6A202 /* NanoHTTPMultipart.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D2F0000010CF6A201 /* NanoHTTPMultipart.swift */; };
 		CC1D0C0D2E0000020CF6A102 /* NanoHTTPDeferredResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D2E0000010CF6A101 /* NanoHTTPDeferredResponse.swift */; };
 		CC1D0C0D2D00000A0CF6A00A /* ThreadPoolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D2D0000090CF6A009 /* ThreadPoolTests.swift */; };
+		CC1D0C0D300000060CF6A306 /* ResponseHelperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D300000050CF6A305 /* ResponseHelperTests.swift */; };
+		CC1D0C0D300000040CF6A304 /* CookieTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D300000030CF6A303 /* CookieTests.swift */; };
 		CC1D0C0D2F0000040CF6A204 /* MultipartParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D2F0000030CF6A203 /* MultipartParserTests.swift */; };
 		CC1D0C0D2E0000040CF6A104 /* DeferredResponseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0D2E0000030CF6A103 /* DeferredResponseTests.swift */; };
 		CC1D0C0E2D00000C0CF6A00C /* NanoHTTPError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0E2D00000B0CF6A00B /* NanoHTTPError.swift */; };
@@ -260,9 +263,12 @@
 		CC1D0C0B2D0000030CF6A003 /* TimeoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeoutTests.swift; sourceTree = "<group>"; };
 		CC1D0C0C2D0000050CF6A005 /* SingleThreadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleThreadTests.swift; sourceTree = "<group>"; };
 		CC1D0C0D2D0000070CF6A007 /* NanoThreadPool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoThreadPool.swift; sourceTree = "<group>"; };
+		CC1D0C0D300000010CF6A301 /* NanoHTTPCookie.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPCookie.swift; sourceTree = "<group>"; };
 		CC1D0C0D2F0000010CF6A201 /* NanoHTTPMultipart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPMultipart.swift; sourceTree = "<group>"; };
 		CC1D0C0D2E0000010CF6A101 /* NanoHTTPDeferredResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPDeferredResponse.swift; sourceTree = "<group>"; };
 		CC1D0C0D2D0000090CF6A009 /* ThreadPoolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadPoolTests.swift; sourceTree = "<group>"; };
+		CC1D0C0D300000050CF6A305 /* ResponseHelperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponseHelperTests.swift; sourceTree = "<group>"; };
+		CC1D0C0D300000030CF6A303 /* CookieTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CookieTests.swift; sourceTree = "<group>"; };
 		CC1D0C0D2F0000030CF6A203 /* MultipartParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultipartParserTests.swift; sourceTree = "<group>"; };
 		CC1D0C0D2E0000030CF6A103 /* DeferredResponseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeferredResponseTests.swift; sourceTree = "<group>"; };
 		CC1D0C0E2D00000B0CF6A00B /* NanoHTTPError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoHTTPError.swift; sourceTree = "<group>"; };
@@ -468,6 +474,7 @@
 				CC1D0C0F2D0000130CF6A013 /* NanoSocketSession.swift */,
 				CC1D0C0E2D00000B0CF6A00B /* NanoHTTPError.swift */,
 				CC1D0C0D2D0000070CF6A007 /* NanoThreadPool.swift */,
+				CC1D0C0D300000010CF6A301 /* NanoHTTPCookie.swift */,
 				CC1D0C0D2F0000010CF6A201 /* NanoHTTPMultipart.swift */,
 				CC1D0C0D2E0000010CF6A101 /* NanoHTTPDeferredResponse.swift */,
 				CC1D0C0A2D000001000D0001 /* NanoHTTP.docc */,
@@ -509,6 +516,8 @@
 				CC1D0C0E2D00000F0CF6A00F /* MiddlewareTests.swift */,
 				CC1D0C0E2D00000D0CF6A00D /* HandlerErrorTests.swift */,
 				CC1D0C0D2D0000090CF6A009 /* ThreadPoolTests.swift */,
+				CC1D0C0D300000050CF6A305 /* ResponseHelperTests.swift */,
+				CC1D0C0D300000030CF6A303 /* CookieTests.swift */,
 				CC1D0C0D2F0000030CF6A203 /* MultipartParserTests.swift */,
 				CC1D0C0D2E0000030CF6A103 /* DeferredResponseTests.swift */,
 				CC1D0C0C2D0000050CF6A005 /* SingleThreadTests.swift */,
@@ -848,6 +857,7 @@
 			files = (
 				CC1D0C0F2D0000140CF6A014 /* NanoSocketSession.swift in Sources */,
 				CC1D0C0D2D0000080CF6A008 /* NanoThreadPool.swift in Sources */,
+				CC1D0C0D300000020CF6A302 /* NanoHTTPCookie.swift in Sources */,
 				CC1D0C0D2F0000020CF6A202 /* NanoHTTPMultipart.swift in Sources */,
 				CC1D0C0D2E0000020CF6A102 /* NanoHTTPDeferredResponse.swift in Sources */,
 				CC1D0C0A2D000002000D0002 /* NanoHTTP.docc in Sources */,
@@ -909,6 +919,8 @@
 				CC1D0C0E2D0000100CF6A010 /* MiddlewareTests.swift in Sources */,
 				CC1D0C0E2D00000E0CF6A00E /* HandlerErrorTests.swift in Sources */,
 				CC1D0C0D2D00000A0CF6A00A /* ThreadPoolTests.swift in Sources */,
+				CC1D0C0D300000060CF6A306 /* ResponseHelperTests.swift in Sources */,
+				CC1D0C0D300000040CF6A304 /* CookieTests.swift in Sources */,
 				CC1D0C0D2F0000040CF6A204 /* MultipartParserTests.swift in Sources */,
 				CC1D0C0D2E0000040CF6A104 /* DeferredResponseTests.swift in Sources */,
 				CC1D0C0C2D0000060CF6A006 /* SingleThreadTests.swift in Sources */,

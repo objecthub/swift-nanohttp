@@ -6,6 +6,12 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+- The documentation is published online, at <https://objecthub.github.io/swift-nanohttp/documentation/nanohttp/> (NanoHTTP)
+  and <https://objecthub.github.io/swift-nanohttp/documentation/nanohtml/> (NanoHTML), from the branch `gh-pages`.
+  `Scripts/generate-docs.sh` generates the site with the Swift-DocC plugin, which `Package.swift` adds to the dependencies only
+  when `NANOHTTP_GENERATE_DOCS` is set, so that the plugin never reaches the packages that use NanoHTTP.
+
 ## [2.1.0] - 2026-10-14
 
 2.1 adds to 2.0 without breaking anything (`swift package diagnose-api-breaking-changes 2.0.0` reports no breaking

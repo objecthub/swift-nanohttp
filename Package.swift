@@ -32,6 +32,7 @@
 //  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
+import Foundation
 import PackageDescription
 
 let package = Package(
@@ -148,3 +149,10 @@ let package = Package(
   // Required Swift language version.
   swiftLanguageVersions: [.v5]
 )
+
+// The Swift-DocC plugin is only needed for generating the documentation (Scripts/generate-docs.sh).
+// It is added conditionally to keep it out of the dependency graph of packages that use NanoHTTP.
+if ProcessInfo.processInfo.environment["NANOHTTP_GENERATE_DOCS"] != nil {
+  package.dependencies.append(
+    .package(url: "https://github.com/swiftlang/swift-docc-plugin.git", from: "1.4.0"))
+}

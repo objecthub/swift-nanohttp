@@ -1,6 +1,6 @@
 # Swift NanoHTTP
 
-[![Platforms: macOS, iOS, tvOS](https://img.shields.io/badge/Platforms-macOS,%20iOS,%20tvOS-blue.svg?style=flat)](https://developer.apple.com/osx/) [![Language: Swift 5.9](https://img.shields.io/badge/Language-Swift%205.9-green.svg?style=flat)](https://developer.apple.com/swift/) [![IDE: Xcode 15](https://img.shields.io/badge/IDE-Xcode%2015-orange.svg?style=flat)](https://developer.apple.com/xcode/) [![Package managers: SwiftPM](https://img.shields.io/badge/Package%20managers-SwiftPM-8E64B0.svg?style=flat)](https://swift.org/package-manager/) [![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD%203--Clause-lightgrey.svg?style=flat)](LICENSE)
+[![Platforms: macOS, iOS, tvOS](https://img.shields.io/badge/Platforms-macOS,%20iOS,%20tvOS-blue.svg?style=flat)](https://developer.apple.com/osx/) [![Language: Swift 5.9](https://img.shields.io/badge/Language-Swift%205.9-green.svg?style=flat)](https://developer.apple.com/swift/) [![IDE: Xcode 15](https://img.shields.io/badge/IDE-Xcode%2015-orange.svg?style=flat)](https://developer.apple.com/xcode/) [![Package managers: SwiftPM](https://img.shields.io/badge/Package%20managers-SwiftPM-8E64B0.svg?style=flat)](https://swift.org/package-manager/) [![Documentation](https://img.shields.io/badge/Documentation-DocC-red.svg?style=flat)](https://objecthub.github.io/swift-nanohttp/documentation/nanohttp/) [![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD%203--Clause-lightgrey.svg?style=flat)](LICENSE)
 
 NanoHTTP is a small, extensible HTTP/1.1 server framework for macOS, iOS and tvOS. It runs a web server inside your
 own process, with routing, forms, uploads, file serving and WebSockets, and no dependencies. It is based on
@@ -197,6 +197,10 @@ and the product `NanoHTTP` (and `NanoHTML`, if you build pages with it) to the d
 
 ## Documentation
 
+The API reference and the articles are also available as
+[online documentation](https://objecthub.github.io/swift-nanohttp/documentation/nanohttp/) (and for the companion library,
+[NanoHTML](https://objecthub.github.io/swift-nanohttp/documentation/nanohtml/)), generated with Swift-DocC.
+
 The API is documented with DocC: a catalog for each library, with articles (getting started, routing, requests and responses, files,
 WebSockets, middleware, threading, logging, security, testing, iOS, building pages, examples) and documentation comments for every public symbol.
 Build it in Xcode with Product > Build Documentation, or from the command line, keeping the archive to open in
@@ -205,6 +209,24 @@ Xcode:
 ```bash
 python3 Scripts/check_docs.py --output docs        # docs/NanoHTTP.doccarchive and docs/NanoHTML.doccarchive
 ```
+
+### Publishing on GitHub Pages
+
+The documentation site is served from the root of branch `gh-pages`. Script `Scripts/generate-docs.sh` generates the site
+for both libraries with the [Swift-DocC plugin](https://github.com/swiftlang/swift-docc-plugin) and copies it into a git
+worktree of that branch in `.build/gh-pages`. `Package.swift` only adds the plugin to the package's dependencies if
+environment variable `NANOHTTP_GENERATE_DOCS` is set (which the script does), so packages that depend on _NanoHTTP_ do not
+get to see it. The script neither commits nor pushes anything:
+
+```sh
+Scripts/generate-docs.sh
+cd .build/gh-pages
+git add -A
+git commit -m "Update the documentation site"
+git push -u origin gh-pages
+```
+
+Since the site documents the current state of the working copy, it should be generated before tagging a release.
 
 The examples in the documentation are compiled against the library by `Scripts/check_doc_examples.py`, so they
 stay correct. The [CHANGELOG](CHANGELOG.md) lists what changed in every version, and [ARCHITECTURE.md](ARCHITECTURE.md)

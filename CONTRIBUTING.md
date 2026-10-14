@@ -53,6 +53,13 @@ run the checks yourself before you send a change:
 A long run on a laptop that is on battery can be interrupted by the machine going to sleep, which shows as tests that take
 minutes and timing assertions that fail: plug it in, or start the run with `caffeinate -i -s <command>`.
 
+## Releases
+
+The online documentation (<https://objecthub.github.io/swift-nanohttp/documentation/nanohttp/>) is generated from the DocC
+catalogs and the documentation comments, and published from branch `gh-pages`. Before you tag a release, run
+`Scripts/generate-docs.sh`, and commit and push what it prepares in `.build/gh-pages` (the commands are printed at the end
+and described in the README). The site documents the working copy, so it has to be generated before the tag is made.
+
 ## Version 1
 
 Version 1 is maintained on the branch `release/1.x` until the end of 2027, with fixes for security problems and crashes

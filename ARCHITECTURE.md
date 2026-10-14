@@ -149,4 +149,7 @@ server affects the next run, and connections read the copy once instead of locki
 * `Scripts/check_xcodeproj.py` (the hand-maintained Xcode project lists every Swift file), `check_doc_examples.py` (every
   example in the documentation compiles), `check_docs.py` (DocC builds without warnings), `check_examples.py` (the
   programs in `Examples/` run and stop on `SIGTERM`), `check_demo.py` (the demo server against `curl` and a WebSocket client).
+* `Scripts/generate-docs.sh` builds the public documentation site (both DocC catalogs, one site) into a worktree of the
+  branch `gh-pages`; `Package.swift` adds the DocC plugin only when `NANOHTTP_GENERATE_DOCS` is set, so users of the package
+  never see that dependency.
 * `Benchmarks/run.py`: throughput, latency and CPU per request against a release, with paired runs, in both modes.

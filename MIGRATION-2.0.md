@@ -333,3 +333,20 @@ access to the answers. If you wrote middleware for this in 1.x (the example of t
 `request.header("host")` and `request.header("origin")`), the policies replace it; they also handle IPv6 hosts, ports, the
 case of host names and `Origin: null`, which a hand-written comparison usually does not. The article has the details.
 
+## WebSockets: hub, subprotocols, origins, and sessions that end when a write fails
+
+- `NanoWebSocket.handler` has three more parameters, after `maxMessageSize`, so that existing calls do not change:
+  `origins:` (which pages may connect, the same `OriginPolicy` as the server's, default `.any`), `protocols:` (the
+  subprotocols that the handler speaks) and `hub:` (a `NanoWebSocketHub`). A client that offers subprotocols of which the handler
+  knows none is refused with `400`; `session.subprotocol` tells the closures which one was chosen.
+- Code that keeps the sessions of a chat in a collection of its own, with a lock, can use a `NanoWebSocketHub` instead:
+  `NanoWebSocket.handler(text: { session, text in hub.broadcast(text: text, except: session) }, hub: hub)`.
+- **A write that fails now ends the session.** A frame that is written in part (the client stopped reading, the connection
+  broke) cannot be followed by another one, so the connection is closed, `disconnected` is called, and the failure is logged
+  once at the level `info`. Later writes to that session do nothing. In 1.x every failed write printed the error and the
+  session went on.
+- **Writes to sessions have a shorter timeout:** `Configuration.sessionWriteTimeout` (default 5 seconds) applies to
+  connections that have been turned over to a session, instead of the `writeTimeout` (30 seconds) of requests. A client that takes
+  nothing for that long is dropped, which keeps a stalled client from holding up a broadcast, and, on a server with one
+  thread, the whole server. Set it higher (or `nil`) if your clients can be silent for longer while you send them messages.
+

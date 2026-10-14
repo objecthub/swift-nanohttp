@@ -77,7 +77,8 @@ many hostile clients; <doc:SecurityAndLimits> says what to take care of.
 
 - <doc:WebSockets>
 - ``NanoWebSocket``
-- ``NanoWebSocket/handler(text:binary:pong:connected:disconnected:maxMessageSize:)``
+- ``NanoWebSocket/handler(text:binary:pong:connected:disconnected:maxMessageSize:origins:protocols:hub:)``
+- ``NanoWebSocketHub``
 - ``NanoWebSocketSession``
 - ``NanoSocketSession``
 

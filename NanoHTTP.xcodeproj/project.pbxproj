@@ -58,6 +58,7 @@
 		CC50C0D92C4BAE8F00482E4B /* NanoFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0D82C4BAE8F00482E4B /* NanoFile.swift */; };
 		CC50C0DB2C4BAEDF00482E4B /* NanoFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC50C0DA2C4BAEDF00482E4B /* NanoFiles.swift */; };
 		CC1D0C300000000200000A02 /* NanoLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000100000A01 /* NanoLogger.swift */; };
+		CC1D0C300000000E00000A0E /* NanoWebSocketHub.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000D00000A0D /* NanoWebSocketHub.swift */; };
 		CC1D0C300000000800000A08 /* NanoMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000700000A07 /* NanoMiddleware.swift */; };
 		CC1D0C300000000600000A06 /* NanoRequestPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000500000A05 /* NanoRequestPolicy.swift */; };
 		CC1D0C142D0000260CF6A026 /* Renamed.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C142D0000250CF6A025 /* Renamed.swift */; };
@@ -86,6 +87,7 @@
 		CC60E9B2307E5051000EE746 /* WebSocketIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9AD307E5051000EE746 /* WebSocketIntegrationTests.swift */; };
 		CC60E9B3307E5051000EE746 /* RobustnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9A9307E5051000EE746 /* RobustnessTests.swift */; };
 		CC1D0C300000000400000A04 /* LoggerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000300000A03 /* LoggerTests.swift */; };
+		CC1D0C300000001000000A10 /* WebSocketHubTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000F00000A0F /* WebSocketHubTests.swift */; };
 		CC1D0C300000000C00000A0C /* CORSTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000B00000A0B /* CORSTests.swift */; };
 		CC1D0C300000000A00000A0A /* HostAndOriginTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000900000A09 /* HostAndOriginTests.swift */; };
 		CC60E9B4307E5051000EE746 /* RouterBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC60E9AA307E5051000EE746 /* RouterBehaviorTests.swift */; };
@@ -296,6 +298,7 @@
 		CC50C0D82C4BAE8F00482E4B /* NanoFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NanoFile.swift"; sourceTree = "<group>"; };
 		CC50C0DA2C4BAEDF00482E4B /* NanoFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoFiles.swift; sourceTree = "<group>"; };
 		CC1D0C300000000100000A01 /* NanoLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoLogger.swift; sourceTree = "<group>"; };
+		CC1D0C300000000D00000A0D /* NanoWebSocketHub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoWebSocketHub.swift; sourceTree = "<group>"; };
 		CC1D0C300000000700000A07 /* NanoMiddleware.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoMiddleware.swift; sourceTree = "<group>"; };
 		CC1D0C300000000500000A05 /* NanoRequestPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoRequestPolicy.swift; sourceTree = "<group>"; };
 		CC1D0C142D0000250CF6A025 /* Renamed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Renamed.swift; sourceTree = "<group>"; };
@@ -315,6 +318,7 @@
 		CC60E9A8307E5051000EE746 /* RequestParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestParsingTests.swift; sourceTree = "<group>"; };
 		CC60E9A9307E5051000EE746 /* RobustnessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RobustnessTests.swift; sourceTree = "<group>"; };
 		CC1D0C300000000300000A03 /* LoggerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggerTests.swift; sourceTree = "<group>"; };
+		CC1D0C300000000F00000A0F /* WebSocketHubTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketHubTests.swift; sourceTree = "<group>"; };
 		CC1D0C300000000B00000A0B /* CORSTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CORSTests.swift; sourceTree = "<group>"; };
 		CC1D0C300000000900000A09 /* HostAndOriginTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostAndOriginTests.swift; sourceTree = "<group>"; };
 		CC60E9AA307E5051000EE746 /* RouterBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouterBehaviorTests.swift; sourceTree = "<group>"; };
@@ -447,6 +451,7 @@
 				CC50C0D82C4BAE8F00482E4B /* NanoFile.swift */,
 				CC50C0DA2C4BAEDF00482E4B /* NanoFiles.swift */,
 				CC1D0C300000000100000A01 /* NanoLogger.swift */,
+				CC1D0C300000000D00000A0D /* NanoWebSocketHub.swift */,
 				CC1D0C300000000700000A07 /* NanoMiddleware.swift */,
 				CC1D0C300000000500000A05 /* NanoRequestPolicy.swift */,
 				CC1D0C142D0000250CF6A025 /* Renamed.swift */,
@@ -481,6 +486,7 @@
 				CC60E9A8307E5051000EE746 /* RequestParsingTests.swift */,
 				CC60E9A9307E5051000EE746 /* RobustnessTests.swift */,
 				CC1D0C300000000300000A03 /* LoggerTests.swift */,
+				CC1D0C300000000F00000A0F /* WebSocketHubTests.swift */,
 				CC1D0C300000000B00000A0B /* CORSTests.swift */,
 				CC1D0C300000000900000A09 /* HostAndOriginTests.swift */,
 				CC1D0C132D0000230CF6A023 /* FileServingTests.swift */,
@@ -849,6 +855,7 @@
 				CC50C0CB2C4BAC7B00482E4B /* NanoHTTPSegmentRouter.swift in Sources */,
 				CC50C0DB2C4BAEDF00482E4B /* NanoFiles.swift in Sources */,
 				CC1D0C300000000200000A02 /* NanoLogger.swift in Sources */,
+				CC1D0C300000000E00000A0E /* NanoWebSocketHub.swift in Sources */,
 				CC1D0C300000000800000A08 /* NanoMiddleware.swift in Sources */,
 				CC1D0C300000000600000A06 /* NanoRequestPolicy.swift in Sources */,
 				CC1D0C142D0000260CF6A026 /* Renamed.swift in Sources */,
@@ -875,6 +882,7 @@
 				CC60E9B2307E5051000EE746 /* WebSocketIntegrationTests.swift in Sources */,
 				CC60E9B3307E5051000EE746 /* RobustnessTests.swift in Sources */,
 				CC1D0C300000000400000A04 /* LoggerTests.swift in Sources */,
+				CC1D0C300000001000000A10 /* WebSocketHubTests.swift in Sources */,
 				CC1D0C300000000C00000A0C /* CORSTests.swift in Sources */,
 				CC1D0C300000000A00000A0A /* HostAndOriginTests.swift in Sources */,
 				CC1D0C132D0000240CF6A024 /* FileServingTests.swift in Sources */,

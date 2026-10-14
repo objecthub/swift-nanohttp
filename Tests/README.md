@@ -19,6 +19,7 @@ NANOHTTP_CRASH_TESTS=1 swift test --filter <one test>   # see "Crash tests" belo
 | `RouterBehaviorTests.swift` | routing precedence, parameters, mounting, concurrency (complements `HTTPRouterTests.swift`) |
 | `WebSocketIntegrationTests.swift` | RFC 6455 handshake and frames against a real server; concurrent writers |
 | `HostAndOriginTests.swift` | the Host and Origin policies and middleware: parsing, DNS rebinding, requests of other sites, WebSocket handshakes (both threading modes) |
+| `WebSocketHubTests.swift` | origins and subprotocols of the WebSocket handler, the hub (join and leave, broadcast, 100 sessions, clients that do not read) in both threading modes |
 | `CORSTests.swift` | the CORS middleware: preflight requests, permission headers, credentials, errors |
 | `LoggerTests.swift` | the logger: levels, the built-in loggers, lazy messages, what the server and WebSocket sessions report (both threading modes) |
 | `HTMLDSLTests.swift` | the NanoHTML module: elements, attributes, block syntax, escaping, pages as responses |

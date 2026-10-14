@@ -167,6 +167,7 @@ public struct NanoHTTPConnection {
       // A WebSocket may be silent for hours: the server waits for the next message without a limit, and the
       // session reads what has begun to arrive with the read timeout.
       socket.setReceiveTimeout(self.configuration.readTimeout)
+      socket.setSendTimeout(self.configuration.sessionWriteTimeout)
       server.delegate?.connectionReceived(server: server, socket: socket)
       if self.configuration.threading == .singleThread {
         // The server waits for the socket together with all other sockets, and calls the session when there

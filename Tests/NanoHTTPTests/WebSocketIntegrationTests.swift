@@ -104,9 +104,9 @@ enum WS {
   }
 
   /// Opens a connection and performs the handshake; the returned client speaks frames.
-  static func connect(port: Int, file: StaticString = #filePath, line: UInt = #line) throws -> RawClient {
+  static func connect(port: Int, path: String = "/ws", file: StaticString = #filePath, line: UInt = #line) throws -> RawClient {
     let client = try RawClient(port: port)
-    client.send(handshakeRequest())
+    client.send(handshakeRequest(path: path))
     let response = client.readResponse()
     XCTAssertEqual(response?.status, 101, "handshake failed", file: file, line: line)
     return client

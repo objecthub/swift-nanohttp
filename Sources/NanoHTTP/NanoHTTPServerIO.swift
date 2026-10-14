@@ -205,6 +205,14 @@ open class NanoHTTPServerIO {
     /// the peer takes nothing for that long. `nil` (or zero) waits forever. The default is 30 seconds.
     public var writeTimeout: TimeInterval? = 30
     
+    /// How long a write to a connection that has been turned over to a session, such as a WebSocket, may be blocked
+    /// because the peer does not read: a write that makes no progress for that long fails, and the session ends. It is
+    /// shorter than ``writeTimeout`` because a message that is sent to many sessions (a chat, see ``NanoWebSocketHub``)
+    /// must not be held up for long by one client that has stopped reading, and on a server with
+    /// ``Threading/singleThread`` a client that has stopped reading holds up the whole server for that long. `nil` (or
+    /// zero) waits forever. The default is 5 seconds.
+    public var sessionWriteTimeout: TimeInterval? = 5
+    
     /// The most connections the server serves at the same time (WebSocket sessions included). When
     /// that many are open, a new connection is answered with `503 Service Unavailable` and closed.
     /// `nil` accepts any number; every connection uses a thread and a file descriptor. The default

@@ -9,6 +9,9 @@ All notable changes to this project are documented in this file. The format is b
 Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says how to move from 1.x.
 
 ### Changed
+- **A WebSocket session ends when a write to it fails:** the connection is closed, `disconnected` is called and the failure is
+  logged once (`info`); later writes do nothing. A write to a session has the `sessionWriteTimeout` of 5 seconds, not the
+  30 seconds of `writeTimeout`. See *WebSockets* in `MIGRATION-2.0.md`.
 - **Breaking: the server logs through a logger, with levels, and no longer prints.** `Configuration.logger` takes a
   `NanoHTTPLogger`; the default, `NanoOSLogger`, writes to the unified logging system (Xcode console, Console app), so a
   command-line tool has to set a `NanoConsoleLogger` to see the messages in its terminal. `NanoHTTPServerIO.log(_:)` is no
@@ -81,6 +84,12 @@ Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says 
   "connection closed by peer" instead of "Undefined error: 0".
 
 ### Added
+- **WebSocket hub, subprotocols and origins** (W2). `NanoWebSocketHub` keeps the sessions of a chat and sends text and binary
+  messages to all of them, except one if wanted; it is thread-safe, needs no locks on your side, and works on a server with
+  one thread. `NanoWebSocket.handler` has three more parameters: `hub:` (sessions join and leave by themselves), `protocols:`
+  (negotiates `Sec-WebSocket-Protocol`; `NanoWebSocketSession.subprotocol` is the result; offers of which none is known are
+  answered with `400`) and `origins:` (an `OriginPolicy` for the handshake of this route). `Configuration.sessionWriteTimeout`
+  (5 seconds) limits how long a write to a session may be blocked.
 - **Host and Origin policies, and CORS** (S6), all off by default. `Configuration.hostPolicy` (`.any`, `.automatic`,
   `.hosts([...])`) refuses requests for other host names (DNS rebinding); `Configuration.originPolicy` (`.any`,
   `.sameOrigin`, `.origins([...])`) refuses requests that change something, and WebSocket handshakes, from pages of other

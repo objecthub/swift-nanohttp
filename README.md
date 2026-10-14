@@ -53,7 +53,8 @@ grouped and mounted below a prefix, and `server["/path"]` answers every method.
   `405` with `Allow`, `OPTIONS`, a `Date` header.
 - **Files**: `NanoFiles.share(file:)`, `NanoFiles.share(directory:)` and `NanoFiles.browse(directory:)`, which do not serve anything from outside
   the directory, with `ETag`, `Last-Modified`, `304 Not Modified` and byte ranges (`206`).
-- **WebSockets** (RFC 6455): fragmented messages, ping/pong, close codes, thread-safe sending, size limits.
+- **WebSockets** (RFC 6455): fragmented messages, ping/pong, close codes, subprotocols, a check of the page's origin, a hub
+  that sends to many sessions, thread-safe sending, size limits.
 - **NanoHTML**, a second library for small pages: elements are Swift values (`Html { Body { H1("Hi") } }`), text and attributes are
   escaped, and building pages needs no locks.
 - **Errors**: a handler can `throw NanoHTTPError.notFound("No such item")`, which becomes the response; other

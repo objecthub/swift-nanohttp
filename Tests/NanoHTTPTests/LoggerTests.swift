@@ -420,14 +420,19 @@ final class SessionLoggingTests: XCTestCase {
   }
 
   func testASessionThatIsMadeByHandLogsOnlyIfItHasALogger() {
-    let socket = NanoSocket(socketFileDescriptor: open("/dev/null", O_WRONLY))
-    socket.close() // every write fails
-    let session = NanoWebSocketSession(socket)
-    XCTAssertNil(session.logger)
-    session.writeText("nobody listens") // fails, and there is nobody to tell: no crash, no output
+    func closedSocket() -> NanoSocket {
+      let socket = NanoSocket(socketFileDescriptor: open("/dev/null", O_WRONLY))
+      socket.close() // every write fails
+      return socket
+    }
+    let silent = NanoWebSocketSession(closedSocket())
+    XCTAssertNil(silent.logger)
+    silent.writeText("nobody listens") // fails, and there is nobody to tell: no crash, no output
     let logger = CapturingLogger()
+    let session = NanoWebSocketSession(closedSocket())
     session.logger = logger
     session.writeText("nobody listens")
+    session.writeText("nobody listens either") // the session is over: it does not report again
     XCTAssertEqual(logger.entries.map { $0.level }, [.info])
     XCTAssertTrue(logger.contains("unable to write a frame"), "\(logger.messages)")
   }

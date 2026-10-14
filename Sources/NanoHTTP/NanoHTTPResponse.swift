@@ -193,7 +193,7 @@ public struct NanoHTTPResponse {
   /// A `101 Switching Protocols` response for a session that the server drives. After the response was sent,
   /// the server calls the functions of `session` when the socket has something to read, see
   /// ``NanoSocketSession``. Unlike the other variant, this does not hold the thread of a server that has only one
-  /// thread: this is how ``NanoWebSocket/handler(text:binary:pong:connected:disconnected:maxMessageSize:)`` upgrades a
+  /// thread: this is how ``NanoWebSocket/handler(text:binary:pong:connected:disconnected:maxMessageSize:origins:protocols:hub:)`` upgrades a
   /// connection.
   public static func switchProtocols(_ headers: [String : String],
                                      session: NanoSocketSession) -> NanoHTTPResponse {

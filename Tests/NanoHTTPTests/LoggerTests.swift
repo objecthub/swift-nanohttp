@@ -289,7 +289,7 @@ final class ServerLoggerTests: XCTestCase {
     }) { _, port in
       // Descriptors that other threads free in the middle of the shortage give `accept` room again: try again then.
       var reported = false
-      for _ in 0..<3 where !reported {
+      for _ in 0..<6 where !reported {
         _ = settledDescriptorCount()
         let clients = try (0..<4).map { _ in try RawClient(port: port, connect: false) }
         let restore = exhaustFileDescriptors(leaving: 1)

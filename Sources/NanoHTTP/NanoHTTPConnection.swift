@@ -365,11 +365,9 @@ public struct NanoHTTPConnection {
         inline.append(to: &message)
         try self.socket.writeUInt8(message)
       } else {
+        // A large body is written from where it is: copying it would cost more than the second system call.
         try self.socket.writeUInt8(message)
-        var body = [UInt8]()
-        body.reserveCapacity(inline.count)
-        inline.append(to: &body)
-        try self.socket.writeUInt8(body)
+        try inline.write(to: self.socket)
       }
     } else {
       try self.socket.writeUInt8(message)

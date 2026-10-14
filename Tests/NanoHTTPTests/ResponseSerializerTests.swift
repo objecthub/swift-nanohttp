@@ -234,6 +234,34 @@ final class ServerResponseTests: XCTestCase {
       XCTAssertTrue(text(bytes).hasSuffix("\r\n\r\nsmall body"))
     }
   }
+
+  /// Bodies above the limit for coalescing are written after the head, from where they are (a body of
+  /// megabytes was once copied into a new array first, which cost more CPU than 1.0.2 needed).
+  func testLargeBodiesInMemoryArriveUnchangedAndTheConnectionStaysUsable() throws {
+    let pattern = (0..<(300 * 1024)).map { UInt8(truncatingIfNeeded: $0 / 5 &+ $0) }
+    let words = String(repeating: "größe ✓ ", count: 40_000)
+    for threading in [NanoHTTPServerIO.Configuration.Threading.perConnection, .singleThread] {
+      try withTestServer(configure: { server in
+        server.configuration.threading = threading
+        server.get["/data"] = { _ in .ok(.data(Data(pattern), contentType: "application/octet-stream")) }
+        server.get["/text"] = { _ in .ok(.text(words)) }
+        server.get["/small"] = { _ in .ok(.text("after")) }
+      }) { _, port in
+        let client = try RawClient(port: port, timeout: 10)
+        let keepAlive = ["Connection: keep-alive"]
+        client.send(RawClient.requestText("GET", "/data", headers: keepAlive))
+        let data = client.readResponse()
+        XCTAssertEqual(data?.header("Content-Length"), String(pattern.count), "\(threading)")
+        XCTAssertEqual(data?.body, pattern, "\(threading)")
+        client.send(RawClient.requestText("GET", "/text", headers: keepAlive))
+        let text = client.readResponse()
+        XCTAssertEqual(text?.header("Content-Length"), String(words.utf8.count), "\(threading)")
+        XCTAssertEqual(text?.body, Array(words.utf8), "\(threading)")
+        client.send(RawClient.requestText("GET", "/small", headers: keepAlive))
+        XCTAssertEqual(client.readResponse().map { String(decoding: $0.body, as: UTF8.self) }, "after", "\(threading)")
+      }
+    }
+  }
 }
 
 final class RequestVersionTests: XCTestCase {

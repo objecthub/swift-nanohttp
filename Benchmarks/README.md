@@ -32,9 +32,24 @@ the slow cores: the comparison would flatter the working copy otherwise.
 `close` opens a new connection for every request (`Connection: close`), `keep-alive` reuses connections, `cN` is the
 number of client threads. The responses are `pong` (4 bytes), 100 KB and 10 MB; the POST has a 1 MB body.
 `file 100 KB keep-alive` serves a file of 100 KB with `share(file:)` (1.x closed the connection after every file; a
-client reconnects without counting that as an error). `close c=1, 50 idle conns` holds 50 connections open that send nothing. `websocket echo` opens one WebSocket per
+client reconnects without counting that as an error). `close c=1 with 50 idle conns` holds 50 connections open that send nothing. `websocket echo` opens one WebSocket per
 client thread and sends 16-byte messages one after the other, each of which the server echoes; 1.x servers with one
 thread serve only one of the sockets (a WebSocket held the thread), which shows as errors.
+
+## A release run in about 15 minutes
+
+A scenario costs `repeats x 4 x (duration + warmup + about 0.5 s)`, so all 12 scenarios at the defaults take about 25
+minutes for 7 repeats. The scenarios whose ratios hardly vary need few repeats; only the ones that open a connection
+for every request (which are bimodal) need many. Two runs, one after the other, on an idle machine:
+
+```bash
+python3 Benchmarks/run.py --baseline 1.0.2 --repeats 5 --duration 2 --warmup 0.5 \
+  --scenarios "keep-alive c=1,keep-alive c=16,100 KB response c=4,10 MB response c=1,POST 1 MB c=4,file 100 KB keep-alive c=4,websocket echo c=1,websocket echo c=16"
+python3 Benchmarks/run.py --baseline 1.0.2 --repeats 8 --duration 2 --warmup 0.5 \
+  --scenarios "close c=1 (latency),close c=16,close c=1 with 50 idle conns"
+```
+
+`close c=64` is left out: its connection errors come from the load generator, for every server.
 
 ## Reading the result
 

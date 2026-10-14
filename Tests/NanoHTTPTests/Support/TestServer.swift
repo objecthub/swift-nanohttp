@@ -55,7 +55,7 @@ func settledDescriptorCount() -> Int {
   var last = openFileDescriptorCount()
   var unchanged = 0
   let end = Date(timeIntervalSinceNow: 3)
-  while unchanged < 4 && Date() < end {
+  while unchanged < 6 && Date() < end {
     usleep(50_000)
     let now = openFileDescriptorCount()
     unchanged = now == last ? unchanged + 1 : 0

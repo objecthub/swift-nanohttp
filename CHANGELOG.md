@@ -6,7 +6,101 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
-Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says how to move from 1.x.
+## [2.0.0] - 2026-10-14
+
+2.0 is a major release. It changes the API in many places, which `MIGRATION-2.0.md` lists with what to do (the compiler reports
+most old names and says what to use instead), and it changes a few defaults: servers listen at the loopback address,
+connections are persistent, paths and query values are decoded once, and the server logs through a logger.
+
+Highlights:
+
+- **Faster:** a persistent connection costs about half the CPU of 1.0.2 per request: 1.3x the requests per second with one
+  client and 4.8x with sixteen, a shared 100 KB file is served 11x faster, and WebSocket echo 1.05x to 1.15x. A new
+  connection for every request is as fast as before and uses a third to more than half less CPU. Large responses and uploads
+  are as fast as before. The one-thread mode gains about the same (README, *Performance*).
+- **One-thread servers:** `configuration.threading = .singleThread` serves everything, WebSockets included, on one thread;
+  handlers need no locks.
+- **`NanoHTML`**, a second library: pages are built from Swift values, with escaping, without global state.
+- **Safer:** loopback by default, optional Host/Origin policies and CORS, limits and timeouts, a connection limit.
+- **A complete HTTP/1.1 server:** keep-alive, chunked bodies, `HEAD`, `OPTIONS`, `405`, conditional requests and ranges for files.
+- **Handlers that throw, middleware that wraps**, decoded request values, a logger with levels, a WebSocket hub with subprotocols
+  and origin checks.
+
+### Added
+- **WebSocket hub, subprotocols and origins** (W2). `NanoWebSocketHub` keeps the sessions of a chat and sends text and binary
+  messages to all of them, except one if wanted; it is thread-safe, needs no locks on your side, and works on a server with
+  one thread. `NanoWebSocket.handler` has three more parameters: `hub:` (sessions join and leave by themselves), `protocols:`
+  (negotiates `Sec-WebSocket-Protocol`; `NanoWebSocketSession.subprotocol` is the result; offers of which none is known are
+  answered with `400`) and `origins:` (an `OriginPolicy` for the handshake of this route). `Configuration.sessionWriteTimeout`
+  (5 seconds) limits how long a write to a session may be blocked.
+- **Host and Origin policies, and CORS** (S6), all off by default. `Configuration.hostPolicy` (`.any`, `.automatic`,
+  `.hosts([...])`) refuses requests for other host names (DNS rebinding); `Configuration.originPolicy` (`.any`,
+  `.sameOrigin`, `.origins([...])`) refuses requests that change something, and WebSocket handshakes, from pages of other
+  sites. Refused requests get `403 Forbidden` before the middleware runs, and a warning in the log. `NanoMiddleware.cors`
+  with a `NanoCORSPolicy` answers preflight requests and adds the permission headers; `NanoMiddleware.hostAllowlist` and
+  `originAllowlist` are the same checks as middleware. See *Security and Limits*.
+- `NanoHTTPLogger`, `NanoLogLevel` (`debug`, `info`, `warning`, `error`), `NanoOSLogger`, `NanoConsoleLogger` and
+  `NanoSilentLogger`; `NanoHTTPServerIO.logger`, `log(_:_:)` (the message is only built if the logger wants it) and
+  `NanoWebSocketSession.logger`. The documentation has an article, *Logging*.
+- `NanoFile(path:mode:)` opens a file (`.read`, `.create`, `.update`) for a response body writer, and
+  `NanoFiles.mimeType(forPath:)` is the public way to look up a MIME type.
+- **HTTP/1.1 behavior:**
+  - Keep-alive by default (H4): connections are persistent unless `Connection: close` (HTTP/1.0: unless
+    `keep-alive`); the server answers `Connection: close` when it closes; `Date` on every response; no
+    `Content-Length` on `204` and `304`.
+  - Bodies of requests in chunks (`Transfer-Encoding: chunked`) are decoded, `Expect: 100-continue` is answered
+    (`417` for other expectations), and ambiguous requests are refused: `Content-Length` with chunks (`400`),
+    another `Transfer-Encoding` (`501`), a version other than HTTP/1.0 and HTTP/1.1 (`505`). New
+    `NanoHTTPParserError` cases and `request.httpVersion`.
+  - Bodies that a function writes (`.custom`) are sent in chunks, or with the `Content-Length` that the handler
+    declares (checked: a body of another length ends the connection).
+  - `HEAD` is answered by the `GET` handler without a body (H7); `405` with `Allow` for a path that has routes, but
+    not for the method; automatic `OPTIONS`; `server.options[...]`; `NanoHTTPRouter.allowedMethods(path:)`.
+  - Files (H10): `ETag`, `Last-Modified`, `If-None-Match`/`If-Modified-Since` (`304`), `Range`/`If-Range` (`206`, `416`),
+    keep-alive for files, `301` for a directory without a slash and its index file inside, `404` instead of an empty `200`.
+    `NanoSocket.writeFile(_:offset:length:)` and `NanoHTTPResponseBodyWriter.write(_:offset:length:)`.
+  - `Benchmarks/` has scenarios for files and WebSockets, and the load generator retries a request on a connection that
+    the server has closed in between, like a client does.
+- **Request helpers** (H1): `NanoHTTPRequest.query(_:)` and `queries(_:)`, `rawPath` and `rawQuery` (what the client
+  sent), `bodyString` (in the charset of the `Content-Type`), `json(_:decoder:)` (decodes the body; a body that is empty,
+  no JSON or does not fit the type throws `NanoHTTPError.badRequest` with a message that says what is wrong) and
+  `jsonObject()`. `NanoHTTPRequest.init(method:rawPath:rawQuery:headers:body:)` creates a request from a target that is
+  still percent-encoded.
+- **`NanoSocketSession`**: a conversation over a connection that has been switched away from HTTP, which the
+  server drives: it calls `start`, then `receive()` whenever the socket has something to read, and `end`.
+  `NanoHTTPResponse.switchProtocols(_:session:)` (and the new case `NanoHTTPResponse.Body.session`) turns a
+  connection over to one. A server with threads per connection runs the session on the thread of the connection; a
+  server with one thread waits for the sockets of all sessions together with all its other connections, so
+  `NanoWebSocket.handler(...)` and sessions of your own no longer occupy the only thread (W3). The WebSocket protocol logic of
+  `NanoWebSocket.handler(...)` is such a session now. `switchProtocols(_:_:)` with a function still exists; on a server with
+  one thread, the function has the thread until it returns.
+- **Errors:** `NanoHTTPError`, which a handler or middleware throws to answer with a status code,
+  headers and a message (`throw NanoHTTPError.notFound("No such item")`), with a function for every usual status.
+  Any other error becomes `500 Internal Server Error` without details; the details are logged with the method and
+  path. `NanoHTTPServer.errorHandler` decides how errors are answered (for JSON errors, say), and
+  `NanoHTTPServerIO.response(for:to:)` can be overridden. `NanoHTTPConnection.response()` calls the handler and
+  answers its errors.
+- `NanoHTTPMiddleware`: the type of middleware, see below.
+- `Benchmarks/`: `python3 Benchmarks/run.py` compares the throughput, latency and CPU use of the working copy
+  with a release (default: 1.0.2), with paired runs so that machine noise does not decide; see
+  `Benchmarks/README.md`.
+- **One-thread servers.** `server.configuration.threading = .singleThread` makes one thread do everything:
+  accepting connections, reading requests, the middleware, the handlers and writing the responses. Requests are served
+  one at a time, and handlers need no locks. `start(_:)` starts that thread; the new `run(_:)` uses the calling thread
+  and returns when the server is stopped (it is also available with threads per connection, where it accepts
+  connections on the calling thread). The thread waits for the listening socket and all connections together, so
+  idle and keep-alive connections do not block anything, and idle connections are closed after the idle timeout.
+  WebSockets work on the one thread too (see `NanoSocketSession` below): their closures, the handlers and the
+  middleware never run at the same time, so a chat needs no lock, not even when HTTP handlers write to the sessions.
+  Limits: a slow handler or closure delays everything, and a stalled request or message, or a client that does
+  not read, delays the server up to the read or write timeout.
+- **Timeouts and a limit for connections** (R3), in `NanoHTTPServerIO.Configuration`: `idleTimeout` (60 s; a
+  connection that sends no request is closed), `readTimeout` (30 s; a request that stalls is answered with
+  `408 Request Timeout`), `writeTimeout` (30 s; a peer that does not read is dropped) and `maxConnections` (128;
+  further connections get `503 Service Unavailable` with `Retry-After`). `nil` disables a limit. WebSocket sessions are
+  not subject to the idle and read timeouts, but count as connections.
+- `NanoHTTPServerIO.NanoListenAddress`, `NanoSocketError.timedOut`, `NanoSocket.setReceiveTimeout(_:)`, `setSendTimeout(_:)` and
+  `waitUntilReadable(timeout:)`.
 
 ### Changed
 - **Breaking: a variable needs its segment** (H8). `/users/:id` (and `*`) no longer matches `/users` with an empty `id`; only
@@ -36,9 +130,10 @@ Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says 
   `NanoNetworkInterface`, `String.File` is `NanoFile` and `String.mimeType()` is `NanoFiles.mimeType(forPath:)`. The old
   names are kept as unavailable declarations in 2.x so that the compiler says what to use (`MIGRATION-2.0.md`, *Names
   and namespaces*).
-- **Faster** (R8): sockets read in blocks of 16 KB (it was a system call for every byte), the head and the body of a
-  response are written together (one system call), the parser reads lines faster, and `TCP_NODELAY` is set. A request on a
-  kept connection costs less than half of the CPU time (1.4x requests per second for one client, 4x for sixteen).
+- **Faster:** sockets are read in 16 KB blocks (not byte by byte), the head of a response and a small body are written
+  together, the parser is faster, `TCP_NODELAY` is set, and files keep the connection open. Against 1.0.2 a
+  persistent connection costs about half the CPU per request; the figures are in the README (*Performance*), measured
+  with `Benchmarks/run.py`.
 - **Breaking: connections are persistent and `.custom` bodies are chunked**, see `MIGRATION-2.0.md` (*HTTP as clients
   expect it*): code and tests that relied on the server closing the connection after a response have to send
   `Connection: close`; a path with routes for other methods answers `405` instead of `404`; `HEAD` is no longer answered
@@ -77,7 +172,7 @@ Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says 
   the `priority` and `handlerPriority` parameters of `start` become `acceptQoS` and `connectionQoS`.
   `start(_ port:)` takes only the port. A running server keeps the configuration it was started with.
 - **Breaking:** `NanoHTTPServerIO.listen(priority:)` is `listen()`; `NanoSocket.tcpSocketForListen` takes a
-  `NanoListenAddress` and a `backlog` instead of `forceIPv4`, `maxPendingConnection` and `listenAddress`.
+  `NanoHTTPServerIO.NanoListenAddress` and a `backlog` instead of `forceIPv4`, `maxPendingConnection` and `listenAddress`.
 - Connections and the accept loop run on threads of their own instead of the global dispatch queues. The threads
   of connections are reused (a thread that has served a connection waits up to 10 seconds for the next one; at most
   32 wait), so a connection does not cost the creation of a thread. A thread with `.userInitiated` priority accepts
@@ -87,82 +182,6 @@ Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says 
   the accepting thread (`handlerPriority: nil`). `threading = .singleThread` and `run(_:)` replace them.
 - `NanoSocket.read()` retries when it is interrupted by a signal, and a closed connection is reported as
   "connection closed by peer" instead of "Undefined error: 0".
-
-### Added
-- **WebSocket hub, subprotocols and origins** (W2). `NanoWebSocketHub` keeps the sessions of a chat and sends text and binary
-  messages to all of them, except one if wanted; it is thread-safe, needs no locks on your side, and works on a server with
-  one thread. `NanoWebSocket.handler` has three more parameters: `hub:` (sessions join and leave by themselves), `protocols:`
-  (negotiates `Sec-WebSocket-Protocol`; `NanoWebSocketSession.subprotocol` is the result; offers of which none is known are
-  answered with `400`) and `origins:` (an `OriginPolicy` for the handshake of this route). `Configuration.sessionWriteTimeout`
-  (5 seconds) limits how long a write to a session may be blocked.
-- **Host and Origin policies, and CORS** (S6), all off by default. `Configuration.hostPolicy` (`.any`, `.automatic`,
-  `.hosts([...])`) refuses requests for other host names (DNS rebinding); `Configuration.originPolicy` (`.any`,
-  `.sameOrigin`, `.origins([...])`) refuses requests that change something, and WebSocket handshakes, from pages of other
-  sites. Refused requests get `403 Forbidden` before the middleware runs, and a warning in the log. `NanoMiddleware.cors`
-  with a `NanoCORSPolicy` answers preflight requests and adds the permission headers; `NanoMiddleware.hostAllowlist` and
-  `originAllowlist` are the same checks as middleware. See *Security and Limits*.
-- `NanoHTTPLogger`, `NanoLogLevel` (`debug`, `info`, `warning`, `error`), `NanoOSLogger`, `NanoConsoleLogger` and
-  `NanoSilentLogger`; `NanoHTTPServerIO.logger`, `log(_:_:)` (the message is only built if the logger wants it) and
-  `NanoWebSocketSession.logger`. The documentation has an article, *Logging*.
-- `NanoFile(path:mode:)` opens a file (`.read`, `.create`, `.update`) for a response body writer, and
-  `NanoFiles.mimeType(forPath:)` is the public way to look up a MIME type.
-- **HTTP/1.1 behavior** (batch 2 of 2.0):
-  - Keep-alive by default (H4): connections are persistent unless `Connection: close` (HTTP/1.0: unless
-    `keep-alive`); the server answers `Connection: close` when it closes; `Date` on every response; no
-    `Content-Length` on `204` and `304`.
-  - Bodies of requests in chunks (`Transfer-Encoding: chunked`) are decoded, `Expect: 100-continue` is answered
-    (`417` for other expectations), and ambiguous requests are refused: `Content-Length` with chunks (`400`),
-    another `Transfer-Encoding` (`501`), a version other than HTTP/1.0 and HTTP/1.1 (`505`). New
-    `NanoHTTPParserError` cases and `request.httpVersion`.
-  - Bodies that a function writes (`.custom`) are sent in chunks, or with the `Content-Length` that the handler
-    declares (checked: a body of another length ends the connection).
-  - `HEAD` is answered by the `GET` handler without a body (H7); `405` with `Allow` for a path that has routes, but
-    not for the method; automatic `OPTIONS`; `server.options[...]`; `NanoHTTPRouter.allowedMethods(path:)`.
-  - Files (H10): `ETag`, `Last-Modified`, `If-None-Match`/`If-Modified-Since` (`304`), `Range`/`If-Range` (`206`, `416`),
-    keep-alive for files, `301` for a directory without a slash and its index file inside, `404` instead of an empty `200`.
-    `NanoSocket.writeFile(_:offset:length:)` and `NanoHTTPResponseBodyWriter.write(_:offset:length:)`.
-  - `Benchmarks/` has scenarios for files and WebSockets, and the load generator retries a request on a connection that
-    the server has closed in between, like a client does.
-- **Request helpers** (H1): `NanoHTTPRequest.query(_:)` and `queries(_:)`, `rawPath` and `rawQuery` (what the client
-  sent), `bodyString` (in the charset of the `Content-Type`), `json(_:decoder:)` (decodes the body; a body that is empty,
-  no JSON or does not fit the type throws `NanoHTTPError.badRequest` with a message that says what is wrong) and
-  `jsonObject()`. `NanoHTTPRequest.init(method:rawPath:rawQuery:headers:body:)` creates a request from a target that is
-  still percent-encoded.
-- **`NanoSocketSession`**: a conversation over a connection that has been switched away from HTTP, which the
-  server drives: it calls `start`, then `receive()` whenever the socket has something to read, and `end`.
-  `NanoHTTPResponse.switchProtocols(_:session:)` (and the new case `NanoHTTPResponse.Body.session`) turns a
-  connection over to one. A server with threads per connection runs the session on the thread of the connection; a
-  server with one thread waits for the sockets of all sessions together with all its other connections, so
-  `websocket(...)` and sessions of your own no longer occupy the only thread (W3). The WebSocket protocol logic of
-  `websocket(...)` is such a session now. `switchProtocols(_:_:)` with a function still exists; on a server with
-  one thread, the function has the thread until it returns.
-- **Errors** (step 2 of 2.0): `NanoHTTPError`, which a handler or middleware throws to answer with a status code,
-  headers and a message (`throw NanoHTTPError.notFound("No such item")`), with a function for every usual status.
-  Any other error becomes `500 Internal Server Error` without details; the details are logged with the method and
-  path. `NanoHTTPServer.errorHandler` decides how errors are answered (for JSON errors, say), and
-  `NanoHTTPServerIO.response(for:to:)` can be overridden. `NanoHTTPConnection.response()` calls the handler and
-  answers its errors.
-- `NanoHTTPMiddleware`: the type of middleware, see below.
-- `Benchmarks/`: `python3 Benchmarks/run.py` compares the throughput, latency and CPU use of the working copy
-  with a release (default: 1.0.2), with paired runs so that machine noise does not decide; see
-  `Benchmarks/README.md`.
-- **One-thread servers.** `server.configuration.threading = .singleThread` makes one thread do everything:
-  accepting connections, reading requests, the middleware, the handlers and writing the responses. Requests are served
-  one at a time, and handlers need no locks. `start(_:)` starts that thread; the new `run(_:)` uses the calling thread
-  and returns when the server is stopped (it is also available with threads per connection, where it accepts
-  connections on the calling thread). The thread waits for the listening socket and all connections together, so
-  idle and keep-alive connections do not block anything, and idle connections are closed after the idle timeout.
-  WebSockets work on the one thread too (see `NanoSocketSession` below): their closures, the handlers and the
-  middleware never run at the same time, so a chat needs no lock, not even when HTTP handlers write to the sessions.
-  Limits: a slow handler or closure delays everything, and a stalled request or message, or a client that does
-  not read, delays the server up to the read or write timeout.
-- **Timeouts and a limit for connections** (R3), in `NanoHTTPServerIO.Configuration`: `idleTimeout` (60 s; a
-  connection that sends no request is closed), `readTimeout` (30 s; a request that stalls is answered with
-  `408 Request Timeout`), `writeTimeout` (30 s; a peer that does not read is dropped) and `maxConnections` (128;
-  further connections get `503 Service Unavailable` with `Retry-After`). `nil` disables a limit. WebSocket sessions are
-  not subject to the idle and read timeouts, but count as connections.
-- `NanoListenAddress`, `NanoSocketError.timedOut`, `NanoSocket.setReceiveTimeout(_:)`, `setSendTimeout(_:)` and
-  `waitUntilReadable(timeout:)`.
 
 ### Removed
 - `NanoHTTPServerDelegate` and `NanoHTTPServerIO.delegate` (H11): it was called for the first request of a connection only, and
@@ -183,6 +202,14 @@ Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says 
 - A server that is stopped no longer reports the accept that its closed listening socket made fail.
 - Idle connections no longer starve the server: between 60 and 70 silent connections used up the threads of the
   dispatch pool, and no request was served after that (R3).
+
+### Security
+- Servers listen at the loopback address by default (they accepted connections on all interfaces).
+- Host and Origin policies and a CORS middleware (off by default), `403` before the middleware runs.
+- NanoHTML escapes text and attribute values (S5, N3); the old builder inserted `inner` as it was and shared global state (N1).
+- Paths, query values and route variables are decoded once, and the file handlers do not decode again, which closes a way
+  to path traversal through double-encoded input (`%252e%252e`) that decoding in two places had opened.
+- Requests with ambiguous framing (`Content-Length` and chunks together, unknown transfer encodings) are refused.
 
 ## [1.0.2] - 2026-10-13
 
@@ -349,6 +376,8 @@ First release (replaces the former `0.1 (2024-07-19)` entry, which was never tag
   they are reachable.
 - Swift Package Manager support; demo server for macOS (command line) and iOS (SwiftUI app).
 
+[Unreleased]: https://github.com/objecthub/swift-nanohttp/compare/2.0.0...HEAD
+[2.0.0]: https://github.com/objecthub/swift-nanohttp/compare/1.0.2...2.0.0
 [1.0.2]: https://github.com/objecthub/swift-nanohttp/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/objecthub/swift-nanohttp/compare/1.0...1.0.1
 [1.0]: https://github.com/objecthub/swift-nanohttp/releases/tag/1.0

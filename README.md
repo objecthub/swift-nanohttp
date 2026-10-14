@@ -10,6 +10,9 @@ It is made for servers that are used by you, your own devices or a small trusted
 interfaces, companion apps, test servers. It does not provide TLS or authentication, and it is not built to withstand
 many hostile clients; see [Security](#security).
 
+**Version 2.0** is a major release with a new API in many places, safer defaults and a faster server. If you come
+from 1.x, [MIGRATION-2.0.md](MIGRATION-2.0.md) tells what to change, and the [CHANGELOG](CHANGELOG.md) what is new.
+
 ## A first server
 
 ```swift
@@ -70,6 +73,32 @@ By default a thread serves each connection, so handlers of different connections
 server runs on **one thread** (`server.configuration.threading = .singleThread`): requests and WebSocket messages
 are handled one at a time and handlers need no locks.
 
+## Pages
+
+The second library of the package, `NanoHTML`, builds small pages (status pages, forms, the user interface of a tool) from
+Swift values. Text and attribute values are escaped, so a page cannot be broken by what a request contains:
+
+```swift
+import NanoHTTP
+import NanoHTML
+
+let server = NanoHTTPServer()
+server["/hello/:name"] = htmlHandler { request in
+  Html {
+    Head { Title("Hello") }
+    Body {
+      H1("Hello, \(request.params["name"] ?? "stranger")!")       // escaped
+      Ul {
+        for header in request.availableHeaders.sorted() {
+          Li("\(header): \(request.header(header) ?? "")")
+        }
+      }
+      A("Home").href("/").class("button")
+    }
+  }
+}
+```
+
 ## Serving files
 
 ```swift
@@ -90,7 +119,18 @@ server["/chat"] = NanoWebSocket.handler(
   connected: { session in session.writeText("Welcome!") })
 ```
 
-Sessions can be written from any thread, which makes broadcasting to many clients simple.
+A `NanoWebSocketHub` keeps the sessions that belong together and sends a message to all of them, from any thread and
+without locks of your own:
+
+```swift
+let server = NanoHTTPServer()
+let chat = NanoWebSocketHub()
+server["/chat"] = NanoWebSocket.handler(
+  text: { session, message in chat.broadcast(text: message, except: session) },
+  hub: chat)
+```
+
+A client that stops reading is dropped after a few seconds, so that it cannot hold up the others.
 
 ## Security
 
@@ -103,32 +143,60 @@ server.configuration.listenAddress = .allInterfaces
 try server.start(8080)
 ```
 
-Even a server that listens at the loopback address can be reached by web pages in the user's browser. Two checks, off by
-default, close the usual ways in: `server.configuration.hostPolicy = .automatic` refuses requests for other host names
-(DNS rebinding), and `originPolicy = .sameOrigin` refuses requests that change something, and WebSocket handshakes, from
-pages of other sites. `NanoMiddleware.cors` lets the pages that you trust use the server. There is no TLS, no authentication and no rate limiting: do not
-expose a server to the internet without a reverse proxy that provides them. The documentation article *Security and Limits*
-lists what to decide, with code. To report a vulnerability, see [SECURITY.md](SECURITY.md).
+Even a server that listens at the loopback address can be reached by web pages in the user's browser. Two checks, which
+are **off by default**, close the usual ways in; switch them on for a server that is used from a browser:
+
+```swift
+let server = NanoHTTPServer()
+server.configuration.hostPolicy = .automatic       // refuses other host names (DNS rebinding)
+server.configuration.originPolicy = .sameOrigin    // refuses requests that change something, and WebSocket
+                                                   // handshakes, from pages of other sites
+```
+
+`NanoMiddleware.cors` lets the pages that you trust use the server. There is no TLS, no authentication and no rate
+limiting: do not expose a server to the internet without a reverse proxy that provides them. The documentation article
+*Security and Limits* lists what to decide, with code. To report a vulnerability, see [SECURITY.md](SECURITY.md).
+
+## Performance
+
+Measured against 1.0.2 with `Benchmarks/run.py`, over the loopback interface on one Mac. Every figure is the median of
+the ratios of runs made back to back (the same machine measures 15% apart in two runs minutes apart, so only such
+ratios mean something):
+
+| Workload | Requests per second | CPU per request |
+|---|---|---|
+| one client, persistent connection | 1.3x | 0.5x |
+| 16 clients, persistent connections | 4.8x | 0.1x |
+| 100 KB file served by `NanoFiles.share(file:)`, 4 clients | 11x | 0.4x |
+| WebSocket echo, 1 client / 16 clients | 1.15x / 1.05x | 0.8x / 0.7x |
+| a new connection for every request, 1 client / 16 clients | 1.0x / 1.0x | 0.7x / 0.45x |
+| 100 KB and 10 MB responses, 1 MB uploads | 1.0x | 0.8x, 1.0x, 1.0x |
+
+The one-thread mode (`threading = .singleThread`) gains about the same against the one-thread mode of 1.0.2: 1.3x with
+one persistent connection, the same speed for a new connection per request, and 0.5x to 0.9x of the CPU per request.
+The one-thread mode of 1.0.2 did not serve several persistent connections at the same time; now 16 of them get 4.9x the
+requests per second. What the scenarios do is described in [Benchmarks/README.md](Benchmarks/README.md), together with the way to repeat
+the measurement.
 
 ## Installation
 
 Add the package to your `Package.swift`:
 
 ```text
-.package(url: "https://github.com/objecthub/swift-nanohttp.git", from: "1.0.2"),
+.package(url: "https://github.com/objecthub/swift-nanohttp.git", from: "2.0.0"),
 ```
 
 and the product `NanoHTTP` (and `NanoHTML`, if you build pages with it) to the dependencies of your target. In Xcode, use File > Add Package Dependencies.
 
 ## Documentation
 
-The API is documented with DocC: a catalog with articles (getting started, routing, requests and responses, files,
-WebSockets, middleware, threading, security, testing, iOS) and documentation comments for every public symbol.
+The API is documented with DocC: a catalog for each library, with articles (getting started, routing, requests and responses, files,
+WebSockets, middleware, threading, logging, security, testing, iOS, building pages) and documentation comments for every public symbol.
 Build it in Xcode with Product > Build Documentation, or from the command line, keeping the archive to open in
 Xcode:
 
 ```bash
-python3 Scripts/check_docs.py --output NanoHTTP.doccarchive
+python3 Scripts/check_docs.py --output docs        # docs/NanoHTTP.doccarchive and docs/NanoHTML.doccarchive
 ```
 
 The examples in the documentation are compiled against the library by `Scripts/check_doc_examples.py`, so they
@@ -164,6 +232,7 @@ swift test --sanitize=thread                      # also with --sanitize=address
 python3 Scripts/check_xcodeproj.py                # the Xcode project lists every Swift file and matches Package.swift
 python3 Scripts/check_doc_examples.py             # the examples of the documentation compile
 python3 Scripts/check_docs.py                     # the DocC documentation builds without warnings
+python3 Benchmarks/run.py --baseline 1.0.2        # throughput, latency and CPU use against a release (see Benchmarks/README.md)
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute.

@@ -1,7 +1,7 @@
 # NanoHTTP tests
 
 ```
-swift test                                  # everything (about 10 s)
+swift test                                  # everything (about 45 s)
 swift test --filter SecurityTests           # one area
 swift test --sanitize=address               # also: --sanitize=thread
 swift test --enable-code-coverage && python3 Scripts/coverage_summary.py "$(swift test --show-codecov-path)"
@@ -73,15 +73,15 @@ per connection, idle and keep-alive connections do not block others, timeouts, l
 the buffer awareness of the one-thread loop removed, the pipelining tests fail), `ResponseSerializerTests.swift` (the head
 of a response as a function, `Date`, bodies in memory), `ConnectionSemanticsTests.swift` (H4: keep-alive by version,
 `Connection: close`, chunked requests and responses, `Expect`, declared lengths), `HeadAndOptionsTests.swift` (H7) and
-`FileServingTests.swift` (H10: `ETag`, `304`, ranges, directories) cover batch 2 of the 2.0 plan: **H4, H7 and H10 are fixed**, only
+`FileServingTests.swift` (H10: `ETag`, `304`, ranges, directories) cover **H4, H7 and H10** (fixed).
 H9 (multipart) is the only known issue that is left. `HTMLDSLTests.swift` tests the new NanoHTML module (**N1**, **N2**, **N3** and **S5** are fixed by its design: pages are values without shared state, element types do not clash with member names, void elements have no end tag, and everything is escaped except `Raw`). `RequestSemanticsTests.swift` covers H1 (**fixed in 2.0**: `path`, query values and route variables are decoded once, `rawPath`/`rawQuery`
 keep what was sent, routing works on the raw path, the file handlers do not decode again, `bodyString`, `json`).
 `SocketSessionTests.swift` covers WebSockets on the one thread (**W3**, fixed: sessions are driven by the server;
 chat and broadcast without locks, close handshake, protocol errors, stalls, `stop()`, limits) and the
 `NanoSocketSession` protocol in both modes. The tests of `ConfigurationTests.swift` cover the listen address
-(loopback by default) and the `Configuration` object. The timeout tests wait for real time (the suite takes ~25 s). `HandlerErrorTests.swift` (`NanoHTTPError`, the `500` without details, `errorHandler`, errors on a one-thread server) and
+(loopback by default) and the `Configuration` object. The timeout tests wait for real time (the suite takes about 45 s). `HandlerErrorTests.swift` (`NanoHTTPError`, the `500` without details, `errorHandler`, errors on a one-thread server) and
 `MiddlewareTests.swift` (order, short-circuit, response changes, errors, requests without a route, rewriting the
-path, one thread) cover step 2 of the 2.0 plan. `ThreadPoolTests.swift` covers the pool that reuses the
+path, one thread) cover handlers that throw and middleware. `ThreadPoolTests.swift` covers the pool that reuses the
 threads of connections (reuse, no limit for the number of threads, idle lifetime, `close`, exactly-once execution).
 Performance is not tested by the suite: `Benchmarks/` is the tool for that.
 

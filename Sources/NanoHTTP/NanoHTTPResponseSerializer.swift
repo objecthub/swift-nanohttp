@@ -56,6 +56,16 @@ enum NanoHTTPInlineBody {
       case .data(let data): buffer.append(contentsOf: data)
     }
   }
+
+  /// Writes the content to the socket, without copying it into another buffer first (a body of several
+  /// megabytes would be allocated and copied for nothing).
+  func write(to socket: NanoSocket) throws {
+    switch self {
+      case .bytes(let bytes): if !bytes.isEmpty { try socket.writeUInt8(bytes) }
+      case .string(let string): try socket.writeUTF8(string)
+      case .data(let data): try socket.writeData(data)
+    }
+  }
 }
 
 extension NanoHTTPResponse.Body {

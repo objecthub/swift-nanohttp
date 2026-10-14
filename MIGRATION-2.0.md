@@ -1,6 +1,29 @@
 # Migrating from 1.x to 2.0
 
-2.0 is not released yet; this guide grows with the changes on the way. Every item says what to change.
+Version 2.0 changes the API in many places, and a few defaults. Two kinds of change need your attention:
+
+**What the compiler tells you.** Names that were renamed or moved are kept as unavailable declarations, so that the error
+says what to use instead (Xcode offers a fix-it); things that were removed are listed below with their replacements. Build
+your project first, and work through the errors with this guide at hand.
+
+**What compiles, but behaves differently.** Check these, because nothing reports them:
+
+- A server listens at the loopback address (`127.0.0.1`) only. A server that other devices reach needs
+  `configuration.listenAddress = .allInterfaces` (*Server configuration*).
+- Connections are persistent, and bodies that a function writes are sent in chunks. Clients and tests that relied on the server
+  closing the connection after a response have to send `Connection: close` (*HTTP as clients expect it*).
+- `request.path`, query values and route variables are decoded once. Code that decodes them again can be turned into path
+  traversal (`%252e%252e`) (*Paths and query values are decoded*).
+- `/users/:id` does not match `/users` any more (*Routing*).
+- A request that does not arrive within the timeouts, and connections beyond the limit of 128, are answered with `408` and `503`
+  (*Timeouts and the number of connections*).
+- A handler that throws an error other than `NanoHTTPError` gets `500` without details.
+- The messages of the server are not printed to the terminal any more: a command-line tool needs a `NanoConsoleLogger`
+  (*Logging*).
+- A write to a WebSocket session that fails ends the session, and writes to sessions time out after 5 seconds
+  (*WebSockets*).
+
+Every section says what to change.
 
 ## Server configuration
 
@@ -365,4 +388,17 @@ case of host names and `Origin: null`, which a hand-written comparison usually d
   WebSocket. What it was used for is done better by other means: middleware sees every request
   (`server.middleware.append { request, next in ... }`), `handle(connection:)` wraps a connection, and the logger
   reports what goes wrong.
+
+## Smaller changes that the compiler reports
+
+- `NanoHTTPParserError` has new cases (`unsupportedVersion`, `conflictingFraming`, `unsupportedTransferEncoding`, `invalidChunk`,
+  `expectationFailed`), `NanoSocketError` has `timedOut`, and `NanoHTTPResponse.Body` has `session`: a `switch` over these types
+  that has no `default` has to handle them.
+- `NanoHTTPServer(configuration:)` and `NanoHTTPServerIO(configuration:)` are the designated initializers (`NanoHTTPServer()` still
+  works: the configuration has a default). A subclass that has an initializer of its own calls `super.init(configuration:)`
+  or `super.init()`.
+- `NanoHTTPRequest(method:path:queryParams:headers:body:)` has one more parameter, `httpVersion:`, which has a default: calls
+  do not change. The parameters take decoded text (see *Paths and query values are decoded*).
+- `NanoNetworkInterface` replaces `NetworkInterface` (*Names and namespaces*); `NanoSocket.tcpSocketForListen` takes a
+  `NanoHTTPServerIO.NanoListenAddress` and a `backlog`; `NanoHTTPServerIO.listen(priority:)` is `listen()`.
 

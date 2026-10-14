@@ -627,6 +627,9 @@ open class NanoHTTPServerIO {
     var session: NanoSocketSession?
     /// Has the connection ended during this round of the loop?
     var finished = false
+    /// Does the connection wait for an answer that another thread sends (``NanoHTTPDeferredResponse``)? It is
+    /// not polled then, and has no deadline.
+    var suspended = false
   }
   
   /// What happened to a connection that the single thread has served.
@@ -634,6 +637,8 @@ open class NanoHTTPServerIO {
     case closed
     case waiting
     case session(NanoSocketSession)
+    /// The answer has been promised for later: the connection is left alone until it comes.
+    case deferred
   }
   
   /// The session that a response has just turned a connection over to, until the loop of the single thread
@@ -675,13 +680,17 @@ open class NanoHTTPServerIO {
         entry.socket.close()
         self.forget(socket: entry.socket)
       }
+      self.endDeferral()
     }
     var failures = AcceptFailures()
     var refusing = false
     var acceptAgainAt: UInt64 = 0 // when to look at the listening socket again after a shortage
-    // What `poll` waits for: the listening socket first, then the sockets of `waiting`, in their order. It is
-    // built again only when connections have come or gone, not for every message.
+    // What `poll` waits for: the listening socket first, then the pipe that other threads write to when they have
+    // an answer for the loop (`-1` until a request has been deferred), then the sockets of `waiting`, in their
+    // order. Connections that wait for their answer are not polled (`-1`). It is built again only when connections
+    // have come or gone, not for every message.
     let listenerDescriptor = listener.socketFileDescriptor
+    var wakeupDescriptor: Int32 = -1
     var pollers = [pollfd]()
     var rebuild = true
     func deadline() -> UInt64? {
@@ -695,7 +704,7 @@ open class NanoHTTPServerIO {
       let accepting = begin >= acceptAgainAt
       // At most a tenth of a second, so that a stop is noticed, and not longer than the next deadline.
       var wait = 100_000_000 as UInt64 // nanoseconds
-      for entry in waiting {
+      for entry in waiting where !entry.suspended {
         if let due = entry.deadline {
           wait = min(wait, due > begin ? due - begin : 0)
         }
@@ -707,8 +716,11 @@ open class NanoHTTPServerIO {
         wait = min(wait, acceptAgainAt - begin)
       }
       if rebuild {
-        pollers = [pollfd(fd: listenerDescriptor, events: Int16(POLLIN), revents: 0)]
-        pollers.append(contentsOf: waiting.map { pollfd(fd: $0.socket.socketFileDescriptor, events: Int16(POLLIN), revents: 0) })
+        pollers = [pollfd(fd: listenerDescriptor, events: Int16(POLLIN), revents: 0),
+                   pollfd(fd: wakeupDescriptor, events: Int16(POLLIN), revents: 0)]
+        pollers.append(contentsOf: waiting.map {
+          pollfd(fd: $0.suspended ? -1 : $0.socket.socketFileDescriptor, events: Int16(POLLIN), revents: 0)
+        })
         rebuild = false
       }
       pollers[0].fd = accepting ? listenerDescriptor : -1 // a negative descriptor is ignored
@@ -716,10 +728,50 @@ open class NanoHTTPServerIO {
       // has nothing to read, and the read that follows fails.
       let result = poll(&pollers, nfds_t(pollers.count), Int32(min(UInt64(Int32.max), (wait + 999_999) / 1_000_000)))
       var removed = false
+      // The answers that other threads have handed over: the loop writes them, and goes on waiting for the next
+      // request of those connections.
+      if result > 0 && pollers[1].revents != 0 {
+        self.drainWakeup(wakeupDescriptor)
+        for completion in self.takeCompletions() {
+          let socket = completion.connection.socket
+          guard let index = waiting.firstIndex(where: { $0.socket === socket }) else {
+            completion.connection.close() // the connection has gone meanwhile
+            continue
+          }
+          _ = completion.connection.send(completion.response, dontKeepAlive: completion.dontKeepAlive) // nil: one thread
+          switch self.outcome(of: socket) {
+            case .closed:
+              waiting[index].finished = true
+              removed = true
+            case .waiting, .deferred:
+              waiting[index].suspended = false
+              waiting[index].deadline = deadline()
+              if !rebuild {
+                pollers[index + 2].fd = socket.socketFileDescriptor
+                pollers[index + 2].revents = 0
+              }
+            case .session(let session):
+              waiting[index].suspended = false
+              waiting[index].session = session
+              waiting[index].deadline = nil
+              if !rebuild {
+                pollers[index + 2].fd = socket.socketFileDescriptor
+                pollers[index + 2].revents = 0
+              }
+          }
+        }
+      }
       var index = 0
       while index < waiting.count && self.isRunning(listener) {
         let socket = waiting[index].socket
-        if (result > 0 && pollers[index + 1].revents != 0) || socket.hasBufferedData || socket.isClosed {
+        if waiting[index].finished {
+          // ended above
+        } else if waiting[index].suspended {
+          if socket.isClosed { // whoever owns the answer has ended the connection
+            waiting[index].finished = true
+            removed = true
+          }
+        } else if (result > 0 && pollers[index + 2].revents != 0) || socket.hasBufferedData || socket.isClosed {
           if let session = waiting[index].session {
             if !session.receive() {
               session.end()
@@ -738,6 +790,17 @@ open class NanoHTTPServerIO {
               case .session(let session):
                 waiting[index].session = session
                 waiting[index].deadline = nil
+              case .deferred:
+                waiting[index].suspended = true
+                waiting[index].deadline = nil
+                let descriptor = self.wakeupReadDescriptor()
+                if descriptor != wakeupDescriptor {
+                  wakeupDescriptor = descriptor
+                  rebuild = true
+                }
+                if !rebuild {
+                  pollers[index + 2].fd = -1
+                }
             }
           }
         } else if let due = waiting[index].deadline, NanoHTTPServerIO.uptime() >= due {
@@ -781,12 +844,23 @@ open class NanoHTTPServerIO {
     }
   }
   
-  /// Reads the request that has arrived on `socket` and answers it. Tells whether the connection stays open
-  /// to wait for its next request, or has been turned over to a session.
+  /// Reads the request that has arrived on `socket` and answers it. Tells whether the
+  /// connection stays open to wait for its next request, or has been turned over to a session.
   private func serve(_ socket: NanoSocket) -> Served {
+    var deferred = false
     if let connection = NanoHTTPConnection(server: self, socket: socket) {
       self.handle(connection: connection)
+      deferred = connection.request.isDeferred
     }
+    if deferred && !socket.isClosed {
+      return .deferred
+    }
+    return self.outcome(of: socket)
+  }
+  
+  /// What has become of a connection after its response has been sent: it has ended,
+  /// waits for its next request, or has been turned over to a session.
+  private func outcome(of socket: NanoSocket) -> Served {
     if let adopted = self.adoptedSession {
       self.adoptedSession = nil
       if adopted.socket === socket && !socket.isClosed {
@@ -799,10 +873,11 @@ open class NanoHTTPServerIO {
   
   /// The response for a request whose handler (or middleware) threw `error`.
   ///
-  /// A ``NanoHTTPError`` is answered with its status code, headers and message. Every other error is
-  /// answered with `500 Internal Server Error` and no details, which are logged with the method and path of
-  /// the request: the description of an error (a database error, a file path) is nothing for the client.
-  /// Override to answer errors differently; ``NanoHTTPServer/errorHandler`` does that without subclassing.
+  /// A ``NanoHTTPError`` is answered with its status code, headers and message. Every
+  /// other error is answered with `500 Internal Server Error` and no details, which are
+  /// logged with the method and path of the request: the description of an error
+  /// (a database error, a file path) is nothing for the client. Override to answer errors
+  /// differently; ``NanoHTTPServer/errorHandler`` does that without subclassing.
   ///
   /// Called on the thread of the connection.
   open func response(for error: Error, to request: NanoHTTPRequest) -> NanoHTTPResponse {
@@ -838,11 +913,150 @@ open class NanoHTTPServerIO {
   /// it returns after the response has been sent, and the connection, if it is kept alive, is left open
   /// for the server to wait for the next request.
   ///
-  /// Override to wrap the handling (to measure the time of requests, for example) and call `super`.
+  /// Override to wrap the handling (to measure the time of requests, for example) and call `super`. An
+  /// override that does not call `super` can answer later, from another thread, instead: it calls
+  /// ``NanoHTTPConnection/deferResponse()``, passes the result on and returns. The server calls it again for
+  /// the next request of the connection after the answer has been sent (see ``NanoHTTPDeferredResponse``).
   open func handle(connection: NanoHTTPConnection) {
     var connection = connection
     while let next = connection.send(connection.response()) {
       connection = next
+    }
+  }
+  
+  // MARK: - Deferred responses
+  
+  /// An answer that another thread has handed over to the loop of a server with one thread, which writes it.
+  private struct Completion {
+    let connection: NanoHTTPConnection
+    let response: NanoHTTPResponse
+    let dontKeepAlive: Bool
+  }
+  
+  /// Guards `completions` and `wakeup`.
+  private let completionLock = NSLock()
+  private var completions = [Completion]()
+  /// The pipe that wakes the loop of a server with one thread when it has an answer to write: threads write a
+  /// byte to `write`, the loop polls `read`. Created by the first deferred response of a run.
+  private var wakeup: (read: Int32, write: Int32)? = nil
+  
+  /// Called by ``NanoHTTPConnection/deferResponse()``: a server with one thread needs its wake-up pipe before
+  /// the answer can come.
+  func prepareDeferral() {
+    guard self.activeConfiguration.threading == .singleThread else {
+      return
+    }
+    self.completionLock.lock()
+    defer {
+      self.completionLock.unlock()
+    }
+    guard self.wakeup == nil else {
+      return
+    }
+    var descriptors: [Int32] = [-1, -1]
+    guard pipe(&descriptors) == 0 else {
+      self.log(.error, "Unable to create the pipe for deferred responses: \(String(cString: strerror(errno)))")
+      return
+    }
+    for descriptor in descriptors {
+      _ = fcntl(descriptor, F_SETFL, fcntl(descriptor, F_GETFL) | O_NONBLOCK)
+      _ = fcntl(descriptor, F_SETFD, FD_CLOEXEC)
+    }
+    self.wakeup = (descriptors[0], descriptors[1])
+  }
+  
+  /// Takes over the answer of a deferred response (or, if `response` is `nil`, the end of its connection) from
+  /// any thread. A server with threads per connection writes it on a thread of its pool, which then waits for the
+  /// next request, as it would have after the first one; a server with one thread has its loop write it.
+  func complete(_ connection: NanoHTTPConnection, with response: NanoHTTPResponse?, dontKeepAlive: Bool) {
+    guard self.operating else {
+      connection.close()
+      return
+    }
+    if self.activeConfiguration.threading == .singleThread {
+      if let response {
+        self.completionLock.lock()
+        self.completions.append(Completion(connection: connection, response: response, dontKeepAlive: dontKeepAlive))
+        self.completionLock.unlock()
+      } else {
+        connection.close() // the loop finds the closed socket
+      }
+      self.wakeLoop()
+      return
+    }
+    guard let response else {
+      connection.close()
+      return
+    }
+    self.stateLock.lock()
+    let pool = self.connectionPoolValue
+    self.stateLock.unlock()
+    let submitted = pool?.submit { [weak self] in
+      guard let server = self else {
+        connection.close()
+        return
+      }
+      if let next = connection.send(response, dontKeepAlive: dontKeepAlive) {
+        server.handle(connection: next)
+      }
+    } ?? false
+    if !submitted { // the server has been stopped meanwhile
+      connection.close()
+    }
+  }
+  
+  /// Wakes the loop of a server with one thread.
+  private func wakeLoop() {
+    self.completionLock.lock()
+    defer {
+      self.completionLock.unlock()
+    }
+    if let wakeup = self.wakeup {
+      var byte: UInt8 = 1
+      _ = write(wakeup.write, &byte, 1) // a full pipe means that the loop has been woken already
+    }
+  }
+  
+  /// The descriptor that the loop polls for wake-ups, or `-1`.
+  private func wakeupReadDescriptor() -> Int32 {
+    self.completionLock.lock()
+    defer {
+      self.completionLock.unlock()
+    }
+    return self.wakeup?.read ?? -1
+  }
+  
+  /// Reads what has been written to the pipe, so that it is quiet again.
+  private func drainWakeup(_ descriptor: Int32) {
+    var buffer = [UInt8](repeating: 0, count: 64)
+    while descriptor >= 0 && read(descriptor, &buffer, buffer.count) > 0 {}
+  }
+  
+  private func takeCompletions() -> [Completion] {
+    self.completionLock.lock()
+    defer {
+      self.completionLock.unlock()
+    }
+    let taken = self.completions
+    self.completions.removeAll(keepingCapacity: true)
+    return taken
+  }
+  
+  /// The loop of a server with one thread has ended: the pipe is closed, and the answers that nobody has
+  /// written any more end their connections.
+  private func endDeferral() {
+    self.completionLock.lock()
+    let wakeup = self.wakeup
+    self.wakeup = nil
+    let abandoned = self.completions
+    self.completions.removeAll()
+    self.completionLock.unlock()
+    if let wakeup {
+      close(wakeup.read)
+      close(wakeup.write)
+    }
+    for completion in abandoned {
+      completion.connection.close()
     }
   }
   

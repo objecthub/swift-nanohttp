@@ -91,7 +91,150 @@ final class ExampleTimingServer: NanoHTTPServer {
 What the server reports does not go through a method that you override, but to a logger that you set: see <doc:Logging>.
 
 `handle(connection:)` returns when the connection has ended, which can be long after the first request if the client keeps
-the connection open.
+the connection open. (An override that answers from other threads, as in the next section, returns after every request.)
+
+### Answering from another thread
+
+A server that hands its requests to other threads (a pool of workers, a job queue, another language runtime) does not
+have to hold a thread of its own for every request that is being worked on. An override of `handle(connection:)` that
+does not call `super` calls ``NanoHTTPConnection/deferResponse()``, passes the returned ``NanoHTTPDeferredResponse`` on,
+and returns; whoever has the answer calls ``NanoHTTPDeferredResponse/send(_:dontKeepAlive:)`` from any thread:
+
+```swift
+// file scope
+final class ExampleWorkerServer: NanoHTTPServer {
+  let workers = DispatchQueue(label: "workers", attributes: .concurrent)
+
+  override func handle(connection: NanoHTTPConnection) {
+    let pending = connection.deferResponse()
+    let response = connection.response()        // runs the middleware and the route, here or in the worker
+    self.workers.async {
+      pending.send(response)
+    }
+  }
+}
+```
+
+`send` returns at once: the server writes the response itself, on a thread of its own, and waits for the next request of
+the connection there, so a worker never waits for a client that is slow to read or to send. A connection that waits for its
+answer is not read and does not time out (but it counts as an open connection, and a request that the client has already
+sent behind the first one is handled after the first has been answered). It works the same with threads per connection
+and with one thread, where the loop of the server writes the answers: that thread is still the only one that touches the
+sockets. If the token is released without an answer, the connection is closed and a warning is logged.
+
+#### A worker pool behind one network thread
+
+The two ideas fit together: a server with ``NanoHTTPServerIO/Configuration/Threading/singleThread`` needs no thread for
+a connection that waits, so any number of browsers and idle keep-alive connections cost nothing, and a pool of workers
+runs the handlers, which may take long or block. The one thread accepts connections, reads requests and writes responses;
+it puts every request into a bounded queue, and the workers take the requests from there. This is a complete server of
+that kind, with a queue that refuses requests (`503`) when it is full:
+
+```swift
+// file scope
+/// Serves the network with one thread, and runs the middleware and the handlers on a pool of worker threads.
+/// The handlers run at the same time, so they must protect the state that they share.
+final class ExampleWorkerPoolServer: NanoHTTPServer {
+  private struct Job {
+    let connection: NanoHTTPConnection
+    let pending: NanoHTTPDeferredResponse
+  }
+
+  private let workerCount: Int
+  private let capacity: Int
+  private let condition = NSCondition()
+  private var queue = [Job]()                 // guarded by `condition`, like `run`
+  private var run = 0                         // the number of the current run of the server; 0 if none
+  private var runs = 0
+
+  init(workers: Int = 3, capacity: Int = 100) {
+    self.workerCount = workers
+    self.capacity = capacity
+    var configuration = Configuration()
+    configuration.threading = .singleThread
+    super.init(configuration: configuration)
+  }
+
+  /// Runs on the one thread of the server (the calling thread of `run`), and returns when the server stops.
+  override func listen() {
+    self.condition.lock()
+    self.runs += 1
+    let run = self.runs
+    self.run = run
+    self.condition.unlock()
+    for index in 0..<self.workerCount {
+      let worker = Thread { [self] in self.work(run) }
+      worker.name = "Example worker \(index)"
+      worker.start()
+    }
+    super.listen()
+    // The server has stopped: the workers of this run end, and the requests that nobody has taken are given up. (A
+    // server that is started again right away has begun its next run already, and the queue is that run's.)
+    var abandoned = [Job]()
+    self.condition.lock()
+    if self.run == run {
+      self.run = 0
+      abandoned = self.queue
+      self.queue.removeAll()
+    }
+    self.condition.broadcast()
+    self.condition.unlock()
+    for job in abandoned {
+      job.pending.close()
+    }
+  }
+
+  /// Called on the one thread for every request that arrives, also for the next request of a kept-alive connection.
+  override func handle(connection: NanoHTTPConnection) {
+    self.condition.lock()
+    let accepted = self.queue.count < self.capacity
+    if accepted {
+      self.queue.append(Job(connection: connection, pending: connection.deferResponse()))
+      self.condition.signal()
+    }
+    self.condition.unlock()
+    if !accepted {
+      // Too many requests are waiting: refuse this one at once, and close its connection.
+      let busy = NanoHTTPResponse(statusCode: 503, headers: ["Retry-After": "1"], body: .text("busy"))
+      _ = connection.send(busy, dontKeepAlive: true)
+    }
+  }
+
+  private func work(_ run: Int) {
+    while let job = self.nextJob(run) {
+      // Runs the middleware and the route, and turns errors into responses as usual. `send` returns at once:
+      // the one thread of the server writes the response.
+      job.pending.send(job.connection.response())
+    }
+  }
+
+  private func nextJob(_ run: Int) -> Job? {
+    self.condition.lock()
+    defer {
+      self.condition.unlock()
+    }
+    while self.queue.isEmpty && self.run == run {
+      self.condition.wait()
+    }
+    return self.run == run ? self.queue.removeFirst() : nil
+  }
+}
+```
+
+```swift
+let server = ExampleWorkerPoolServer(workers: 4, capacity: 50)
+server.get["/hello/:name"] = { request in
+  Thread.sleep(forTimeInterval: 1)            // holds a worker for a second; the network thread stays free
+  return .ok(.text("Hello \(request.params["name"] ?? "world")!"))
+}
+try server.run(8080)                           // returns when another thread has called `server.stop()`
+```
+
+Four requests that arrive together are answered after a second, not after four; a fifth that finds the queue full gets
+`503` with `Retry-After`; a client that keeps its connection open sends its next request on the same connection, which
+comes to `handle(connection:)` again and goes through the queue like the first. With threads per connection instead
+(leave out the configuration), the same server works the same way, but every connection that waits for its next
+request holds a thread.
 
 ### A server without routing
 

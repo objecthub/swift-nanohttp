@@ -107,7 +107,14 @@ public final class NanoHTTPRequest: Hashable {
   
   /// Free space for the application, for example for middleware to hand information to handlers.
   public var custom: [String : Any] = [:]
-  
+
+  /// Has the answer been promised for later (``NanoHTTPConnection/deferResponse()``)? The server of one thread looks
+  /// at it after `handle(connection:)` has returned: a connection that waits for its answer is not read.
+  var isDeferred = false
+
+  /// The token of the deferred answer. Weak: the token holds the connection, which holds this request.
+  weak var deferral: NanoHTTPDeferredResponse? = nil
+
   /// Creates a request, for example to call a handler directly in a test. `path` and the names and values of
   /// `queryParams` are decoded text, as the properties of the same names (`"/a b"`, not `"/a%20b"`); the
   /// names of `headers` are case-insensitive.

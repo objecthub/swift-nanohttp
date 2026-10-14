@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+- **Deferred responses.** A subclass of `NanoHTTPServerIO` whose `handle(connection:)` hands requests to other threads can
+  answer later, from any thread: `connection.deferResponse()` returns a `NanoHTTPDeferredResponse`, and
+  `send(_:dontKeepAlive:)` hands the response to the server, which writes it on a thread of its own and waits for the next
+  request of the connection there (`handle(connection:)` is called again for it). `send` returns at once, so a worker
+  never waits for a slow client or for the next request. A connection that waits for its answer is not read and does
+  not time out; it counts as an open connection; a token that is released without an answer closes the connection
+  and logs a warning. Works with threads per connection and with one thread. See *Middleware and Extending*, which has a
+  complete example: a worker pool behind one network thread, with a bounded queue.
+
 ### Changed
 - `SECURITY.md` lists the supported versions: 2.x, and 1.0.x (security and crash fixes only) until the end of 2027.
 

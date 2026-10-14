@@ -53,6 +53,8 @@ def main() -> int:
         os.makedirs(os.path.join(package, "Tests", "NanoHTTPTests"))
         shutil.copy(os.path.join(ROOT, "Package.swift"), package)
         shutil.copytree(os.path.join(ROOT, "Sources"), os.path.join(package, "Sources"))
+        # The manifest names the directories of the examples, which have to exist (nothing in them is built).
+        shutil.copytree(os.path.join(ROOT, "Examples"), os.path.join(package, "Examples"))
         open(os.path.join(package, "Tests", "NanoHTTPTests", "Empty.swift"), "w").close()
         for module in MODULES:
             problems, archive, text = build(package, os.path.join(directory, "derived-" + module), module)

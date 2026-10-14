@@ -70,4 +70,5 @@ With `.address("192.168.1.20")` the server listens at one address; one that is n
 - <doc:Routing> explains how paths are matched and how variables work.
 - <doc:HandlersAndResponses> and <doc:ReadingRequests> cover what handlers receive and return.
 - <doc:ServingFiles> and <doc:WebSockets> cover files and live connections.
+- <doc:Examples> are six complete programs that you can run and change: a JSON API, a file server, a chat, and more.
 - <doc:HowARequestIsServed> describes what happens between a client's request and your handler.

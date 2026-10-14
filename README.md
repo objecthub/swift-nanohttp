@@ -191,7 +191,7 @@ and the product `NanoHTTP` (and `NanoHTML`, if you build pages with it) to the d
 ## Documentation
 
 The API is documented with DocC: a catalog for each library, with articles (getting started, routing, requests and responses, files,
-WebSockets, middleware, threading, logging, security, testing, iOS, building pages) and documentation comments for every public symbol.
+WebSockets, middleware, threading, logging, security, testing, iOS, building pages, examples) and documentation comments for every public symbol.
 Build it in Xcode with Product > Build Documentation, or from the command line, keeping the archive to open in
 Xcode:
 
@@ -200,11 +200,29 @@ python3 Scripts/check_docs.py --output docs        # docs/NanoHTTP.doccarchive a
 ```
 
 The examples in the documentation are compiled against the library by `Scripts/check_doc_examples.py`, so they
-stay correct. The [CHANGELOG](CHANGELOG.md) lists what changed in every version.
+stay correct. The [CHANGELOG](CHANGELOG.md) lists what changed in every version, and [ARCHITECTURE.md](ARCHITECTURE.md)
+describes how the package is put together, for people who change it.
+
+## Examples
+
+Six small programs show how the pieces fit together. Each is a complete program of a page or two, and
+`python3 Scripts/check_examples.py` runs them all against real requests:
+
+| Run | What it shows |
+|---|---|
+| `swift run ExampleHello` | routes, route variables, query parameters, a page for unknown paths |
+| `swift run ExampleTodoAPI` | a JSON API: `Codable` models, status codes, errors as JSON, middleware |
+| `swift run ExampleFileServer --directory ~/Downloads` | `NanoFiles.share` and `browse`, the Host and Origin policies |
+| `swift run ExampleChat` | WebSockets and a `NanoWebSocketHub`, a page built with NanoHTML |
+| `swift run ExampleStatus` | a server with one thread: shared state without locks, a live page over a WebSocket |
+| `swift run ExampleUpload` | a file upload form, limits, cookies, post/redirect/get |
+
+They listen at the loopback address (`--network` makes them reachable from other devices) on port 8080 (`--port`),
+and Ctrl-C stops them.
 
 ## Demo servers
 
-The framework comes with a [demo server](Sources/NanoHTTPDemo/NanoHTTPDemo.swift), which runs as a
+The kitchen sink is a [demo server](Sources/NanoHTTPDemo/NanoHTTPDemo.swift), which runs as a
 [command-line tool on macOS](Sources/DemoServer/main.swift) and as a
 [SwiftUI app on iOS](Sources/DemoServer%20iOS/ContentView.swift). It shows many features, and serves a folder on
 port 9080: the **Downloads folder** in the command-line tool. The tool is reachable from this machine only; start it
@@ -232,6 +250,7 @@ swift test --sanitize=thread                      # also with --sanitize=address
 python3 Scripts/check_xcodeproj.py                # the Xcode project lists every Swift file and matches Package.swift
 python3 Scripts/check_doc_examples.py             # the examples of the documentation compile
 python3 Scripts/check_docs.py                     # the DocC documentation builds without warnings
+python3 Scripts/check_examples.py                 # the programs in Examples/ run and stop (also: --sanitize=thread)
 python3 Benchmarks/run.py --baseline 1.0.2        # throughput, latency and CPU use against a release (see Benchmarks/README.md)
 ```
 

@@ -29,6 +29,7 @@ many hostile clients; <doc:SecurityAndLimits> says what to take care of.
 - <doc:Routing>
 - <doc:HandlersAndResponses>
 - <doc:ReadingRequests>
+- <doc:Examples>
 
 ### Running a server
 
@@ -42,12 +43,15 @@ many hostile clients; <doc:SecurityAndLimits> says what to take care of.
 - ``NanoConsoleLogger``
 - ``NanoSilentLogger``
 - <doc:MiddlewareAndExtending>
+- ``NanoHTTPConnection``
+- ``NanoHTTPDeferredResponse``
 - <doc:HowARequestIsServed>
 
 ### Requests and responses
 
 - ``NanoHTTPRequest``
 - ``NanoHTTPResponse``
+- ``NanoHTTPCookie``
 - ``NanoHTTPRequestHandler``
 - ``NanoHTTPMiddleware``
 - ``NanoMiddleware``

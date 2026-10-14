@@ -107,6 +107,12 @@ connection. `SocketCloseTests` reproduces such reuse deterministically.
 lock-free. `RouterBehaviorTests` covers it, including a thread that registers routes while others route (thread sanitizer).
 **H11** (fixed by removing `NanoHTTPServerDelegate`).
 
+## The examples
+
+`Examples/` holds six programs. They are not part of the test bundle: `python3 Scripts/check_examples.py` builds and runs
+them against real requests and checks that they stop on `SIGTERM` (`--sanitize=thread` runs them under the thread
+sanitizer, which also checks the claim of `ExampleStatus` that a server with one thread needs no locks).
+
 ## Not covered yet
 
 Performance (R8: `Benchmarks/` is the tool), `NanoHTTPDemo`.

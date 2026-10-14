@@ -57,13 +57,18 @@ start()  ──►  listening socket  ──►  accept loop (a thread of its ow
    the connection ends.
 7. With ``NanoHTTPServerIO/Configuration/Threading/singleThread`` there are no threads for connections: the accepting
    thread waits for the listening socket and all connections together, serves the connection that has data (one
-   request, then back to waiting), and closes those that stay silent for the idle timeout.
-8. ``NanoHTTPServerIO/stop()`` closes the listening socket and all registered connections: threads that wait for
+   request, then back to waiting), drives the sessions of WebSockets, and closes the connections that stay silent for
+   the idle timeout.
+8. A subclass that hands its requests to other threads can answer later: ``NanoHTTPConnection/deferResponse()`` returns
+   a ``NanoHTTPDeferredResponse``, the connection waits for its answer without being read or timed out, and the server
+   writes the answer on a thread of its own when it is sent, in both threading modes (<doc:MiddlewareAndExtending>).
+9. ``NanoHTTPServerIO/stop()`` closes the listening socket and all registered connections: threads that wait for
    a request return, and threads that are writing fail.
 
 The types involved: ``NanoHTTPServerIO`` (sockets and threads), ``NanoHTTPServer`` (routing),
 ``NanoHTTPConnection`` (one request with its handler), ``NanoHTTPParser`` (reading), ``NanoSocket`` (the
-connection), ``NanoHTTPRequest`` and ``NanoHTTPResponse``.
+connection), ``NanoHTTPRequest`` and ``NanoHTTPResponse``. The file `ARCHITECTURE.md` in the repository describes the
+same machinery for people who change it: layers, locks, and why things are the way they are.
 
 ## Topics
 

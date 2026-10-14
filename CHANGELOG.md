@@ -29,6 +29,13 @@ All notable changes to this project are documented in this file. The format is b
   `permanentRedirect` (`308`), and `noContent`, `notModified`, `payloadTooLarge`, `unprocessableContent` and
   `serviceUnavailable`.
 
+- **Examples.** Six runnable programs in `Examples/` (`swift run ExampleHello`, `ExampleTodoAPI`, `ExampleFileServer`,
+  `ExampleChat`, `ExampleStatus`, `ExampleUpload`), a DocC article about them, and `Scripts/check_examples.py`, which
+  builds them, runs each against real requests (WebSockets included) and checks that it stops on `SIGTERM`
+  (`--sanitize=thread` runs them under the thread sanitizer).
+- `ARCHITECTURE.md` describes the layers, the two threading modes, deferred responses, the locks and the design decisions
+  for people who change the package.
+
 ### Fixed
 - **Signals** (S8). `NanoProcess.watchSignals(_:)` ran its callbacks inside the signal handler of the system, where almost
   nothing is allowed (no locks, no allocation, no Foundation), read a list that another thread could be changing, and tried

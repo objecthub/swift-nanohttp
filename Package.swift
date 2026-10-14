@@ -94,6 +94,47 @@ let package = Package(
         .target(name: "NanoHTTPDemo")
       ],
       exclude: []),
+    // The examples (`swift run ExampleHello`, ...): small programs that show how to use the library. They are Swift
+    // package targets only, they are not part of the Xcode project and are no products for other packages.
+    .executableTarget(
+      name: "ExampleHello",
+      dependencies: [
+        .target(name: "NanoHTTP")
+      ],
+      path: "Examples/Hello"),
+    .executableTarget(
+      name: "ExampleTodoAPI",
+      dependencies: [
+        .target(name: "NanoHTTP")
+      ],
+      path: "Examples/TodoAPI"),
+    .executableTarget(
+      name: "ExampleFileServer",
+      dependencies: [
+        .target(name: "NanoHTTP")
+      ],
+      path: "Examples/FileServer"),
+    .executableTarget(
+      name: "ExampleChat",
+      dependencies: [
+        .target(name: "NanoHTTP"),
+        .target(name: "NanoHTML")
+      ],
+      path: "Examples/Chat"),
+    .executableTarget(
+      name: "ExampleStatus",
+      dependencies: [
+        .target(name: "NanoHTTP"),
+        .target(name: "NanoHTML")
+      ],
+      path: "Examples/Status"),
+    .executableTarget(
+      name: "ExampleUpload",
+      dependencies: [
+        .target(name: "NanoHTTP"),
+        .target(name: "NanoHTML")
+      ],
+      path: "Examples/Upload"),
     .testTarget(
       name: "NanoHTTPTests",
       dependencies: [

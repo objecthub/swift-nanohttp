@@ -7,6 +7,11 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Added
+- **A `.json` body accepts any `Encodable` value**: a model, an array or dictionary of models, a single string or number, or a
+  recursive enum for JSON values like the `JSON` type of the package DynamicJSON. A `JSONEncoder` writes it (with its default
+  settings; `NanoHTTPResponse.json(_:status:headers:encoder:)` takes another encoder). Dictionaries and arrays of Foundation
+  values are written by `JSONSerialization` as before. Such values used to be answered with `500 Internal Server Error`; a
+  value that is neither Foundation JSON nor `Encodable` still is.
 - The documentation is published online, at <https://objecthub.github.io/swift-nanohttp/documentation/nanohttp/> (NanoHTTP)
   and <https://objecthub.github.io/swift-nanohttp/documentation/nanohtml/> (NanoHTML), from the branch `gh-pages`.
   `Scripts/generate-docs.sh` generates the site with the Swift-DocC plugin, which `Package.swift` adds to the dependencies only

@@ -211,7 +211,7 @@ final class HTTPProtocolTests: XCTestCase {
 
   func testJSONSerializationFailureIsAServerError() throws {
     try withTestServer(configure: { server in
-      server.get["/bad-json"] = { _ in .ok(.json(Date())) } // not a valid JSON object
+      server.get["/bad-json"] = { _ in .ok(.json(NSObject())) } // neither a valid JSON object nor Encodable
     }) { _, port in
       let response = try RawClient.get("/bad-json", port: port)
       XCTAssertEqual(response.status, 500)
@@ -245,7 +245,7 @@ final class HTTPProtocolTests: XCTestCase {
 
   func testFailedJSONSerializationAnswers500WithoutDetailsAndKeepsTheConnection() throws {
     try withTestServer(configure: { server in
-      server.get["/bad"] = { _ in .ok(headers: ["X-Mine": "1"], .json(Date())) }
+      server.get["/bad"] = { _ in .ok(headers: ["X-Mine": "1"], .json(NSObject())) }
       server.get["/good"] = { _ in .ok(.json(["ok": true])) }
     }) { _, port in
       let client = try RawClient(port: port)

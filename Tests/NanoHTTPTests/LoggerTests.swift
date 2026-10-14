@@ -237,7 +237,7 @@ final class ServerLoggerTests: XCTestCase {
     let logger = CapturingLogger()
     try withTestServer(configure: { server in
       server.configuration.logger = logger
-      server.get["/date"] = { _ in .ok(.json(Date())) } // not JSON
+      server.get["/date"] = { _ in .ok(.json(NSObject())) } // neither Foundation JSON nor Encodable
     }) { _, port in
       XCTAssertEqual(try RawClient.get("/date", port: port).status, 500)
       XCTAssertTrue(logger.waitFor("Unable to produce the body", level: .error), "\(logger.messages)")

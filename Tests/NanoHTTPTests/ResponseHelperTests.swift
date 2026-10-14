@@ -91,6 +91,139 @@ final class JSONResponseTests: XCTestCase {
   }
 }
 
+/// A `.json` body takes what `JSONSerialization` accepts (dictionaries and arrays of Foundation values), and any value that is
+/// `Encodable`, which is written by a `JSONEncoder`: a model, a collection of models, a recursive enum for JSON values (like
+/// the `JSON` type of the package DynamicJSON, which `JSONSerialization` does not know).
+final class JSONBodyTests: XCTestCase {
+  
+  /// A recursive JSON value, written like DynamicJSON's `JSON`: `Encodable`, and no Foundation object.
+  private indirect enum Json: Encodable {
+    case null
+    case boolean(Bool)
+    case integer(Int)
+    case number(Double)
+    case string(String)
+    case array([Json])
+    case object([String: Json])
+    
+    func encode(to encoder: Encoder) throws {
+      var container = encoder.singleValueContainer()
+      switch self {
+        case .null: try container.encodeNil()
+        case .boolean(let value): try container.encode(value)
+        case .integer(let value): try container.encode(value)
+        case .number(let value): try container.encode(value)
+        case .string(let value): try container.encode(value)
+        case .array(let value): try container.encode(value)
+        case .object(let value): try container.encode(value)
+      }
+    }
+  }
+  
+  private struct Item: Encodable {
+    let id: Int
+    let tags: [String]
+  }
+  
+  private final class NoJSON {}
+  
+  /// What the body writes, read back as Foundation values (the order of the keys is not specified).
+  private func written(_ object: Any, file: StaticString = #filePath, line: UInt = #line) -> Any? {
+    do {
+      guard case .data(let data)? = try NanoHTTPResponse.Body.json(object).inline() else {
+        XCTFail("a .json body is in memory", file: file, line: line)
+        return nil
+      }
+      return try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+    } catch {
+      XCTFail("\(error)", file: file, line: line)
+      return nil
+    }
+  }
+  
+  private func isEqual(_ lhs: Any?, _ rhs: Any) -> Bool {
+    return (lhs as? NSObject)?.isEqual(rhs) ?? false
+  }
+  
+  func testAModelThatIsEncodableBecomesJSON() {
+    XCTAssertTrue(isEqual(written(Item(id: 7, tags: ["a", "b"])), ["id": 7, "tags": ["a", "b"]] as NSDictionary))
+  }
+  
+  func testARecursiveEnumForJSONValuesBecomesJSON() {
+    let value = Json.object(["name": .string("Ada"), "age": .integer(36), "pi": .number(3.5), "ok": .boolean(true),
+                             "none": .null, "list": .array([.integer(1), .string("x"), .array([])])])
+    let expected: NSDictionary = ["name": "Ada", "age": 36, "pi": 3.5, "ok": true, "none": NSNull(), "list": [1, "x", []] as NSArray]
+    XCTAssertTrue(isEqual(written(value), expected))
+  }
+  
+  func testCollectionsOfEncodableValuesBecomeJSON() {
+    XCTAssertTrue(isEqual(written([Json.integer(1), Json.string("two"), Json.null]), [1, "two", NSNull()] as NSArray))
+    XCTAssertTrue(isEqual(written(["a": Json.boolean(false)]), ["a": false] as NSDictionary))
+    XCTAssertTrue(isEqual(written([Item(id: 1, tags: [])]), [["id": 1, "tags": []]] as NSArray))
+  }
+  
+  func testSingleValuesAtTheTopLevelAreJSONToo() {
+    XCTAssertTrue(isEqual(written("text"), "text" as NSString))
+    XCTAssertTrue(isEqual(written(5), 5 as NSNumber))
+    XCTAssertTrue(isEqual(written(true), true as NSNumber))
+    XCTAssertTrue(isEqual(written(1.5), 1.5 as NSNumber))
+    XCTAssertTrue(isEqual(written(Optional<Int>.none as Any), NSNull()))
+  }
+  
+  func testFoundationValuesAreWrittenAsBefore() {
+    let object: [String: Any] = ["a": 1, "b": [true, NSNull(), "x"], "c": ["d": 2.5]]
+    XCTAssertTrue(isEqual(written(object), object as NSDictionary))
+    XCTAssertTrue(isEqual(written([1, 2, 3] as [Any]), [1, 2, 3] as NSArray))
+    // A dictionary of values of different types is no `Encodable`, and goes through `JSONSerialization`.
+    XCTAssertTrue(isEqual(written(["x": "y", "n": NSNumber(value: 3)]), ["x": "y", "n": 3] as NSDictionary))
+  }
+  
+  func testDatesAreWrittenAsTheDefaultOfJSONEncoderDoes() {
+    // A date by itself is `Encodable`: seconds since 2001, like `JSONEncoder` writes it unless you choose a strategy
+    // (`NanoHTTPResponse.json(_:status:headers:encoder:)` takes an encoder).
+    XCTAssertTrue(isEqual(written(Date(timeIntervalSinceReferenceDate: 60)), 60 as NSNumber))
+  }
+  
+  func testWhatIsNeitherFoundationJSONNorEncodableIsRefused() {
+    for value in [NoJSON(), NSObject(), ["when": Date()] as [String: Any], ["x": NoJSON()] as [String: Any]] as [Any] {
+      XCTAssertThrowsError(try NanoHTTPResponse.Body.json(value).inline(), "\(value)") { error in
+        XCTAssertEqual(error as? NanoHTTPResponse.ResponseError, .invalidObject, "\(value)")
+      }
+    }
+  }
+  
+  func testAnErrorOfTheEncoderIsThrown() {
+    XCTAssertThrowsError(try NanoHTTPResponse.Body.json(Double.nan).inline())
+    XCTAssertThrowsError(try NanoHTTPResponse.Body.json(Unencodable()).inline())
+  }
+  
+  func testTheBodyWritesTheSameBytesWhenItIsWrittenByContent() {
+    // `capturedBody()` goes the way of the writers (`content()`), the server the one of `inline()`; both give the same.
+    let response = NanoHTTPResponse(statusCode: 200, body: .json(Json.object(["k": .integer(1)])))
+    XCTAssertEqual(response.capturedBody(), "{\"k\":1}")
+  }
+  
+  func testAServerAnswersWithAnEncodableBody() throws {
+    let logger = CapturingLogger()
+    try withTestServer(configure: { server in
+      server.configuration.logger = logger
+      server.get["/dynamic"] = { _ in .ok(.json(Json.object(["items": .array([.integer(1), .integer(2)])]))) }
+      server.get["/model"] = { _ in .ok(.json(Item(id: 3, tags: ["x"]))) }
+      server.get["/nothing"] = { _ in .ok(.json(NoJSON())) }
+    }) { _, port in
+      for (path, expected) in [("/dynamic", ["items": [1, 2]] as NSDictionary), ("/model", ["id": 3, "tags": ["x"]] as NSDictionary)] {
+        let response = try RawClient.get(path, port: port)
+        XCTAssertEqual(response.status, 200, path)
+        XCTAssertEqual(response.header("Content-Type"), "application/json", path)
+        XCTAssertTrue(isEqual(try JSONSerialization.jsonObject(with: Data(response.body)), expected), path)
+      }
+      let refused = try RawClient.get("/nothing", port: port)
+      XCTAssertEqual(refused.status, 500)
+      XCTAssertTrue(logger.waitFor("Unable to produce the body", level: .error), "\(logger.messages)")
+    }
+  }
+}
+
 final class StatusHelperTests: XCTestCase {
 
   func testTheRedirects() throws {

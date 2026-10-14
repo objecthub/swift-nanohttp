@@ -62,9 +62,12 @@ public struct NanoHTTPResponse {
     case text(String)
     /// HTML, sent as UTF-8 with the content type `text/html; charset=utf-8`. The string is the whole document; ``htmlBody(_:)`` wraps content in the basic elements.
     case html(String)
-    /// A JSON document, serialized with `JSONSerialization`: a dictionary or array of strings, numbers,
-    /// booleans, `NSNull` and nested dictionaries and arrays. Content type `application/json`. If the value
-    /// is not valid JSON, the server answers `500 Internal Server Error` instead and logs the reason.
+    /// A JSON document, content type `application/json`. The value is a dictionary or array of Foundation values
+    /// (strings, numbers, booleans, `NSNull`, nested dictionaries and arrays), which `JSONSerialization` writes, or any
+    /// `Encodable` value (a model, a collection of models, a recursive enum for JSON values like the `JSON` type of the
+    /// package DynamicJSON), which a `JSONEncoder` writes. To choose the settings of the encoder, use
+    /// ``NanoHTTPResponse/json(_:status:headers:encoder:)``. If the value is neither, or the encoder fails, the server
+    /// answers `500 Internal Server Error` and logs the reason.
     case json(Any)
     /// Bytes with a content type (`application/octet-stream` if none is given).
     case data(Data, contentType: String? = nil)
@@ -113,8 +116,22 @@ public struct NanoHTTPResponse {
       }
     }
     
+    /// The JSON text of the value of a `.json` body: Foundation values are written by `JSONSerialization`, any other
+    /// `Encodable` value by a `JSONEncoder`.
+    ///
+    /// - Throws: ``ResponseError/invalidObject`` for a value that is neither, or the error of the encoder.
+    static func jsonData(for object: Any) throws -> Data {
+      if JSONSerialization.isValidJSONObject(object) {
+        return try JSONSerialization.data(withJSONObject: object)
+      }
+      guard let encodable = object as? Encodable else {
+        throw ResponseError.invalidObject
+      }
+      return try JSONEncoder().encode(encodable)
+    }
+    
     /// The length of the body (`nil` if unknown) and a function that writes it. Throws if the body
-    /// cannot be produced, which only happens for `.json` with something that is not JSON.
+    /// cannot be produced, which only happens for `.json` with something that cannot be written as JSON.
     func content() throws -> (Int?, ((NanoHTTPResponseBodyWriter) throws -> Void)?) {
       switch self {
         case .empty:
@@ -126,10 +143,7 @@ public struct NanoHTTPResponse {
           let data = [UInt8](html.utf8)
           return (data.count, { try $0.write(data) })
         case .json(let object):
-          guard JSONSerialization.isValidJSONObject(object) else {
-            throw ResponseError.invalidObject
-          }
-          let data = try JSONSerialization.data(withJSONObject: object)
+          let data = try Body.jsonData(for: object)
           return (data.count, { try $0.write(data) })
         case .data(let data, _):
           return (data.count, { try $0.write(data) })
@@ -143,7 +157,7 @@ public struct NanoHTTPResponse {
   
   /// Errors that occur when the body of a response is produced.
   public enum ResponseError: Error {
-    /// The value of a `.json` body is not valid JSON.
+    /// The value of a `.json` body is neither Foundation JSON nor `Encodable`.
     case invalidObject
   }
   

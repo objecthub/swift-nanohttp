@@ -71,7 +71,7 @@ enum NanoHTTPInlineBody {
 extension NanoHTTPResponse.Body {
   /// The content of a body that is held in memory, or `nil` for a body that a function writes (`.custom`)
   /// and for the bodies of switched connections. Throws if the body cannot be produced (`.json` with a
-  /// value that is not JSON).
+  /// value that is neither Foundation JSON nor `Encodable`).
   func inline() throws -> NanoHTTPInlineBody? {
     switch self {
       case .empty:
@@ -79,10 +79,7 @@ extension NanoHTTPResponse.Body {
       case .text(let text), .html(let text):
         return .string(text)
       case .json(let object):
-        guard JSONSerialization.isValidJSONObject(object) else {
-          throw NanoHTTPResponse.ResponseError.invalidObject
-        }
-        return .data(try JSONSerialization.data(withJSONObject: object))
+        return .data(try NanoHTTPResponse.Body.jsonData(for: object))
       case .data(let data, _):
         return .data(data)
       case .custom(_, _), .socket(_), .session(_):

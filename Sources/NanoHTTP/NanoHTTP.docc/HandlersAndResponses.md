@@ -104,9 +104,13 @@ server.post["/items"] = { request in
 }
 ```
 
-A `.json` body (`.ok(.json(["id": 7]))`) is the other way: it takes a dictionary or an array of Foundation values, and
-writes it with `JSONSerialization`. A value that is not valid JSON (a `Date`, say) cannot be written; the client then
-gets `500 Internal Server Error` and the reason is logged.
+A `.json` body (`.ok(.json(["id": 7]))`) is the other way. It takes a dictionary or an array of Foundation values, which
+`JSONSerialization` writes, and any value that is `Encodable`, which a `JSONEncoder` writes: a model, an array or
+dictionary of models, a single string or number, or a recursive enum that stands for JSON values, like the `JSON` type of the
+package DynamicJSON. The encoder has its default settings (a `Date` is a number), so use
+``NanoHTTPResponse/json(_:status:headers:encoder:)`` when you need to choose how dates or keys are written. A dictionary or array that
+mixes types (`[String: Any]`) is not `Encodable` and can only hold Foundation values: a `Date` inside it cannot be written.
+A value that cannot be written gets `500 Internal Server Error`, and the reason is logged.
 
 ### Redirects and other status responses
 

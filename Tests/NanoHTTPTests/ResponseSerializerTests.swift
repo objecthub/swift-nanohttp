@@ -180,7 +180,7 @@ final class InlineBodyTests: XCTestCase {
   }
 
   func testJSONThatIsNoJSONCannotBeProduced() {
-    XCTAssertThrowsError(try NanoHTTPResponse.Body.json(Date()).inline())
+    XCTAssertThrowsError(try NanoHTTPResponse.Body.json(NSObject()).inline())
   }
 }
 

@@ -574,18 +574,20 @@ final class WorkerPoolExampleTests: XCTestCase {
   }
   
   func testARequestThatFindsTheQueueFullIsRefusedWith503() throws {
+    let started = Locked(0)
     try serve(workers: 1, capacity: 1, routes: { server in
       server.get["/slow/:n"] = { request in
-        Thread.sleep(forTimeInterval: 0.6)
+        started.with { $0 += 1 }
+        Thread.sleep(forTimeInterval: 1.0)
         return .ok(.text(request.params["n"] ?? "?"))
       }
     }) { _, port in
       let first = try RawClient(port: port, timeout: 10)
       first.send(RawClient.requestText("GET", "/slow/1", headers: keepAlive))
-      usleep(200_000) // the worker has taken it
+      XCTAssertTrue(eventually { started.current == 1 }, "the worker has taken the first request")
       let second = try RawClient(port: port, timeout: 10)
       second.send(RawClient.requestText("GET", "/slow/2", headers: keepAlive))
-      usleep(200_000) // it waits in the queue
+      usleep(300_000) // it waits in the queue
       let refused = try RawClient(port: port)
       refused.send(RawClient.requestText("GET", "/slow/3", headers: keepAlive))
       let response = refused.readResponse()

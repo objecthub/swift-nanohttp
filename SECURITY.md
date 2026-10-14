@@ -2,7 +2,11 @@
 
 ## Supported versions
 
-Security fixes are made for the latest release of NanoHTTP.
+| Version | Supported |
+|---|---|
+| 2.x | Yes: all fixes and new features, on the `main` branch. |
+| 1.0.x | Security and crash fixes only, until the end of 2027 (31 December 2027), on the `release/1.x` branch. Everything else is made for 2.x: see [MIGRATION-2.0.md](MIGRATION-2.0.md) for how to upgrade. |
+| Older | No. |
 
 ## Reporting a vulnerability
 

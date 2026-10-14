@@ -36,6 +36,11 @@ run the checks yourself before you send a change: the tests, also under the addr
 `Scripts/check_*.py` scripts above, and a build of the iOS demo
 (`xcodebuild -project NanoHTTP.xcodeproj -scheme "DemoServer iOS" -destination 'generic/platform=iOS Simulator' build`).
 
+## Version 1
+
+Version 1 is maintained on the branch `release/1.x` until the end of 2027, with fixes for security problems and crashes
+only (see [SECURITY.md](SECURITY.md)). A fix goes to `main` first and is then ported to `release/1.x`, with its test.
+
 ## Security
 
 Report vulnerabilities as described in [SECURITY.md](SECURITY.md), not in public issues.

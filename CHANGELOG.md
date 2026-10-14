@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+- `SECURITY.md` lists the supported versions: 2.x, and 1.0.x (security and crash fixes only) until the end of 2027.
+
 ## [2.0.0] - 2026-10-14
 
 2.0 is a major release. It changes the API in many places, which `MIGRATION-2.0.md` lists with what to do (the compiler reports
@@ -211,6 +214,19 @@ Highlights:
   to path traversal through double-encoded input (`%252e%252e`) that decoding in two places had opened.
 - Requests with ambiguous framing (`Content-Length` and chunks together, unknown transfer encodings) are refused.
 
+## [1.0.3] - 2026-10-14
+
+The first release of the maintenance branch `release/1.x`: version 1.0 receives fixes for security problems and crashes
+until the end of 2027 (`SECURITY.md`). Everything else is made for 2.x.
+
+### Fixed
+- A WebSocket session no longer sends a second, empty close frame. When a connection ended, the handler answered the close
+  frame of the client, and the session sent another one when it was released. An endpoint sends no data after its close
+  frame (RFC 6455, 5.5.1). 2.0 does not have this problem (see *Fixed* in 2.0.0).
+
+### Removed
+- The GitHub Actions workflow (`.github/workflows/ci.yml`) on the branch `release/1.x`, as in 2.0.
+
 ## [1.0.2] - 2026-10-13
 
 ### Added
@@ -378,6 +394,7 @@ First release (replaces the former `0.1 (2024-07-19)` entry, which was never tag
 
 [Unreleased]: https://github.com/objecthub/swift-nanohttp/compare/2.0.0...HEAD
 [2.0.0]: https://github.com/objecthub/swift-nanohttp/compare/1.0.2...2.0.0
+[1.0.3]: https://github.com/objecthub/swift-nanohttp/compare/1.0.2...1.0.3
 [1.0.2]: https://github.com/objecthub/swift-nanohttp/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/objecthub/swift-nanohttp/compare/1.0...1.0.1
 [1.0]: https://github.com/objecthub/swift-nanohttp/releases/tag/1.0

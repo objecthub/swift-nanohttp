@@ -42,8 +42,8 @@ Paths are split at `/`. Empty segments are ignored, so `/a//b/` matches the rout
 
 Fixed segments are tried before variables, and the search backtracks: with the routes `/a/b/c` and
 `/a/:x/d`, the request `/a/b/d` first follows the fixed `b`, finds no `d` after it, and then tries the
-variable. Two variable routes that could both match the same request (`/a/:x` and `/a/*`) are tried in no
-defined order: avoid such overlaps.
+variable. Two variable routes that could both match the same request (`/a/:x` and `/a/*`) are tried in the order in
+which they were registered, the first one that matches wins. Avoid such overlaps all the same: they are hard to read.
 
 ### Percent-encoding
 
@@ -63,9 +63,10 @@ A segment that is not valid percent-encoding (`%zz`, or bytes that are no UTF-8)
 
 ### A variable at the end of a route
 
-A `:variable` or `*` at the end of a route also matches when the segment is missing: with only the route
-`/users/:id`, the request `/users` is handled with `id` set to the empty string. Register `/users` itself if you
-need to treat it differently (the fixed route wins), or check for the empty value.
+A `:variable` or `*` needs its segment: with only the route `/users/:id`, the request `/users` matches nothing, and is
+answered like any other unknown path (`404`, or the `405` that tells which methods the path has). Only the path variables
+`::name` and `**` can stand for nothing: `/files/::path` answers `/files`, with `params["path"] == ""`. (In
+1.x a variable at the end of a route matched a missing segment too, with the empty string; see `MIGRATION-2.0.md`.)
 
 ### Groups of routes
 

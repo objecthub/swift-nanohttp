@@ -62,14 +62,6 @@ final class UnfairLock {
   }
 }
 
-/// Is told about the connections of a ``NanoHTTPServerIO``.
-public protocol NanoHTTPServerDelegate: AnyObject {
-  /// Called on the thread of a connection when the connection has received its first request, and
-  /// once more when the connection is switched to another protocol (a WebSocket session starts).
-  /// It is not called for the later requests of a connection that is kept alive.
-  func connectionReceived(server: NanoHTTPServerIO, socket: NanoSocket)
-}
-
 /// The part of a server that deals with sockets and threads: it listens at a port, accepts
 /// connections, reads the requests of each connection on a thread of its own, hands them to
 /// ``dispatch(request:)`` and writes the responses. ``NanoHTTPServer`` builds routing on top of it;
@@ -265,8 +257,6 @@ open class NanoHTTPServerIO {
     self.configurationValue = configuration
     self.activeConfigurationValue = configuration
   }
-  
-  public weak var delegate: NanoHTTPServerDelegate?
   
   /// The listening socket of the current run (guarded by `stateLock`)
   private var listeningSocket = NanoSocket(socketFileDescriptor: -1)

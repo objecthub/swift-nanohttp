@@ -38,10 +38,108 @@ import Foundation
 /// on path segments that are matched in sequence. There are two differnt types of placeholders
 /// that can be used: _variables_ (with `*` being an anonymous variable) and _path variables_
 /// (with `**` being an anonymous path variable). A variable matches one full path segment
-/// and its value is being url-decoded. A path variable matches a (potentially empty) sequence
-/// of path segments and its value is the url-decoded segments joined with `/`.
+/// and its value is being url-decoded: `/users/:id` answers `/users/7`, but not `/users`. A path variable matches a
+/// (potentially empty) sequence of path segments and its value is the url-decoded segments joined with `/`:
+/// `/files/::path` answers `/files/a/b` and `/files`.
 ///
 open class NanoHTTPSegmentRouter: NanoHTTPRouter {
+  
+  /// The children of a segment that are variables, in the order in which they were registered: when several of
+  /// them match, the first one wins, so that routing does not depend on the order of a dictionary.
+  fileprivate struct Children {
+    var items: [(key: String?, segment: Segment)] = []
+    
+    mutating func next(for key: String?) -> Segment {
+      if let found = self.items.first(where: { $0.key == key }) {
+        return found.segment
+      }
+      let result = Segment()
+      self.items.append((key, result))
+      return result
+    }
+    
+    mutating func merge(with other: Children) {
+      for (key, otherNext) in other.items {
+        if let found = self.items.first(where: { $0.key == key }) {
+          found.segment.merge(with: otherNext)
+        } else {
+          self.items.append((key, otherNext.copy()))
+        }
+      }
+    }
+    
+    func copy() -> Children {
+      return Children(items: self.items.map { ($0.key, $0.segment.copy()) })
+    }
+  }
+  
+  /// The routes below a segment as they were when a snapshot of the router was made. Nothing in it ever changes, so any
+  /// number of threads can match against it at the same time without waiting for each other.
+  fileprivate final class FrozenSegment {
+    let pathChildren: [String : FrozenSegment]
+    let variableChildren: [(key: String?, segment: FrozenSegment)]
+    let pathVariableChildren: [(key: String?, segment: FrozenSegment)]
+    let handler: NanoHTTPRequestHandler?
+    
+    init(pathChildren: [String : FrozenSegment],
+         variableChildren: [(key: String?, segment: FrozenSegment)],
+         pathVariableChildren: [(key: String?, segment: FrozenSegment)],
+         handler: NanoHTTPRequestHandler?) {
+      self.pathChildren = pathChildren
+      self.variableChildren = variableChildren
+      self.pathVariableChildren = pathVariableChildren
+      self.handler = handler
+    }
+    
+    /// Finds the handler for the segments of a path from `index` on. Fixed segments are tried first, then variables
+    /// and then path variables, each in the order of their registration; the search backtracks.
+    ///
+    /// A variable (`:name`, `*`) matches exactly one segment, and a path with no segment left does not match it:
+    /// `/users/:id` does not answer `/users`. A path variable (`::name`, `**`) matches any number of segments,
+    /// none included: `/files/::path` answers `/files`, with an empty value.
+    func match(path: [String], index: Int) -> ([String : String], NanoHTTPRequestHandler)? {
+      guard index < path.count else {
+        // All the path has been matched already: if there is a handler, return it
+        if let handler = self.handler {
+          return ([:], handler)
+        }
+        // Otherwise a path variable may stand for the empty rest of the path
+        for (variable, next) in self.pathVariableChildren {
+          if var result = next.match(path: path, index: index) {
+            if let variable {
+              result.0[variable] = ""
+            }
+            return result
+          }
+        }
+        return nil
+      }
+      // There is at least one more component from the current path (the segments are decoded already)...
+      let component = path[index]
+      if let next = self.pathChildren[component], let result = next.match(path: path, index: index + 1) {
+        return result
+      }
+      for (variable, next) in self.variableChildren {
+        if var result = next.match(path: path, index: index + 1) {
+          if let variable {
+            result.0[variable] = component
+          }
+          return result
+        }
+      }
+      for (variable, next) in self.pathVariableChildren {
+        for i in index...path.count {
+          if var result = next.match(path: path, index: i) {
+            if let variable {
+              result.0[variable] = path[index..<i].joined(separator: "/")
+            }
+            return result
+          }
+        }
+      }
+      return nil
+    }
+  }
   
   /// Represents a single segment of a path
   fileprivate class Segment: CustomDebugStringConvertible {
@@ -49,10 +147,10 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
     var pathChildren: [String : Segment] = [:]
     
     /// The variable child segments that form the route
-    var variableChildren: [String? : Segment] = [:]
+    var variableChildren = Children()
     
     /// Path variables potentially replacing sequences of segments
-    var pathVariableChildren: [String? : Segment] = [:]
+    var pathVariableChildren = Children()
     
     /// The closure to handle the route
     var handler: NanoHTTPRequestHandler?
@@ -62,12 +160,8 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
       for (selector, next) in self.pathChildren {
         result.pathChildren[selector] = next.copy()
       }
-      for (selector, next) in self.variableChildren {
-        result.variableChildren[selector] = next.copy()
-      }
-      for (selector, next) in self.pathVariableChildren {
-        result.pathVariableChildren[selector] = next.copy()
-      }
+      result.variableChildren = self.variableChildren.copy()
+      result.pathVariableChildren = self.pathVariableChildren.copy()
       result.handler = self.handler
       return result
     }
@@ -80,14 +174,14 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
       for (key, child) in self.pathChildren {
         result.append(contentsOf: child.routes(prefix: prefix + "/" + key))
       }
-      for (key, child) in self.variableChildren {
+      for (key, child) in self.variableChildren.items {
         if let key {
           result.append(contentsOf: child.routes(prefix: prefix + "/:" + key))
         } else {
           result.append(contentsOf: child.routes(prefix: prefix + "/*"))
         }
       }
-      for (key, child) in self.pathVariableChildren {
+      for (key, child) in self.pathVariableChildren.items {
         if let key {
           result.append(contentsOf: child.routes(prefix: prefix + "/::" + key))
         } else {
@@ -127,63 +221,18 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
       self.handler = other.handler ?? self.handler
     }
     
-    func match(path: [String], index: Int) -> ([String : String], NanoHTTPRequestHandler)? {
-      // All the path has been matched already: if there is a handler, return it, otherwise fail
-      guard index < path.count else {
-        // If this segment has a handler, return it
-        if let handler = self.handler {
-          return ([:], handler)
-        }
-        // If this segment does not have a handler, check if there is a variable (which will
-        // get an empty value) whose next segment has a handler
-        for (variable, next) in self.variableChildren {
-          if let handler = next.handler {
-            return (variable != nil ? [variable! : ""] : [:], handler)
-          }
-        }
-        for (variable, next) in self.pathVariableChildren {
-          if let handler = next.handler {
-            return (variable != nil ? [variable! : ""] : [:], handler)
-          }
-        }
-        return nil
-      }
-      // There is at least one more component from the current path (the segments are decoded already)...
-      let component = path[index]
-      // Look at all path children of the current segment
-      for (selector, next) in self.pathChildren {
-        if selector == component,
-           let result = next.match(path: path, index: index + 1) {
-          return result
-        }
-      }
-      // Look at all variable children of the current segment
-      for (variable, next) in self.variableChildren {
-        if var result = next.match(path: path, index: index + 1) {
-          if let variable {
-            result.0[variable] = component
-          }
-          return result
-        }
-      }
-      // Look at all path variable children of the current segment
-      for (variable, next) in self.pathVariableChildren {
-        for i in index...path.count {
-          if var result = next.match(path: path, index: i) {
-            if let variable {
-              result.0[variable] = path[index..<i].joined(separator: "/")
-            }
-            return result
-          }
-        }
-      }
-      return nil
+    /// An immutable copy of this segment and everything below it, for matching.
+    func frozen() -> FrozenSegment {
+      return FrozenSegment(pathChildren: self.pathChildren.mapValues { $0.frozen() },
+                           variableChildren: self.variableChildren.items.map { ($0.key, $0.segment.frozen()) },
+                           pathVariableChildren: self.pathVariableChildren.items.map { ($0.key, $0.segment.frozen()) },
+                           handler: self.handler)
     }
     
     var debugDescription: String {
       var res = "Segment(path = \(self.pathChildren.keys), " +
-                "var = \(self.variableChildren.keys), " +
-                "pathvar = \(self.pathVariableChildren.keys)"
+                "var = \(self.variableChildren.items.map { $0.key }), " +
+                "pathvar = \(self.pathVariableChildren.items.map { $0.key })"
       if self.handler != nil {
         res += ", handler"
       }
@@ -191,8 +240,29 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
     }
   }
   
+  /// The routes, by method (`nil`: all methods). Changed by `register` and `merge`, under `lock`.
   private var root: [String? : Segment] = [:]
-  private let lock = NSLock()
+  
+  /// A copy of `root` that is never changed, which requests are matched against, so that the threads that serve them
+  /// do not wait for each other (matching takes about as long as waiting for a lock does). Made when it is needed
+  /// after the routes have changed (guarded by `lock`).
+  private var snapshotValue: [String? : FrozenSegment]?
+  
+  private let lock = UnfairLock()
+  
+  /// The routes as they are now, in a form that threads can read at the same time.
+  private func snapshot() -> [String? : FrozenSegment] {
+    self.lock.lock()
+    defer {
+      self.lock.unlock()
+    }
+    if let snapshot = self.snapshotValue {
+      return snapshot
+    }
+    let snapshot = self.root.mapValues { $0.frozen() }
+    self.snapshotValue = snapshot
+    return snapshot
+  }
   
   /// Creates a router without routes.
   public init() {
@@ -222,6 +292,7 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
       self.lock.unlock()
     }
     self.root.next(for: method).insert(selectors: selectors).handler = handler
+    self.snapshotValue = nil
   }
   
   /// Copies the routes of another segment router below `prefix` (`/api/v1`). The routes of `router`
@@ -234,13 +305,24 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
       throw NanoHTTPRouterError.incompatibleRouterForMerge
     }
     let selectors = self.selectors(from: prefix)
+    let routes = router.copiedRoutes() // not `router.root`: another thread may change it meanwhile
     self.lock.lock()
     defer {
       self.lock.unlock()
     }
-    for (method, initial) in router.root {
+    for (method, initial) in routes {
       self.root.next(for: method).insert(selectors: selectors).merge(with: initial)
     }
+    self.snapshotValue = nil
+  }
+  
+  /// A copy of the routes that can be changed.
+  private func copiedRoutes() -> [String? : Segment] {
+    self.lock.lock()
+    defer {
+      self.lock.unlock()
+    }
+    return self.root.mapValues { $0.copy() }
   }
   
   /// Finds the handler for a request. Fixed segments win over variables, and the search backtracks:
@@ -257,17 +339,14 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
     guard let segments = self.decodedSegments(of: path) else {
       return nil
     }
-    self.lock.lock()
-    defer {
-      self.lock.unlock()
-    }
+    let routes = self.snapshot()
     if method == "HEAD" {
-      return self.root["HEAD"]?.match(path: segments, index: 0) ??
-             self.root["GET"]?.match(path: segments, index: 0) ??
-             self.root[nil]?.match(path: segments, index: 0)
+      return routes["HEAD"]?.match(path: segments, index: 0) ??
+             routes["GET"]?.match(path: segments, index: 0) ??
+             routes[nil]?.match(path: segments, index: 0)
     }
-    return self.root[method]?.match(path: segments, index: 0) ??
-           self.root[nil]?.match(path: segments, index: 0)
+    return routes[method]?.match(path: segments, index: 0) ??
+           routes[nil]?.match(path: segments, index: 0)
   }
   
   /// The methods of the routes that match `path`, in the usual order (`GET`, `HEAD`, `POST`, `PUT`, `PATCH`,
@@ -276,21 +355,20 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
   /// `*` has the methods of all routes.
   open func allowedMethods(path: String) -> [String] {
     var methods = Set<String>()
-    self.lock.lock()
+    let routes = self.snapshot()
     if path == "*" {
-      for method in self.root.keys {
+      for method in routes.keys {
         if let method {
           methods.insert(method)
         }
       }
     } else if let segments = self.decodedSegments(of: path) {
-      for (method, segment) in self.root {
+      for (method, segment) in routes {
         if let method, segment.match(path: segments, index: 0) != nil {
           methods.insert(method)
         }
       }
     }
-    self.lock.unlock()
     guard !methods.isEmpty else {
       return []
     }
@@ -303,13 +381,21 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
   }
   
   /// The segments of a path as the client sent it, each decoded; `nil` if one of them is not valid percent-encoding.
+  /// Empty segments are left out, and so is everything from a `?` on. Only a segment that has a `%` is decoded.
   private func decodedSegments(of path: String) -> [String]? {
     var segments = [String]()
-    for segment in (path.components(separatedBy: "?").first ?? path).split("/") {
-      guard let decoded = segment.removingPercentEncoding else {
-        return nil
+    let utf8 = path.utf8
+    let end = utf8.firstIndex(of: 63) ?? utf8.endIndex // `?`
+    for part in utf8[..<end].split(separator: 47) { // `/`
+      let segment = String(decoding: part, as: UTF8.self)
+      if part.contains(37) { // `%`
+        guard let decoded = segment.removingPercentEncoding else {
+          return nil
+        }
+        segments.append(decoded)
+      } else {
+        segments.append(segment)
       }
-      segments.append(decoded)
     }
     return segments
   }

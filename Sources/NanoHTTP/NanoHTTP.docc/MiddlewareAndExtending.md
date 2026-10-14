@@ -151,11 +151,6 @@ server["/shout"] = { _ in
 function that owns the connection until it returns. It occupies the thread of its connection; on a server with one
 thread, nothing else is served meanwhile.
 
-### A delegate
-
-A ``NanoHTTPServerDelegate`` set as ``NanoHTTPServerIO/delegate`` is told when a connection has received its
-first request, and again when it is switched to WebSocket, on the thread of the connection.
-
 ### Another router
 
 A router maps a method and a path to a handler and the variables of the route: the protocol ``NanoHTTPRouter`` has
@@ -167,6 +162,5 @@ for something else, for instance to match on patterns of another form. Routers h
 - ``NanoHTTPMiddleware``
 - ``NanoSocketSession``
 - ``NanoHTTPServerIO``
-- ``NanoHTTPServerDelegate``
 - ``NanoHTTPConnection``
 - ``NanoHTTPRouter``

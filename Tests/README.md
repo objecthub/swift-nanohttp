@@ -98,13 +98,14 @@ unsynchronized `shutdown` flag of `NanoSocket.close` (R4). R4 had a practical ef
 a thread of an earlier test used a file descriptor *number* that a later test had reused, which broke an unrelated
 connection. `SocketCloseTests` reproduces such reuse deterministically.
 
-Pinned current behavior that is probably wrong but needs a decision (not marked as an issue):
-`/users/:id` also matches `/users` with `id == ""` (H8), see `RouterBehaviorTests`.
+**H8** (fixed in 2.0): a `:variable` or `*` matches exactly one segment, so `/users/:id` no longer answers `/users` (only
+`::path` and `**` can match nothing); variables at the same position are tried in the order of their registration; matching is
+lock-free. `RouterBehaviorTests` covers it, including a thread that registers routes while others route (thread sanitizer).
+**H11** (fixed by removing `NanoHTTPServerDelegate`).
 
 ## Not covered yet
 
-Performance (R8), signal handling (S8), the
-delegate callback semantics (H11), `NanoHTTPDemo`.
+Performance (R8), signal handling (S8), `NanoHTTPDemo`.
 
 ## Keeping the Xcode project in sync
 

@@ -9,6 +9,11 @@ All notable changes to this project are documented in this file. The format is b
 Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says how to move from 1.x.
 
 ### Changed
+- **Breaking: a variable needs its segment** (H8). `/users/:id` (and `*`) no longer matches `/users` with an empty `id`; only
+  the path variables `::name` and `**` match nothing. Variables at the same position are tried in the order of their
+  registration (it was the order of a dictionary). Matching is faster (fixed segments are found in a dictionary, the tree is
+  matched without a lock): about 2.5 times faster for one thread with 200 routes, and 6 times faster with 8 threads that do
+  nothing but route. See *Routing* in `MIGRATION-2.0.md`.
 - **A WebSocket session ends when a write to it fails:** the connection is closed, `disconnected` is called and the failure is
   logged once (`info`); later writes do nothing. A write to a session has the `sessionWriteTimeout` of 5 seconds, not the
   30 seconds of `writeTimeout`. See *WebSockets* in `MIGRATION-2.0.md`.
@@ -160,6 +165,8 @@ Work towards 2.0, which breaks the API in a few places; `MIGRATION-2.0.md` says 
   `waitUntilReadable(timeout:)`.
 
 ### Removed
+- `NanoHTTPServerDelegate` and `NanoHTTPServerIO.delegate` (H11): it was called for the first request of a connection only, and
+  twice for connections that became WebSockets. Middleware, `handle(connection:)` and the logger do its job.
 - The closure-based HTML builder of 1.x: its ~150 global attribute variables (`href`, `name`, `inner`, ...), the element
   functions (`html`, `body`, `a`, ...), `element(_:_:_:)`, `NanoHTMLClosure` and the elements that HTML has removed
   (`center`, `font`, `marquee`, `blink`, ...).

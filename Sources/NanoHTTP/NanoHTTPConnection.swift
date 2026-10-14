@@ -88,7 +88,6 @@ public struct NanoHTTPConnection {
       server.forget(socket: socket)
       return nil
     }
-    server.delegate?.connectionReceived(server: server, socket: socket)
     request.address = try? socket.peername()
     let (params, handler) = server.dispatch(request: request)
     request.params = params
@@ -168,7 +167,6 @@ public struct NanoHTTPConnection {
       // session reads what has begun to arrive with the read timeout.
       socket.setReceiveTimeout(self.configuration.readTimeout)
       socket.setSendTimeout(self.configuration.sessionWriteTimeout)
-      server.delegate?.connectionReceived(server: server, socket: socket)
       if self.configuration.threading == .singleThread {
         // The server waits for the socket together with all other sockets, and calls the session when there
         // is something to read: this thread has more to do than to wait for one session.
@@ -183,7 +181,6 @@ public struct NanoHTTPConnection {
       if self.configuration.threading == .singleThread {
         server.log(.warning, "A socket session in the form of a function runs on the only thread of the server; nothing else is served until it returns (a NanoSocketSession does not have this problem)")
       }
-      server.delegate?.connectionReceived(server: server, socket: socket)
       session(socket)
     }
     if keepConnection && !dontKeepAlive && server.operating {

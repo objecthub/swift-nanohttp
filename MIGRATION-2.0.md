@@ -350,3 +350,19 @@ case of host names and `Origin: null`, which a hand-written comparison usually d
   nothing for that long is dropped, which keeps a stalled client from holding up a broadcast, and, on a server with one
   thread, the whole server. Set it higher (or `nil`) if your clients can be silent for longer while you send them messages.
 
+## Routing: variables need their segment, and the delegate is gone
+
+- **`/users/:id` no longer matches `/users`.** In 1.x a `:variable` or `*` at the end of a route also matched when its segment
+  was missing, and `id` was the empty string; now such a request matches nothing (`404`, or `405` if the path has routes for
+  other methods). Only the path variables `::name` and `**` match nothing. A route that relied on the empty `id` needs a
+  route of its own: `server.get["/users"] = ...`. Search your code for handlers that check `params["id"]?.isEmpty`.
+- Variables at the same position that could both match a path are tried in the order in which they were registered (they were
+  tried in an order that changed from run to run).
+- Routing is faster (it looks fixed segments up in a dictionary and does not lock while matching), which you can only notice
+  with many routes and many threads.
+- **`NanoHTTPServerDelegate` and `NanoHTTPServerIO.delegate` are removed.** The delegate was told when a connection had
+  received its first request, but not about later requests of the same connection, and twice about a connection that became a
+  WebSocket. What it was used for is done better by other means: middleware sees every request
+  (`server.middleware.append { request, next in ... }`), `handle(connection:)` wraps a connection, and the logger
+  reports what goes wrong.
+

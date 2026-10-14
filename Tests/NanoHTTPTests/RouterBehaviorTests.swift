@@ -85,13 +85,137 @@ final class RouterBehaviorTests: XCTestCase {
     XCTAssertNotNil(try match("GET", "/a?x=1"))
   }
 
-  /// DECISION (finding H8): a `:var` / `*` placeholder also matches a *missing* trailing segment.
-  /// The "empty match" change (commit 2ad983b) was probably meant for `::var` / `**` only.
-  /// Pinned as-is; decide when the router is touched.
-  func testSingleSegmentVariableMatchesMissingTrailingSegment_currentBehavior() {
+  /// 2.0 (finding H8): a variable matches exactly one segment. `/users/:id` used to answer `/users` as well,
+  /// with an empty `id`; the empty match is meant for path variables only.
+  func testAVariableDoesNotMatchAMissingSegment() {
     self.router.register(nil, path: "/users/:id", handler: handler("user"))
-    XCTAssertEqual(try match("GET", "/users")?.params, ["id": ""])
-    XCTAssertEqual(try match("GET", "/users/")?.params, ["id": ""])
+    self.router.register(nil, path: "/things/*", handler: handler("thing"))
+    XCTAssertNil(try match("GET", "/users"))
+    XCTAssertNil(try match("GET", "/users/"))
+    XCTAssertNil(try match("GET", "/things"))
+    XCTAssertEqual(try match("GET", "/users/7")?.params, ["id": "7"])
+    XCTAssertEqual(try match("GET", "/things/7")?.label, "thing")
+    XCTAssertNil(try match("GET", "/users/7/8"))
+  }
+
+  func testAVariableInTheMiddleNeedsItsSegment() {
+    self.router.register(nil, path: "/a/:x/c", handler: handler("c"))
+    XCTAssertNil(try match("GET", "/a/c"), "the path has no segment for the variable")
+    XCTAssertEqual(try match("GET", "/a/b/c")?.params, ["x": "b"])
+  }
+
+  func testAPathVariableMayStandForNothing() {
+    self.router.register(nil, path: "/files/::rest", handler: handler("files"))
+    self.router.register(nil, path: "/any/**", handler: handler("any"))
+    self.router.register(nil, path: "/mid/::p/end", handler: handler("mid"))
+    XCTAssertEqual(try match("GET", "/files")?.params, ["rest": ""])
+    XCTAssertEqual(try match("GET", "/any")?.label, "any")
+    XCTAssertEqual(try match("GET", "/mid/end")?.params, ["p": ""])
+    XCTAssertEqual(try match("GET", "/mid/a/b/end")?.params, ["p": "a/b"])
+    XCTAssertNil(try match("GET", "/mid"), "the fixed segment after the path variable is missing")
+  }
+
+  func testAPathVariableAfterAVariableAndAfterAnotherPathVariable() {
+    self.router.register(nil, path: "/u/:id/::rest", handler: handler("rest"))
+    self.router.register(nil, path: "/p/::a/::b", handler: handler("both"))
+    XCTAssertEqual(try match("GET", "/u/7")?.params, ["id": "7", "rest": ""])
+    XCTAssertEqual(try match("GET", "/u/7/x/y")?.params, ["id": "7", "rest": "x/y"])
+    XCTAssertNil(try match("GET", "/u"), "the variable still needs a segment")
+    XCTAssertEqual(try match("GET", "/p")?.params, ["a": "", "b": ""], "two path variables may both be empty")
+    XCTAssertEqual(try match("GET", "/p/x")?.params, ["a": "", "b": "x"], "the first one takes as little as it can")
+  }
+
+  /// 2.0 (finding H8): routes that could both match the same path are tried in the order in which they were registered.
+  /// (They used to be tried in the order of a dictionary, which differs from run to run.)
+  func testVariablesAtTheSamePlaceAreTriedInTheOrderOfTheirRegistration() {
+    self.router.register(nil, path: "/a/:first", handler: handler("first"))
+    self.router.register(nil, path: "/a/:second", handler: handler("second"))
+    self.router.register(nil, path: "/a/*", handler: handler("star"))
+    for _ in 0..<20 {
+      XCTAssertEqual(try match("GET", "/a/1")?.label, "first")
+      XCTAssertEqual(try match("GET", "/a/1")?.params, ["first": "1"])
+    }
+    let other = NanoHTTPSegmentRouter()
+    other.register(nil, path: "/a/*", handler: handler("star"))
+    other.register(nil, path: "/a/:second", handler: handler("second"))
+    other.register(nil, path: "/a/:first", handler: handler("first"))
+    XCTAssertEqual(try other.route("GET", path: "/a/1").map { try $0.1(NanoHTTPRequest(method: "GET", path: "/a/1")).capturedBody() }, "star")
+  }
+
+  func testBacktrackingGoesThroughTheVariablesInTheOrderOfTheirRegistration() {
+    self.router.register(nil, path: "/a/:x/b", handler: handler("x-b"))
+    self.router.register(nil, path: "/a/:y/c", handler: handler("y-c"))
+    self.router.register(nil, path: "/a/:z", handler: handler("z"))
+    XCTAssertEqual(try match("GET", "/a/1/b")?.params, ["x": "1"])
+    XCTAssertEqual(try match("GET", "/a/1/c")?.params, ["y": "1"])
+    XCTAssertEqual(try match("GET", "/a/1")?.params, ["z": "1"])
+  }
+
+  func testAMergeKeepsTheOrderOfWhatWasThereAndAppendsTheRest() throws {
+    self.router.register(nil, path: "/a/:old", handler: handler("old"))
+    let sub = NanoHTTPSegmentRouter()
+    sub.register(nil, path: "/:new", handler: handler("new"))
+    sub.register(nil, path: "/:old", handler: handler("old merged"))
+    try self.router.merge(sub, withPrefix: "/a")
+    XCTAssertEqual(try match("GET", "/a/1")?.label, "old merged", "the variable that was there first stays first")
+    XCTAssertEqual(try match("GET", "/a/1")?.params, ["old": "1"])
+  }
+
+  func testManyStaticRoutesAreAllFound() {
+    for index in 0..<500 {
+      self.router.register("GET", path: "/api/v1/resource\(index)/items", handler: handler("r\(index)"))
+    }
+    for index in [0, 1, 249, 498, 499] {
+      XCTAssertEqual(try match("GET", "/api/v1/resource\(index)/items")?.label, "r\(index)")
+    }
+    XCTAssertNil(try match("GET", "/api/v1/resource500/items"))
+    XCTAssertEqual(self.router.routes().count, 500)
+  }
+
+  func testRoutesThatAreRegisteredLaterAreFoundAtOnce() {
+    self.router.register("GET", path: "/a", handler: handler("a"))
+    XCTAssertEqual(try match("GET", "/a")?.label, "a")
+    XCTAssertNil(try match("GET", "/b"))
+    self.router.register("GET", path: "/b", handler: handler("b"))
+    XCTAssertEqual(try match("GET", "/b")?.label, "b")
+    self.router.register("GET", path: "/a", handler: handler("a again"))
+    XCTAssertEqual(try match("GET", "/a")?.label, "a again")
+    self.router.register("GET", path: "/a", handler: nil)
+    XCTAssertNil(try match("GET", "/a"))
+  }
+
+  /// Routing does not wait for other threads, and registering routes while requests are routed is safe (the
+  /// thread sanitizer is the judge): every answer is a route that existed.
+  func testRegisteringWhileRoutingIsSafe() {
+    self.router.register("GET", path: "/stable/:id", handler: handler("stable"))
+    let stop = StopFlag()
+    let failures = FailureCounter()
+    let writer = Thread {
+      var index = 0
+      while !stop.isSet {
+        self.router.register("GET", path: "/dynamic\(index % 20)/:x", handler: self.handler("d"))
+        if index % 3 == 0 {
+          self.router.register("GET", path: "/dynamic\((index + 7) % 20)/:x", handler: nil)
+        }
+        let sub = NanoHTTPSegmentRouter()
+        sub.register("GET", path: "/m\(index % 5)", handler: self.handler("m"))
+        try? self.router.merge(sub, withPrefix: "/mounted")
+        index += 1
+      }
+    }
+    writer.start()
+    DispatchQueue.concurrentPerform(iterations: 4) { _ in
+      for index in 0..<20_000 {
+        guard let found = self.router.route("GET", path: "/stable/\(index)"), found.0["id"] == "\(index)" else {
+          failures.add()
+          continue
+        }
+        _ = self.router.route("GET", path: "/dynamic\(index % 20)/1")
+        _ = self.router.allowedMethods(path: "/mounted/m\(index % 5)")
+      }
+    }
+    stop.set()
+    XCTAssertEqual(failures.count, 0, "a route that was never removed was not found")
   }
 
   func testRoutesListsRegisteredPatterns() {
@@ -151,5 +275,39 @@ final class RouterBehaviorTests: XCTestCase {
       }
     }
     XCTAssertEqual(group.wait(timeout: .now() + 20), .success)
+  }
+}
+
+private final class StopFlag {
+  private let lock = NSLock()
+  private var value = false
+
+  func set() {
+    self.lock.lock()
+    self.value = true
+    self.lock.unlock()
+  }
+
+  var isSet: Bool {
+    self.lock.lock()
+    defer { self.lock.unlock() }
+    return self.value
+  }
+}
+
+private final class FailureCounter {
+  private let lock = NSLock()
+  private var value = 0
+
+  func add() {
+    self.lock.lock()
+    self.value += 1
+    self.lock.unlock()
+  }
+
+  var count: Int {
+    self.lock.lock()
+    defer { self.lock.unlock() }
+    return self.value
   }
 }

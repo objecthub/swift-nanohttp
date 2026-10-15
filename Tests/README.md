@@ -25,7 +25,7 @@ NANOHTTP_CRASH_TESTS=1 swift test --filter <one test>   # see "Crash tests" belo
 | `DeferredResponseTests.swift` | answers sent later from other threads (`deferResponse()`): the sender never waits, no timeouts while an answer is pending, dropped tokens, pipelining, limits, a slow client, a switch to a session; both threading modes; plus the worker-pool example of the documentation, run end to end |
 | `CookieTests.swift` | cookies: the `Set-Cookie` lines, encoding of values, cookies that are left out (injection attempts), reading the `Cookie` header, a round trip through a server, several cookies and several `Cookie` headers |
 | `ResponseHelperTests.swift` | `json(_:)` from `Encodable`, the redirects and the status responses, in both threading modes |
-| `NanoProcessTests.swift` | the signal callbacks of `NanoProcess.watchSignals` (S8): another thread than the interrupted one, locks, order, independent registrations, the disposition of the signal, stopping a server |
+| `NanoProcessTests.swift` | the signal callbacks of `NanoProcess.watchSignals` (S8): another thread than the interrupted one, locks, order, independent registrations, the disposition of the signal, stopping a server (the tests that send themselves a signal are skipped under a debugger, which would stop the process at it) |
 | `LoggerTests.swift` | the logger: levels, the built-in loggers, lazy messages, what the server and WebSocket sessions report (both threading modes) |
 | `HTMLDSLTests.swift` | the NanoHTML module: elements, attributes, block syntax, escaping, pages as responses |
 | `Support/` | `RawClient` (blocking raw TCP client), `withTestServer`, `FileSocket`, `FileFixture`, `expectKnownIssue` |

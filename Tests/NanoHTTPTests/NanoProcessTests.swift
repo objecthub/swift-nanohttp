@@ -5,7 +5,8 @@
 //  Reacting to signals (finding S8): the callbacks of `NanoProcess.watchSignals` run on a queue of their own and not
 //  inside the signal handler of the system, so they may take locks, allocate memory and stop a server; registrations
 //  are independent of each other; the list of callbacks can change while signals arrive. The tests use `SIGUSR1` and
-//  `SIGUSR2`: a process that is told to terminate is not what a test wants.
+//  `SIGUSR2`: a process that is told to terminate is not what a test wants. The tests that send
+//  themselves a signal are skipped under a debugger, which would stop the process at the signal.
 //
 
 import XCTest
@@ -32,6 +33,28 @@ final class NanoProcessTests: XCTestCase {
 
   private var registrations = [Int]()
 
+  /// Is a debugger attached to this process (Xcode, lldb)?
+  private var isDebuggerAttached: Bool {
+    var info = kinfo_proc()
+    var size = MemoryLayout<kinfo_proc>.stride
+    var name: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
+    guard sysctl(&name, UInt32(name.count), &info, &size, nil, 0) == 0 else {
+      return false
+    }
+    return (info.kp_proc.p_flag & P_TRACED) != 0
+  }
+
+  /// A debugger stops the process at every signal that it receives, `SIGUSR1` and `SIGUSR2`
+  /// included (the default of lldb, and so of Xcode), and a test that sends itself a signal
+  /// then waits for somebody to press Continue. Such a test is skipped under a debugger; run
+  /// it without one (`swift test`, `xcodebuild test`), or tell the debugger to let these
+  /// signals pass: `process handle SIGUSR1 SIGUSR2 -n false -s false -p true`.
+  private func requireNoDebugger() throws {
+    try XCTSkipIf(self.isDebuggerAttached,
+                  "A debugger stops the process at the signals that this test sends to it. " +
+                  "Run without a debugger, or: process handle SIGUSR1 SIGUSR2 -n false -s false -p true")
+  }
+
   override func tearDown() {
     self.registrations.forEach { NanoProcess.unwatch($0) }
     self.registrations.removeAll()
@@ -54,7 +77,8 @@ final class NanoProcessTests: XCTestCase {
     XCTAssertFalse(NanoProcess.terminationSignals.contains(SIGSTOP), "nobody can catch SIGSTOP")
   }
 
-  func testACallbackReceivesTheSignal() {
+  func testACallbackReceivesTheSignal() throws {
+    try self.requireNoDebugger()
     let received = expectation(description: "the signal")
     let numbers = Recorder()
     self.watch([SIGUSR1]) { signum in
@@ -66,7 +90,8 @@ final class NanoProcessTests: XCTestCase {
     XCTAssertEqual(numbers.current, ["\(SIGUSR1)"])
   }
 
-  func testTheCallbackDoesNotRunOnTheThreadThatWasInterrupted() {
+  func testTheCallbackDoesNotRunOnTheThreadThatWasInterrupted() throws {
+    try self.requireNoDebugger()
     let caller = Thread.current
     let ran = expectation(description: "the callback")
     let place = Recorder()
@@ -79,7 +104,8 @@ final class NanoProcessTests: XCTestCase {
     XCTAssertEqual(place.current, ["other thread"])
   }
 
-  func testACallbackMayTakeALockThatTheInterruptedThreadHolds() {
+  func testACallbackMayTakeALockThatTheInterruptedThreadHolds() throws {
+    try self.requireNoDebugger()
     // Inside a signal handler on that thread, this would be a deadlock; and the code of a handler may not take locks.
     let lock = NSLock()
     let entered = DispatchSemaphore(value: 0)
@@ -97,7 +123,8 @@ final class NanoProcessTests: XCTestCase {
     wait(for: [finished], timeout: 5)
   }
 
-  func testRegistrationsAreCalledInOrderAndOnlyForTheirSignals() {
+  func testRegistrationsAreCalledInOrderAndOnlyForTheirSignals() throws {
+    try self.requireNoDebugger()
     let order = Recorder()
     let first = expectation(description: "SIGUSR1 reached A and B")
     first.expectedFulfillmentCount = 2
@@ -128,7 +155,8 @@ final class NanoProcessTests: XCTestCase {
     XCTAssertEqual(order.current, ["A", "B1", "B2", "C"])
   }
   
-  func testACallbackMayRegisterAnotherOne() {
+  func testACallbackMayRegisterAnotherOne() throws {
+    try self.requireNoDebugger()
     let nested = expectation(description: "the second callback")
     self.watch([SIGUSR1]) { [weak self] _ in
       self?.watch([SIGUSR2]) { _ in nested.fulfill() }
@@ -149,7 +177,8 @@ final class NanoProcessTests: XCTestCase {
     XCTAssertEqual(self.disposition(of: SIGUSR2), before, "nobody does")
   }
 
-  func testRegistrationsCanChangeWhileSignalsArrive() {
+  func testRegistrationsCanChangeWhileSignalsArrive() throws {
+    try self.requireNoDebugger()
     let count = Recorder()
     self.watch([SIGUSR1]) { _ in count.add("x") }
     let churn = DispatchGroup()
@@ -170,6 +199,7 @@ final class NanoProcessTests: XCTestCase {
   }
 
   func testStoppingAServerFromACallbackEndsRun() throws {
+    try self.requireNoDebugger()
     let server = NanoHTTPServer()
     server.get["/ping"] = { _ in .ok(.text("pong")) }
     self.watch([SIGUSR1]) { _ in server.stop() }

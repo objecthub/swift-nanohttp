@@ -33,9 +33,10 @@
 
 import Foundation
 
-/// The checks of the `Host` and `Origin` headers of requests: the policies in the configuration of a
-/// server (``NanoHTTPServerIO/Configuration/hostPolicy``, ``NanoHTTPServerIO/Configuration/originPolicy``)
-/// and the middleware of ``NanoMiddleware`` use the same functions.
+/// The checks of the `Host` and `Origin` headers of requests: the policies in the
+/// configuration of a server (``NanoHTTPServerIO/Configuration/hostPolicy``,
+/// ``NanoHTTPServerIO/Configuration/originPolicy``) and the middleware of ``NanoMiddleware``
+/// use the same functions.
 enum NanoRequestPolicy {
   
   /// What a request is refused for: the text for the client, and the details for the log.
@@ -44,8 +45,8 @@ enum NanoRequestPolicy {
     let detail: String
   }
   
-  /// The host and the port of a `Host` header or of the address in an `Origin`: the host in lower case (an
-  /// IPv6 address keeps its brackets), and the port if there is one.
+  /// The host and the port of a `Host` header or of the address in an `Origin`: the host
+  /// in lower case (an IPv6 address keeps its brackets), and the port if there is one.
   struct Authority: Equatable {
     let host: String
     let port: Int?
@@ -74,11 +75,12 @@ enum NanoRequestPolicy {
   
   // MARK: - Parsing
   
-  /// Reads `host`, `host:port`, `[v6]` or `[v6]:port`. `nil` if the text is not that: other characters than the
-  /// ones of a host name (a path, a user name, a second colon), or a port that is not a number.
+  /// Reads `host`, `host:port`, `[v6]` or `[v6]:port`. `nil` if the text is not that:
+  /// other characters than the ones of a host name (a path, a user name, a second colon),
+  /// or a port that is not a number.
   ///
-  /// This runs for every request of a server that has switched a policy on, so it looks at the bytes and builds
-  /// one string.
+  /// This runs for every request of a server that has switched a policy on, so it looks
+  /// at the bytes and builds one string.
   static func authority(_ text: String) -> Authority? {
     return self.authority(Array(text.utf8)[...])
   }
@@ -98,7 +100,8 @@ enum NanoRequestPolicy {
     lower.reserveCapacity(bytes.count)
     for byte in bytes {
       switch byte {
-        case 33...126 where byte != 47 && byte != 64 && byte != 63 && byte != 35 && byte != 92 && byte != 37:
+        case 33...126 where byte != 47 && byte != 64 && byte != 63 &&
+                            byte != 35 && byte != 92 && byte != 37:
           // printable ASCII, but no `/ @ ? # \ %`
           lower.append(byte >= 65 && byte <= 90 ? byte + 32 : byte)
         default:
@@ -145,7 +148,8 @@ enum NanoRequestPolicy {
     return Authority(host: host, port: port)
   }
   
-  /// Reads `scheme://host[:port]`. `nil` for `null` (a page without an origin) and everything else.
+  /// Reads `scheme://host[:port]`. `nil` for `null` (a page without an origin) and
+  /// everything else.
   static func origin(_ text: String) -> Origin? {
     let bytes = Array(text.utf8)
     var separator: Int? = nil
@@ -175,7 +179,8 @@ enum NanoRequestPolicy {
       }
       let letter = byte >= 97 && byte <= 122
       let other = (byte >= 48 && byte <= 57) || byte == 43 || byte == 45 || byte == 46
-      guard letter || (other && position > start) else { // starts with a letter; then letters, digits and `+-.`
+      // starts with a letter; then letters, digits and `+-.`
+      guard letter || (other && position > start) else {
         return nil
       }
       scheme.append(byte)
@@ -188,8 +193,9 @@ enum NanoRequestPolicy {
   
   // MARK: - Hosts
   
-  /// Whether a `Host` header is allowed by the policy of a server that listens at `address`. A request without a
-  /// `Host` header (HTTP/1.0) is allowed: a page that is made to talk to this server always sends one.
+  /// Whether a `Host` header is allowed by the policy of a server that listens at
+  /// `address`. A request without a `Host` header (HTTP/1.0) is allowed: a page that is
+  /// made to talk to this server always sends one.
   static func hostAllowed(_ header: String?,
                           policy: NanoHTTPServerIO.Configuration.HostPolicy,
                           listenAddress address: NanoHTTPServerIO.NanoListenAddress) -> Bool {
@@ -233,14 +239,15 @@ enum NanoRequestPolicy {
   
   // MARK: - Origins
   
-  /// Whether a page with this origin is one of the server itself (the address of the request is its origin's)
-  /// or one of the `listed` origins.
+  /// Whether a page with this origin is one of the server itself (the address of the
+  /// request is its origin's) or one of the `listed` origins.
   static func originAllowed(_ header: String, host: String?, listed: [String]) -> Bool {
     guard let origin = self.origin(header) else {
       return false
     }
     if let host, let authority = self.authority(host) {
-      let port = authority.port ?? self.defaultPort(of: origin.scheme) // a host without a port: the one of the page
+      // a host without a port: the one of the page
+      let port = authority.port ?? self.defaultPort(of: origin.scheme)
       if authority.host == origin.authority.host && port == origin.effectivePort {
         return true
       }
@@ -254,7 +261,8 @@ enum NanoRequestPolicy {
     }
   }
   
-  /// The requests that the origin policy looks at: those that change something, and WebSocket handshakes.
+  /// The requests that the origin policy looks at: those that change something, and
+  /// WebSocket handshakes.
   static func isChecked(_ request: NanoHTTPRequest) -> Bool {
     switch request.method {
       case "GET", "HEAD", "OPTIONS", "TRACE":
@@ -266,11 +274,14 @@ enum NanoRequestPolicy {
   
   // MARK: - Requests
   
-  static func refusal(for request: NanoHTTPRequest, _ configuration: NanoHTTPServerIO.Configuration) -> Refusal? {
+  static func refusal(for request: NanoHTTPRequest,
+                      _ configuration: NanoHTTPServerIO.Configuration) -> Refusal? {
     if case .any = configuration.hostPolicy, case .any = configuration.originPolicy {
       return nil // nothing to check: the default
     }
-    if let refusal = self.hostRefusal(request, policy: configuration.hostPolicy, listenAddress: configuration.listenAddress) {
+    if let refusal = self.hostRefusal(request,
+                                      policy: configuration.hostPolicy,
+                                      listenAddress: configuration.listenAddress) {
       return refusal
     }
     switch configuration.originPolicy {
@@ -301,8 +312,9 @@ enum NanoRequestPolicy {
     guard !self.originAllowed(origin, host: request.header("host"), listed: listed) else {
       return nil
     }
-    return Refusal(message: "Forbidden: this server does not answer pages of the site that the request comes from",
-                   detail: "the Origin \(String(reflecting: origin)) is not allowed (Host: "
-                             + "\(String(reflecting: request.header("host") ?? "")))")
+    return Refusal(
+      message: "Forbidden: this server does not answer pages of the site that the request comes from",
+      detail: "the Origin \(String(reflecting: origin)) is not allowed (Host: " +
+              "\(String(reflecting: request.header("host") ?? "")))")
   }
 }

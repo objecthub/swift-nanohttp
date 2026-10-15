@@ -33,9 +33,9 @@
 
 import Foundation
 
-// Names of NanoHTTP 1.x that have a new name in 2.0. They cannot be used any more: the compiler
-// reports the new name, and Xcode offers to replace the old one. They are removed in the next
-// major version.
+// Names of NanoHTTP 1.x that have a new name in 2.0. They cannot be used any more: the
+// compiler reports the new name, and Xcode offers to replace the old one. They are
+// removed in the next major version.
 
 @available(*, unavailable, renamed: "NanoFiles.share(file:)")
 public func share(file path: String) -> NanoHTTPRequestHandler {

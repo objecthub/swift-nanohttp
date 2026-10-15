@@ -34,7 +34,8 @@
 
 import Foundation
 
-/// A body that is in memory: it is written together with the head of the response, in one piece.
+/// A body that is in memory: it is written together with the head of the response, in one
+/// piece.
 enum NanoHTTPInlineBody {
   case bytes([UInt8])
   case string(String)
@@ -57,8 +58,8 @@ enum NanoHTTPInlineBody {
     }
   }
 
-  /// Writes the content to the socket, without copying it into another buffer first (a body of several
-  /// megabytes would be allocated and copied for nothing).
+  /// Writes the content to the socket, without copying it into another buffer first (a
+  /// body of several megabytes would be allocated and copied for nothing).
   func write(to socket: NanoSocket) throws {
     switch self {
       case .bytes(let bytes): if !bytes.isEmpty { try socket.writeUInt8(bytes) }
@@ -69,9 +70,10 @@ enum NanoHTTPInlineBody {
 }
 
 extension NanoHTTPResponse.Body {
-  /// The content of a body that is held in memory, or `nil` for a body that a function writes (`.custom`)
-  /// and for the bodies of switched connections. Throws if the body cannot be produced (`.json` with a
-  /// value that is neither Foundation JSON nor `Encodable`).
+  /// The content of a body that is held in memory, or `nil` for a body that a function
+  /// writes (`.custom`) and for the bodies of switched connections. Throws if the body
+  /// cannot be produced (`.json` with a value that is neither Foundation JSON nor
+  /// `Encodable`).
   func inline() throws -> NanoHTTPInlineBody? {
     switch self {
       case .empty:
@@ -88,39 +90,50 @@ extension NanoHTTPResponse.Body {
   }
 }
 
-/// Writes the status line and the headers of a response. This is a function of its arguments and does not
-/// touch a socket, so that what goes over the wire can be tested.
+/// Writes the status line and the headers of a response. This is a function of its
+/// arguments and does not touch a socket, so that what goes over the wire can be tested.
 enum NanoHTTPResponseSerializer {
   
   /// How the end of the body is marked for the client.
   enum Framing: Equatable {
-    /// There is no body and nothing is said about one (`1xx`, `204`, `304`; the switch to another protocol).
+    
+    /// There is no body and nothing is said about one (`1xx`, `204`, `304`; the switch to
+    /// another protocol).
     case none
+    
     /// `Content-Length: n`.
     case length(Int)
-    /// `Transfer-Encoding: chunked`: the body is a sequence of chunks, which a connection can keep going after.
+    
+    /// `Transfer-Encoding: chunked`: the body is a sequence of chunks, which a connection
+    /// can keep going after.
     case chunked
+    
     /// The body ends when the connection does.
     case untilClose
   }
   
   /// What the head says about the connection.
   enum Connection: Equatable {
-    /// No `Connection` header: the connection is kept open, which is what HTTP/1.1 means by itself.
+    
+    /// No `Connection` header: the connection is kept open, which is what HTTP/1.1 means
+    /// by itself.
     case unspecified
+    
     /// `Connection: close`: the server closes the connection after the response.
     case close
+    
     /// `Connection: keep-alive`.
     case keepAlive
   }
   
   /// The head of `response`: the status line, the headers and the empty line, as bytes.
   ///
-  /// The framing, the connection and the date that are given replace the headers of the response with the same
-  /// names. Headers whose names are no tokens are left out (and reported to `dropped`), and carriage returns,
-  /// line feeds and NUL characters in values are replaced by spaces, so that a value taken from a request cannot
-  /// inject headers or a body. The cookies of the response are written as `Set-Cookie` headers; a cookie that
-  /// cannot be sent safely is left out and reported to `droppedCookie`.
+  /// The framing, the connection and the date that are given replace the headers of the
+  /// response with the same names. Headers whose names are no tokens are left out (and
+  /// reported to `dropped`), and carriage returns, line feeds and NUL characters in
+  /// values are replaced by spaces, so that a value taken from a request cannot inject
+  /// headers or a body. The cookies of the response are written as `Set-Cookie` headers;
+  /// a cookie that cannot be sent safely is left out and reported to `droppedCookie`.
   static func head(_ response: NanoHTTPResponse,
                    framing: Framing,
                    connection: Connection = .unspecified,
@@ -128,7 +141,8 @@ enum NanoHTTPResponseSerializer {
                    dropped: (String) -> Void = { _ in },
                    droppedCookie: (String) -> Void = { _ in }) -> [UInt8] {
     var text = "HTTP/1.1 \(response.statusCode) \(response.reasonPhrase)\r\n"
-    var replaced = Set<String>() // lower case names of headers that this function writes itself
+    // lower case names of headers that this function writes itself
+    var replaced = Set<String>()
     switch framing {
       case .none, .untilClose:
         break
@@ -165,7 +179,8 @@ enum NanoHTTPResponseSerializer {
       }
       text += "\(name): \(sanitizedHeaderValue(value))\r\n"
     }
-    // One `Set-Cookie` line for every cookie: the dictionary of headers cannot hold several of them.
+    // One `Set-Cookie` line for every cookie: the dictionary of headers cannot hold
+    // several of them.
     for cookie in response.cookies {
       do {
         text += "Set-Cookie: \(try cookie.headerValue())\r\n"
@@ -177,8 +192,8 @@ enum NanoHTTPResponseSerializer {
     return Array(text.utf8)
   }
   
-  /// A header name is a token (RFC 9110 5.6.2): letters, digits and a few punctuation characters,
-  /// but no whitespace, no colon and no line break.
+  /// A header name is a token (RFC 9110 5.6.2): letters, digits and a few punctuation
+  /// characters, but no whitespace, no colon and no line break.
   static func isValidHeaderName(_ name: String) -> Bool {
     return !name.isEmpty && name.utf8.allSatisfy {
       ($0 >= 48 && $0 <= 57) || ($0 >= 65 && $0 <= 90) || ($0 >= 97 && $0 <= 122) || tokenPunctuation.contains($0)
@@ -187,9 +202,10 @@ enum NanoHTTPResponseSerializer {
   
   private static let tokenPunctuation = Set("!#$%&'*+-.^_`|~".utf8)
   
-  /// A header value without line breaks. A carriage return or line feed would end the header and let
-  /// whatever follows become a header (or the body) of the response, which is how a redirect to a
-  /// location taken from a request can be turned into an injection of arbitrary headers.
+  /// A header value without line breaks. A carriage return or line feed would end the
+  /// header and let whatever follows become a header (or the body) of the response, which
+  /// is how a redirect to a location taken from a request can be turned into an injection
+  /// of arbitrary headers.
   static func sanitizedHeaderValue(_ value: String) -> String {
     guard value.utf8.contains(where: { $0 == 13 || $0 == 10 || $0 == 0 }) else {
       return value
@@ -204,7 +220,8 @@ enum NanoHTTPDate {
   private static let weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
   private static let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
   
-  /// The text of the date; the text of the current second is kept, because every response has one.
+  /// The text of the date; the text of the current second is kept, because every response
+  /// has one.
   static func string(for date: Date = Date()) -> String {
     let second = Int(date.timeIntervalSince1970.rounded(.down))
     lock.lock()
@@ -220,8 +237,9 @@ enum NanoHTTPDate {
     return text
   }
   
-  /// The text of any date. (Unlike ``string(for:)`` it does not use the cache of the current second, which a
-  /// date in the future, like the end of a cookie, would evict again and again.)
+  /// The text of any date. (Unlike ``string(for:)`` it does not use the cache of the
+  /// current second, which a date in the future, like the end of a cookie, would evict
+  /// again and again.)
   static func text(for date: Date) -> String {
     return format(Int(date.timeIntervalSince1970.rounded(.down)))
   }
@@ -242,8 +260,9 @@ enum NanoHTTPDate {
            "\(two(parts.tm_hour)):\(two(parts.tm_min)):\(two(parts.tm_sec)) GMT"
   }
   
-  /// The date that a header contains (`If-Modified-Since`, `If-Range`), or `nil` if it is not in the form
-  /// of HTTP. The obsolete forms (RFC 850, `asctime`) are understood as well.
+  /// The date that a header contains (`If-Modified-Since`, `If-Range`), or `nil` if it is
+  /// not in the form of HTTP. The obsolete forms (RFC 850, `asctime`) are understood as
+  /// well.
   static func date(from text: String) -> Date? {
     let text = text.trimmingCharacters(in: .whitespaces)
     for formatter in formatters {
@@ -254,7 +273,8 @@ enum NanoHTTPDate {
     return nil
   }
   
-  /// One formatter for each form (their settings are never changed, so that threads can share them).
+  /// One formatter for each form (their settings are never changed, so that threads can
+  /// share them).
   private static let formatters: [DateFormatter] = {
     return ["EEE, dd MMM yyyy HH:mm:ss 'GMT'",
             "EEEE, dd-MMM-yy HH:mm:ss 'GMT'",

@@ -34,10 +34,10 @@
 
 import Foundation
 
-/// Writes the body of a response in chunks (RFC 9112 7.1), so that a body of unknown length ends in a way that
-/// the client can see, and the connection can be used for the next request: every write is one chunk, and
-/// ``finish()`` writes the chunk that ends the body. Empty writes are left out, because the empty chunk ends
-/// the body.
+/// Writes the body of a response in chunks (RFC 9112 7.1), so that a body of unknown
+/// length ends in a way that the client can see, and the connection can be used for the
+/// next request: every write is one chunk, and ``finish()`` writes the chunk that ends
+/// the body. Empty writes are left out, because the empty chunk ends the body.
 final class ChunkedBodyWriter: NanoHTTPResponseBodyWriter {
   private let socket: NanoSocket
   
@@ -75,8 +75,9 @@ final class ChunkedBodyWriter: NanoHTTPResponseBodyWriter {
     try self.write(file, offset: 0, length: Int64(file.status()?.st_size ?? 0))
   }
   
-  /// A part of a file is one chunk, which the system sends without the bytes passing through this process. If the
-  /// file turns out shorter than it was a moment ago, the chunk cannot be completed: the error ends the connection.
+  /// A part of a file is one chunk, which the system sends without the bytes passing
+  /// through this process. If the file turns out shorter than it was a moment ago, the
+  /// chunk cannot be completed: the error ends the connection.
   func write(_ file: NanoFile, offset: Int64, length: Int64) throws {
     guard length > 0 else {
       return
@@ -97,9 +98,10 @@ final class ChunkedBodyWriter: NanoHTTPResponseBodyWriter {
   }
 }
 
-/// Writes the body of a response that has a length, which the head announced: not a byte more is written
-/// than that. A handler that writes more has its bytes dropped, one that writes less leaves the client waiting;
-/// either way the connection cannot be used for another request, and the connection finds that out here.
+/// Writes the body of a response that has a length, which the head announced: not a byte
+/// more is written than that. A handler that writes more has its bytes dropped, one that
+/// writes less leaves the client waiting; either way the connection cannot be used for
+/// another request, and the connection finds that out here.
 final class LengthLimitedBodyWriter: NanoHTTPResponseBodyWriter {
   private let socket: NanoSocket
   private let length: Int

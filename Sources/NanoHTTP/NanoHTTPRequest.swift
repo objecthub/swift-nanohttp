@@ -36,9 +36,10 @@
 
 import Foundation
 
-/// An HTTP request: method, path, query, headers and body, plus the address of the client and the
-/// variables of the route that matched. The server creates one for every request and hands it to
-/// middleware and handlers. A request is a reference type, compared and hashed by identity.
+/// An HTTP request: method, path, query, headers and body, plus the address of the client
+/// and the variables of the route that matched. The server creates one for every request
+/// and hands it to middleware and handlers. A request is a reference type, compared and
+/// hashed by identity.
 ///
 /// ```swift
 /// let server = NanoHTTPServer()
@@ -50,27 +51,29 @@ import Foundation
 /// ```
 public final class NanoHTTPRequest: Hashable {
   
-  /// The HTTP method in the form the client sent it, normally in upper case (`"GET"`, `"POST"`).
+  /// The HTTP method in the form the client sent it, normally in upper case (`"GET"`,
+  /// `"POST"`).
   public var method: String
   
-  /// The version of the protocol that the client speaks, as it is in the request line: `"HTTP/1.1"` or
-  /// `"HTTP/1.0"`.
+  /// The version of the protocol that the client speaks, as it is in the request line:
+  /// `"HTTP/1.1"` or `"HTTP/1.0"`.
   public var httpVersion: String
   
-  /// The path of the request as the client sent it, still percent-encoded (`/a%20b/%C3%A9`), without the query.
-  /// The router matches this, one segment at a time, so that an encoded slash (`%2F`) stays inside its
-  /// segment. Use ``path`` to read the path; set `rawPath` (for example in middleware) to route the request
-  /// to another path.
+  /// The path of the request as the client sent it, still percent-encoded (`/a%20b/%C3%A9`),
+  /// without the query. The router matches this, one segment at a time, so that an
+  /// encoded slash (`%2F`) stays inside its segment. Use ``path`` to read the path; set
+  /// `rawPath` (for example in middleware) to route the request to another path.
   public var rawPath: String
   
-  /// The path of the request, **decoded**: `/a%20b/%C3%A9` is `/a b/é`. A `+` stays a `+`, and `%2F` is a `/`
-  /// that cannot be told from a separator any more (``rawPath`` can). Text that is not valid percent-encoding
-  /// is kept as it is, and bytes that are not valid UTF-8 become U+FFFD.
+  /// The path of the request, **decoded**: `/a%20b/%C3%A9` is `/a b/é`. A `+` stays a
+  /// `+`, and `%2F` is a `/` that cannot be told from a separator any more (``rawPath``
+  /// can). Text that is not valid percent-encoding is kept as it is, and bytes that are
+  /// not valid UTF-8 become U+FFFD.
   ///
-  /// The decoded path can contain anything, line breaks and NUL characters included (`%0A`, `%00`): do not
-  /// write it to a log or into HTML as it is (`htmlEscaped`), and do not use it as a file path without
-  /// checking it (see `NanoFiles.share(directory:)`). It is decoded **once**: decoding it again turns `%252e%252e`
-  /// into `..`.
+  /// The decoded path can contain anything, line breaks and NUL characters included
+  /// (`%0A`, `%00`): do not write it to a log or into HTML as it is (`htmlEscaped`), and
+  /// do not use it as a file path without checking it (see `NanoFiles.share(directory:)`).
+  /// It is decoded **once**: decoding it again turns `%252e%252e` into `..`.
   ///
   /// Setting the path percent-encodes it into ``rawPath``.
   public var path: String {
@@ -82,49 +85,55 @@ public final class NanoHTTPRequest: Hashable {
     }
   }
   
-  /// The query of the request as the client sent it, still percent-encoded, without the `?`: `q=a%20b&r=1`.
-  /// `nil` if the target has no `?`. It is not changed when ``queryParams`` is.
+  /// The query of the request as the client sent it, still percent-encoded, without the
+  /// `?`: `q=a%20b&r=1`. `nil` if the target has no `?`. It is not changed when
+  /// ``queryParams`` is.
   public var rawQuery: String?
   
-  /// The query parameters in the order of the request, repeated names included. Names and values are
-  /// **decoded**: `?q=a%20b+c` gives `("q", "a b c")`; `+` is a space, and `%2B` is a plus. A parameter
-  /// without `=` has an empty value. See ``query(_:)`` and ``queries(_:)``.
+  /// The query parameters in the order of the request, repeated names included. Names and
+  /// values are **decoded**: `?q=a%20b+c` gives `("q", "a b c")`; `+` is a space, and
+  /// `%2B` is a plus. A parameter without `=` has an empty value. See ``query(_:)`` and
+  /// ``queries(_:)``.
   public var queryParams: [(String, String)]
   
-  /// The variables of the route that matched (`/users/:id` gives `["id": "42"]`); empty if the route has none.
-  /// Their values are **decoded**, also those of path variables (`/files/::path`), which are the decoded
-  /// segments joined with `/`.
+  /// The variables of the route that matched (`/users/:id` gives `["id": "42"]`); empty
+  /// if the route has none. Their values are **decoded**, also those of path variables
+  /// (`/files/::path`), which are the decoded segments joined with `/`.
   public var params: [String : String] = [:]
   
   /// HTTP request headers (keys are case insensitive)
   private var headers: [String : String] = [:]
   
-  /// The body of the request, as many bytes as `Content-Length` announced (and the server's limit allowed); empty otherwise.
+  /// The body of the request, as many bytes as `Content-Length` announced (and the
+  /// server's limit allowed); empty otherwise.
   public var body: [UInt8]
   
   /// The IP address of the client (`"192.168.1.20"`, `"::1"`), if it could be determined.
   public var address: String? = nil
   
-  /// Free space for the application, for example for middleware to hand information to handlers.
+  /// Free space for the application, for example for middleware to hand information to
+  /// handlers.
   public var custom: [String : Any] = [:]
 
-  /// Has the answer been promised for later (``NanoHTTPConnection/deferResponse()``)? The server of one thread looks
-  /// at it after `handle(connection:)` has returned: a connection that waits for its answer is not read.
+  /// Has the answer been promised for later (``NanoHTTPConnection/deferResponse()``)? The
+  /// server of one thread looks at it after `handle(connection:)` has returned: a
+  /// connection that waits for its answer is not read.
   var isDeferred = false
 
-  /// The token of the deferred answer. Weak: the token holds the connection, which holds this request.
+  /// The token of the deferred answer. Weak: the token holds the connection, which holds
+  /// this request.
   weak var deferral: NanoHTTPDeferredResponse? = nil
   
   /// The parsed `Cookie` header, see ``cookies``.
   private var cookieCache: [String: String]? = nil
   
-  /// The bounds for `parseMultiPartFormData()`: the most parts, and the most bytes for the headers of a part. The
-  /// parser sets them from the limits of the server.
+  /// The bounds for `parseMultiPartFormData()`: the most parts, and the most bytes for
+  /// the headers of a part. The parser sets them from the limits of the server.
   var multipartLimits: (parts: Int, headerBytes: Int) = (1000, 16 * 1024)
 
-  /// Creates a request, for example to call a handler directly in a test. `path` and the names and values of
-  /// `queryParams` are decoded text, as the properties of the same names (`"/a b"`, not `"/a%20b"`); the
-  /// names of `headers` are case-insensitive.
+  /// Creates a request, for example to call a handler directly in a test. `path` and the
+  /// names and values of `queryParams` are decoded text, as the properties of the same
+  /// names (`"/a b"`, not `"/a%20b"`); the names of `headers` are case-insensitive.
   public init(method: String,
               path: String,
               queryParams: [(String, String)] = [],
@@ -143,8 +152,9 @@ public final class NanoHTTPRequest: Hashable {
     self.setHeaders(headers)
   }
   
-  /// Creates a request from the path and the query as they are in the target of a request line, still
-  /// percent-encoded (`"/a%20b"`, `"q=a%20b"`). The parser creates requests this way.
+  /// Creates a request from the path and the query as they are in the target of a request
+  /// line, still percent-encoded (`"/a%20b"`, `"q=a%20b"`). The parser creates requests
+  /// this way.
   public init(method: String,
               rawPath: String,
               rawQuery: String?,
@@ -166,9 +176,9 @@ public final class NanoHTTPRequest: Hashable {
     }
   }
   
-  /// The names and values of a query string or of an `application/x-www-form-urlencoded` body, decoded:
-  /// pairs are separated by `&`, a name ends at the first `=`, a pair without `=` has an empty value,
-  /// empty pairs are skipped.
+  /// The names and values of a query string or of an `application/x-www-form-urlencoded`
+  /// body, decoded: pairs are separated by `&`, a name ends at the first `=`, a pair
+  /// without `=` has an empty value, empty pairs are skipped.
   static func parseQuery<S: StringProtocol>(_ text: S) -> [(String, String)] {
     return text.split(separator: "&", omittingEmptySubsequences: true).map { pair -> (String, String) in
       guard let separator = pair.firstIndex(of: "=") else {
@@ -179,8 +189,8 @@ public final class NanoHTTPRequest: Hashable {
     }
   }
   
-  /// The value of the first query parameter with this name (names are case-sensitive), or `nil`. An empty
-  /// string if the parameter has no value (`?debug`).
+  /// The value of the first query parameter with this name (names are case-sensitive), or
+  /// `nil`. An empty string if the parameter has no value (`?debug`).
   public func query(_ name: String) -> String? {
     return self.queryParams.first { $0.0 == name }?.1
   }
@@ -200,9 +210,9 @@ public final class NanoHTTPRequest: Hashable {
     hasher.combine(ObjectIdentifier(self))
   }
   
-  /// Whether the client wants the connection to be kept open after the response: HTTP/1.1 connections are
-  /// persistent unless the request has `Connection: close`; HTTP/1.0 connections are closed unless the
-  /// request has `Connection: keep-alive`.
+  /// Whether the client wants the connection to be kept open after the response: HTTP/1.1
+  /// connections are persistent unless the request has `Connection: close`; HTTP/1.0
+  /// connections are closed unless the request has `Connection: keep-alive`.
   public var supportsKeepAlive: Bool {
     if self.hasTokenForHeader("connection", token: "close") {
       return false
@@ -215,8 +225,8 @@ public final class NanoHTTPRequest: Hashable {
     return self.hasTokenForHeader("connection", token: "keep-alive")
   }
   
-  /// The value of a header, or `nil`. The name is case-insensitive. If the client sent a header several
-  /// times, the values are joined with `, `.
+  /// The value of a header, or `nil`. The name is case-insensitive. If the client sent a
+  /// header several times, the values are joined with `, `.
   public func header(_ headerName: String) -> String? {
     guard let headerValue = self.headers[headerName.lowercased()] else {
       return nil
@@ -243,13 +253,14 @@ public final class NanoHTTPRequest: Hashable {
     self.cookieCache = nil
   }
   
-  /// The cookies that the client sent (the `Cookie` header), by name. The values are percent-decoded once, as the
-  /// values of the query and the route variables are, which is how ``NanoHTTPCookie`` writes them; a pair of quotes
-  /// around a value is removed. If a name appears twice the first cookie counts: it is the one with the most
+  /// The cookies that the client sent (the `Cookie` header), by name. The values are
+  /// percent-decoded once, as the values of the query and the route variables are, which
+  /// is how ``NanoHTTPCookie`` writes them; a pair of quotes around a value is removed.
+  /// If a name appears twice the first cookie counts: it is the one with the most
   /// specific path. Entries without a name or without `=` are ignored.
   ///
-  /// The cookies are parsed when they are first needed, and kept. Like the rest of the request, they are not
-  /// meant to be read from several threads at the same time.
+  /// The cookies are parsed when they are first needed, and kept. Like the rest of the
+  /// request, they are not meant to be read from several threads at the same time.
   public var cookies: [String : String] {
     if let cookies = self.cookieCache {
       return cookies
@@ -269,9 +280,9 @@ public final class NanoHTTPRequest: Hashable {
     return [String](self.headers.keys)
   }
   
-  /// Whether the value of a header that is a comma-separated list (`Connection: keep-alive, Upgrade`)
-  /// contains `token`. The list items are compared case-insensitively, so `token` has to be given in
-  /// lower case.
+  /// Whether the value of a header that is a comma-separated list
+  /// (`Connection: keep-alive, Upgrade`) contains `token`. The list items are compared
+  /// case-insensitively, so `token` has to be given in lower case.
   public func hasTokenForHeader(_ headerName: String, token: String) -> Bool {
     guard let headerValue = self.header(headerName) else {
       return false
@@ -281,10 +292,11 @@ public final class NanoHTTPRequest: Hashable {
                       .count > 0
   }
   
-  /// The fields of an `application/x-www-form-urlencoded` body (the encoding of an HTML form), in
-  /// the order in which they appear; repeated names are kept. Names and values are decoded: `+`
-  /// is a space, `%XX` a byte of UTF-8 text. A field without `=` is a name with an empty value.
-  /// Returns an empty array if the request has another content type or the body is not UTF-8.
+  /// The fields of an `application/x-www-form-urlencoded` body (the encoding of an HTML
+  /// form), in the order in which they appear; repeated names are kept. Names and values
+  /// are decoded: `+` is a space, `%XX` a byte of UTF-8 text. A field without `=` is a
+  /// name with an empty value. Returns an empty array if the request has another content
+  /// type or the body is not UTF-8.
   public func parseUrlencodedForm() -> [(String, String)] {
     guard let contentTypeHeader = headers["content-type"] else {
       return []
@@ -299,16 +311,17 @@ public final class NanoHTTPRequest: Hashable {
       // Consider to throw an exception here (examine the encoding from headers).
       return []
     }
-    // The name ends at the first "=", so a value may contain "=" (base64 padding, for example). A
-    // pair without "=" is a name with an empty value.
+    // The name ends at the first "=", so a value may contain "=" (base64 padding, for
+    // example). A pair without "=" is a name with an empty value.
     return NanoHTTPRequest.parseQuery(utf8String)
   }
   
   // MARK: - The body as text and as JSON
   
-  /// The body as text, in the charset of the `Content-Type` header (`text/plain; charset=iso-8859-1`), or
-  /// in UTF-8 if the header has none or names a charset that is not known. `nil` if the bytes are not
-  /// valid text in that charset. An empty body is the empty string.
+  /// The body as text, in the charset of the `Content-Type` header
+  /// (`text/plain; charset=iso-8859-1`), or in UTF-8 if the header has none or names a
+  /// charset that is not known. `nil` if the bytes are not valid text in that charset. An
+  /// empty body is the empty string.
   public var bodyString: String? {
     return String(bytes: self.body, encoding: self.bodyEncoding)
   }
@@ -344,9 +357,10 @@ public final class NanoHTTPRequest: Hashable {
   /// }
   /// ```
   ///
-  /// The `Content-Type` is not looked at. A body that is empty, is not JSON, or does not fit `T` makes this
-  /// throw ``NanoHTTPError/badRequest(_:headers:)`` with a message that tells the client what is wrong
-  /// (`The key 'age' is missing`), so that a handler that does not catch the error answers `400`.
+  /// The `Content-Type` is not looked at. A body that is empty, is not JSON, or does not
+  /// fit `T` makes this throw ``NanoHTTPError/badRequest(_:headers:)`` with a message
+  /// that tells the client what is wrong (`The key 'age' is missing`), so that a handler
+  /// that does not catch the error answers `400`.
   ///
   /// - Parameters:
   ///   - type: The type to decode; it can be inferred from the context.
@@ -364,8 +378,9 @@ public final class NanoHTTPRequest: Hashable {
     }
   }
   
-  /// Parses the body as JSON of any shape: dictionaries, arrays, strings, numbers, booleans and `NSNull`.
-  /// Throws ``NanoHTTPError/badRequest(_:headers:)`` if the body is empty or not valid JSON.
+  /// Parses the body as JSON of any shape: dictionaries, arrays, strings, numbers,
+  /// booleans and `NSNull`. Throws ``NanoHTTPError/badRequest(_:headers:)`` if the body
+  /// is empty or not valid JSON.
   public func jsonObject() throws -> Any {
     guard !self.body.isEmpty else {
       throw NanoHTTPError.badRequest("The request body is empty, JSON was expected")
@@ -377,7 +392,8 @@ public final class NanoHTTPRequest: Hashable {
     }
   }
   
-  /// What is wrong with a body that does not decode, in a sentence for the client: where, and what.
+  /// What is wrong with a body that does not decode, in a sentence for the client: where,
+  /// and what.
   private static func describe(_ error: DecodingError) -> String {
     func location(_ path: [CodingKey]) -> String {
       return path.map { $0.intValue.map(String.init) ?? $0.stringValue }.joined(separator: ".")
@@ -398,23 +414,25 @@ public final class NanoHTTPRequest: Hashable {
     }
   }
   
-  /// One part of a `multipart/form-data` body (an uploaded file or a form field): its headers and its
-  /// content. See ``NanoHTTPRequest/parseMultiPartFormData()``.
+  /// One part of a `multipart/form-data` body (an uploaded file or a form field): its
+  /// headers and its content. See ``NanoHTTPRequest/parseMultiPartFormData()``.
   public struct MultiPart {
     /// The headers of the part, with names in lower case.
     public let headers: [String : String]
     /// The content of the part.
     public let body: [UInt8]
     
-    /// The name of the form field (`name="..."` of `Content-Disposition`), without quotes. A name that is given in
-    /// the extended form (`name*=UTF-8''...`) takes precedence.
+    /// The name of the form field (`name="..."` of `Content-Disposition`), without
+    /// quotes. A name that is given in the extended form (`name*=UTF-8''...`) takes
+    /// precedence.
     public var name: String? {
       return self.contentDispositionParameter("name")
     }
     
-    /// The file name of an upload (`filename="..."` of `Content-Disposition`), without quotes; `nil` for ordinary
-    /// fields. The extended form (`filename*=UTF-8''%E2%82%AC.txt`) takes precedence if it is there. The name is
-    /// what the client sent: do not use it as a path without checking it (it can hold `/` and `..`).
+    /// The file name of an upload (`filename="..."` of `Content-Disposition`), without
+    /// quotes; `nil` for ordinary fields. The extended form (`filename*=UTF-8''%E2%82%AC.txt`)
+    /// takes precedence if it is there. The name is what the client sent: do not use it
+    /// as a path without checking it (it can hold `/` and `..`).
     public var fileName: String? {
       return self.contentDispositionParameter("filename")
     }

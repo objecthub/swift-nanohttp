@@ -35,36 +35,49 @@
 
 import Foundation
 
-/// The WebSocket support of the server: ``handler(text:binary:pong:connected:disconnected:maxMessageSize:origins:protocols:hub:)``
+/// The WebSocket support of the server:
+/// ``handler(text:binary:pong:connected:disconnected:maxMessageSize:origins:protocols:hub:)``
 /// creates the handler that upgrades a request to a WebSocket connection.
 public enum NanoWebSocket {
   
-  /// Returns a handler that upgrades a request to a WebSocket connection and then calls the given
-  /// closures for what the client sends. Register it like any other handler:
-  /// `server["/chat"] = NanoWebSocket.handler(text: { session, text in session.writeText(text) })`.
+  /// Returns a handler that upgrades a request to a WebSocket connection and then calls
+  /// the given closures for what the client sends. Register it like any other handler:
   ///
-  /// The closures run on the thread that serves the connection, one message at a time. A closure
-  /// that blocks delays the processing of later messages of the same connection only.
+  /// ```swift
+  /// let server = NanoHTTPServer()
+  /// server["/chat"] = NanoWebSocket.handler(text: { session, text in
+  ///   session.writeText(text)
+  /// })
+  /// ```
+  ///
+  /// The closures run on the thread that serves the connection, one message at a time. A
+  /// closure that blocks delays the processing of later messages of the same connection
+  /// only.
   ///
   /// Messages larger than `maxMessageSize` bytes, whether sent as one frame or assembled from
   /// fragments, end the connection.
   ///
-  /// The handshake must be a `GET` request for version 13 of the protocol; other versions are
-  /// answered with `426 Upgrade Required` (and the header `Sec-WebSocket-Version: 13`). A connection
-  /// that ends because of an error is closed with the matching status code (1002 protocol error, 1007
-  /// invalid text, 1009 message too big); a close frame of the client is answered with its own code.
+  /// The handshake must be a `GET` request for version 13 of the protocol; other versions
+  /// are answered with `426 Upgrade Required` (and the header `Sec-WebSocket-Version: 13`).
+  /// A connection that ends because of an error is closed with the matching status code
+  /// (1002 protocol error, 1007 invalid text, 1009 message too big); a close frame of the
+  /// client is answered with its own code.
   ///
-  /// **Which pages may connect.** A page of any site can open a WebSocket to a server that its browser can reach, and
-  /// the browser tells the server the page's `Origin`. `origins` makes this handler check it: a handshake that has an
-  /// `Origin` that is not allowed is answered with `403 Forbidden`. The check is in addition to the
-  /// ``NanoHTTPServerIO/Configuration/originPolicy`` of the server, which looks at every handshake already (if it is
-  /// switched on); use `origins` to protect a WebSocket on a server whose other routes are open to other sites.
+  /// **Which pages may connect.** A page of any site can open a WebSocket to a server
+  /// that its browser can reach, and the browser tells the server the page's `Origin`.
+  /// `origins` makes this handler check it: a handshake that has an `Origin` that is not
+  /// allowed is answered with `403 Forbidden`. The check is in addition to the
+  /// ``NanoHTTPServerIO/Configuration/originPolicy`` of the server, which looks at every
+  /// handshake already (if it is switched on); use `origins` to protect a WebSocket on a
+  /// server whose other routes are open to other sites.
   ///
-  /// **Subprotocols.** A client can offer protocols that it speaks (`new WebSocket(url, ["chat.v2", "chat.v1"])`). With
-  /// `protocols` the handler chooses the first of its own that the client offers, answers with it, and tells it to the
-  /// closures as ``NanoWebSocketSession/subprotocol``. A client that offers protocols of which the handler knows none
-  /// is answered with `400 Bad Request`; a client that offers none is accepted, and no protocol is chosen. Without
-  /// `protocols` the header of the client is ignored.
+  /// **Subprotocols.** A client can offer protocols that it speaks
+  /// (`new WebSocket(url, ["chat.v2", "chat.v1"])`). With `protocols` the handler chooses
+  /// the first of its own that the client offers, answers with it, and tells it to the
+  /// closures as ``NanoWebSocketSession/subprotocol``. A client that offers protocols of
+  /// which the handler knows none is answered with `400 Bad Request`; a client that
+  /// offers none is accepted, and no protocol is chosen. Without `protocols` the header
+  /// of the client is ignored.
   ///
   /// - Parameters:
   ///   - text: Called with every complete text message.
@@ -75,7 +88,8 @@ public enum NanoWebSocket {
   ///   - maxMessageSize: The largest accepted message (and frame payload) in bytes.
   ///   - origins: Which pages may connect, see above. The default accepts every page.
   ///   - protocols: The subprotocols that the handler speaks, in the order of its preference.
-  ///   - hub: A ``NanoWebSocketHub`` that the sessions join when they are connected, and leave when they have ended.
+  ///   - hub: A ``NanoWebSocketHub`` that the sessions join when they are connected, and
+  ///     leave when they have ended.
   public static func handler(text: ((NanoWebSocketSession, String) -> Void)? = nil,
                              binary: ((NanoWebSocketSession, [UInt8]) -> Void)? = nil,
                              pong: ((NanoWebSocketSession, [UInt8]) -> Void)? = nil,
@@ -99,10 +113,12 @@ public enum NanoWebSocket {
         return .badRequest(.text("Invalid value of 'Sec-Websocket-Key' header: \(request.header("sec-websocket-key") ?? "unknown")"))
       }
       guard request.header("sec-websocket-version") == "13" else {
-        // https://tools.ietf.org/html/rfc6455#section-4.4: tell the client which version this server speaks.
-        return NanoHTTPResponse(statusCode: 426,
-                                headers: ["Sec-WebSocket-Version": "13"],
-                                body: .text("Unsupported WebSocket version: \(request.header("sec-websocket-version") ?? "none")"))
+        // https://tools.ietf.org/html/rfc6455#section-4.4: tell the client which version
+        // this server speaks.
+        return NanoHTTPResponse(
+          statusCode: 426,
+          headers: ["Sec-WebSocket-Version": "13"],
+          body: .text("Unsupported WebSocket version: \(request.header("sec-websocket-version") ?? "none")"))
       }
       switch origins {
         case .any:
@@ -118,10 +134,13 @@ public enum NanoWebSocket {
       }
       var chosen: String? = nil
       if !protocols.isEmpty, let offered = request.header("sec-websocket-protocol") {
-        let wanted = offered.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        let wanted = offered.split(separator: ",").map {
+          $0.trimmingCharacters(in: .whitespaces)
+        }.filter { !$0.isEmpty }
         if !wanted.isEmpty {
           guard let match = protocols.first(where: { wanted.contains($0) }) else {
-            return .badRequest(.text("None of the WebSocket subprotocols is supported: \(wanted.joined(separator: ", "))"))
+            return .badRequest(
+              .text("None of the WebSocket subprotocols is supported: \(wanted.joined(separator: ", "))"))
           }
           chosen = match
         }
@@ -153,9 +172,9 @@ public enum NanoWebSocket {
   }
 }
 
-/// The part of a WebSocket connection that reads the frames of the client and calls the closures of
-/// ``NanoWebSocket/handler(text:binary:pong:connected:disconnected:maxMessageSize:origins:protocols:hub:)``: one message at a time, as the
-/// server tells it that the socket has something to read.
+/// The part of a WebSocket connection that reads the frames of the client and calls the
+/// closures that the handler of ``NanoWebSocket`` was given: one message at a time, as
+/// the server tells it that the socket has something to read.
 final class NanoWebSocketSessionDriver: NanoSocketSession {
   private let text: ((NanoWebSocketSession, String) -> Void)?
   private let binary: ((NanoWebSocketSession, [UInt8]) -> Void)?
@@ -170,7 +189,8 @@ final class NanoWebSocketSessionDriver: NanoSocketSession {
   private var logger: NanoHTTPLogger = NanoSilentLogger()
   private var fragmentedOpCode = NanoWebSocketSession.OpCode.close
   private var payload = [UInt8]() // Used for fragmented frames.
-  private var closeCode: UInt16? = nil // The status code of the close frame of the client, if it has one.
+  // The status code of the close frame of the client, if it has one.
+  private var closeCode: UInt16? = nil
   private var failed = false
   private var ended = false
   
@@ -222,23 +242,26 @@ final class NanoWebSocketSessionDriver: NanoSocketSession {
     self.ended = true
     self.disconnected?(session)
     if self.failed {
-      // The client may still be sending (e.g. the rest of a refused frame): let it read our close
-      // frame instead of resetting the connection.
+      // The client may still be sending (e.g. the rest of a refused frame): let it read
+      // our close frame instead of resetting the connection.
       session.socket.closeAfterDraining(timeout: self.drainTimeout)
     }
   }
   
   private func ensureMessageFits(adding frame: NanoWebSocketSession.Frame) throws {
     if self.payload.count + frame.payload.count > self.maxMessageSize {
-      throw NanoWebSocketSession.WsError.messageTooBig("Message exceeds \(self.maxMessageSize) bytes.")
+      throw NanoWebSocketSession.WsError.messageTooBig(
+        "Message exceeds \(self.maxMessageSize) bytes.")
     }
   }
   
-  private func handleTextPayload(_ frame: NanoWebSocketSession.Frame, _ session: NanoWebSocketSession) throws {
+  private func handleTextPayload(_ frame: NanoWebSocketSession.Frame,
+                                 _ session: NanoWebSocketSession) throws {
     if let handleText = self.text {
       if frame.fin {
         if self.payload.count > 0 {
-          throw NanoWebSocketSession.WsError.protocolError("Continuing fragmented frame cannot have an operation code.")
+          throw NanoWebSocketSession.WsError.protocolError(
+            "Continuing fragmented frame cannot have an operation code.")
         }
         // Not `String(validatingUTF8:)`: that reads a C string and stops at the first NUL.
         if let text = String(bytes: frame.payload, encoding: .utf8) {
@@ -254,11 +277,13 @@ final class NanoWebSocketSessionDriver: NanoSocketSession {
     }
   }
   
-  private func handleBinaryPayload(_ frame: NanoWebSocketSession.Frame, _ session: NanoWebSocketSession) throws {
+  private func handleBinaryPayload(_ frame: NanoWebSocketSession.Frame,
+                                   _ session: NanoWebSocketSession) throws {
     if let handleBinary = self.binary {
       if frame.fin {
         if self.payload.count > 0 {
-          throw NanoWebSocketSession.WsError.protocolError("Continuing fragmented frame cannot have an operation code.")
+          throw NanoWebSocketSession.WsError.protocolError(
+            "Continuing fragmented frame cannot have an operation code.")
         }
         handleBinary(session, frame.payload)
       } else {
@@ -298,7 +323,8 @@ final class NanoWebSocketSessionDriver: NanoSocketSession {
         // https://tools.ietf.org/html/rfc6455#section-5.5.1: no payload, or a status code (two
         // bytes) with an optional reason.
         if frame.payload.count == 1 {
-          throw NanoWebSocketSession.WsError.protocolError("A close frame cannot have a payload of one byte.")
+          throw NanoWebSocketSession.WsError.protocolError(
+            "A close frame cannot have a payload of one byte.")
         }
         if frame.payload.count >= 2 {
           let code = UInt16(frame.payload[0]) << 8 | UInt16(frame.payload[1])
@@ -321,8 +347,8 @@ final class NanoWebSocketSessionDriver: NanoSocketSession {
     }
   }
   
-  /// Tells the client why the connection ends (RFC 6455 7.4): the error decides the status code of the close
-  /// frame.
+  /// Tells the client why the connection ends (RFC 6455 7.4): the error decides the
+  /// status code of the close frame.
   private func finish(with error: Error) {
     guard let session else {
       return
@@ -348,9 +374,11 @@ final class NanoWebSocketSessionDriver: NanoSocketSession {
         self.logger.info("WebSocket: protocol error (\(error))")
         code = NanoWebSocketSession.CloseCode.protocolError
       default:
-        self.logger.warning("WebSocket: the session ended because of an unexpected error (\(error))")
+        self.logger.warning(
+          "WebSocket: the session ended because of an unexpected error (\(error))")
     }
-    // If an error occurs, send the close handshake (unless the connection is gone: nobody could read it).
+    // If an error occurs, send the close handshake (unless the connection is gone: nobody
+    // could read it).
     if !session.socket.isClosed {
       if let code {
         session.writeCloseFrame(code: code)
@@ -364,14 +392,15 @@ final class NanoWebSocketSessionDriver: NanoSocketSession {
   }
 }
 
-/// One WebSocket connection. Sessions are what the closures of `NanoWebSocket.handler(...)` receive; keep them
-/// (for example in a set, to broadcast) and drop them in `disconnected`.
+/// One WebSocket connection. Sessions are what the closures of `NanoWebSocket.handler(...)`
+/// receive; keep them (for example in a set, to broadcast) and drop them in `disconnected`.
 ///
 /// All `write...` methods may be called from any thread at any time: concurrent calls are
-/// serialized, so frames never interleave. A write that fails (the connection has ended, or the client does not read
-/// for longer than ``NanoHTTPServerIO/Configuration/sessionWriteTimeout``) ends the session: it is logged once, at the
-/// level ``NanoLogLevel/info`` (if the session has a ``logger``), the connection is closed, and later writes are a harmless
-/// no-op.
+/// serialized, so frames never interleave. A write that fails (the connection has ended,
+/// or the client does not read for longer than
+/// ``NanoHTTPServerIO/Configuration/sessionWriteTimeout``) ends the session: it is logged
+/// once, at the level ``NanoLogLevel/info`` (if the session has a ``logger``), the
+/// connection is closed, and later writes are a harmless no-op.
 public class NanoWebSocketSession: Hashable, Equatable {
   
   /// Violations of the WebSocket protocol that end a connection.
@@ -429,35 +458,39 @@ public class NanoWebSocketSession: Hashable, Equatable {
   /// The socket of the connection.
   public let socket: NanoSocket
   
-  /// Serializes writing frames: a frame consists of several parts, and the writes of two threads
-  /// must not be mixed.
+  /// Serializes writing frames: a frame consists of several parts, and the writes of two
+  /// threads must not be mixed.
   private let writeLock = NSLock()
   
   /// The largest frame payload `readFrame()` accepts, in bytes. A frame that announces more is
   /// rejected with `WsError.protocolError` before any of its payload is read.
   public var maxPayloadSize = 16 * 1024 * 1024
   
-  /// Receives what goes wrong when the session writes (a frame that cannot be written because the
-  /// client has gone). The server sets the logger of its sessions to its own; a session that is created
-  /// by hand logs nothing.
+  /// Receives what goes wrong when the session writes (a frame that cannot be written
+  /// because the client has gone). The server sets the logger of its sessions to its own;
+  /// a session that is created by hand logs nothing.
   public var logger: NanoHTTPLogger?
   
-  /// The subprotocol that the client and the server agreed on in the handshake (the `Sec-WebSocket-Protocol` of the
-  /// response), if there is one: see the `protocols` of ``NanoWebSocket/handler(text:binary:pong:connected:disconnected:maxMessageSize:origins:protocols:hub:)``.
+  /// The subprotocol that the client and the server agreed on in the handshake (the
+  /// `Sec-WebSocket-Protocol` of the response), if there is one: see the `protocols` of
+  /// the handler of ``NanoWebSocket``.
   public internal(set) var subprotocol: String?
   
-  /// Whether a frame could not be written (guarded by `writeLock`): the connection is closed then, because a frame
-  /// that was written only in part would make the client misread everything that follows.
+  /// Whether a frame could not be written (guarded by `writeLock`): the connection is
+  /// closed then, because a frame that was written only in part would make the client
+  /// misread everything that follows.
   private var writeFailed = false
   
-  /// Creates a session for an established connection. Sessions are normally created by ``NanoWebSocket/handler(text:binary:pong:connected:disconnected:maxMessageSize:origins:protocols:hub:)``.
+  /// Creates a session for an established connection. Sessions are normally created by
+  /// the handler of ``NanoWebSocket``.
   public init(_ socket: NanoSocket) {
     self.socket = socket
   }
   
   deinit {
-    // A courtesy for a session that is dropped while its connection is still open. When the connection
-    // has ended already (the server closes it after the close handshake), there is nobody to tell.
+    // A courtesy for a session that is dropped while its connection is still open. When
+    // the connection has ended already (the server closes it after the close handshake),
+    // there is nobody to tell.
     if !self.socket.isClosed {
       self.writeCloseFrame()
     }
@@ -479,8 +512,8 @@ public class NanoWebSocketSession: Hashable, Equatable {
     self.writeFrame(binary, OpCode.binary)
   }
   
-  /// Sends one frame. May be called from any thread: frames of different threads are written one
-  /// after the other and never interleave.
+  /// Sends one frame. May be called from any thread: frames of different threads are
+  /// written one after the other and never interleave.
   public func writeFrame(_ data: ArraySlice<UInt8>, _ op: OpCode, _ fin: Bool = true) {
     var header: [UInt8] = [UInt8(fin ? 0x80 : 0x00) | op.rawValue]
     header.append(contentsOf: self.encodeLengthAndMaskFlag(UInt64(data.count), false))
@@ -493,7 +526,8 @@ public class NanoWebSocketSession: Hashable, Equatable {
     }
     do {
       if data.count <= NanoWebSocketSession.coalescingLimit {
-        // Small frames go out in a single write (and so in a single TCP segment, where possible).
+        // Small frames go out in a single write (and so in a single TCP segment, where
+        // possible).
         try self.socket.writeUInt8(header + data)
       } else {
         try self.socket.writeUInt8(header)
@@ -502,8 +536,9 @@ public class NanoWebSocketSession: Hashable, Equatable {
     } catch {
       self.writeFailed = true
       self.logger?.info("WebSocket: unable to write a frame (\(error)); the session ends")
-      // The client does not read (the write timed out), or it has gone: nothing can be sent any more. Closing the
-      // connection ends the session: its thread, or the loop of a server with one thread, finds the socket closed.
+      // The client does not read (the write timed out), or it has gone: nothing can be
+      // sent any more. Closing the connection ends the session: its thread, or the loop
+      // of a server with one thread, finds the socket closed.
       self.socket.close()
     }
   }
@@ -543,7 +578,9 @@ public class NanoWebSocketSession: Hashable, Equatable {
   
   /// Is `code` allowed in a close frame that is sent over the wire?
   static func isValidCloseCode(_ code: UInt16) -> Bool {
-    return (1000...1003).contains(code) || (1007...1014).contains(code) || (3000...4999).contains(code)
+    return (1000...1003).contains(code) ||
+           (1007...1014).contains(code) ||
+           (3000...4999).contains(code)
   }
   
   /// Frames up to this size are written together with their header in one call.
@@ -573,10 +610,11 @@ public class NanoWebSocketSession: Hashable, Equatable {
     return encodedBytes
   }
   
-  /// Reads the next frame: a masked frame of the client with a payload of at most ``maxPayloadSize`` bytes
-  /// (control frames: 125). Blocks until the frame is complete.
+  /// Reads the next frame: a masked frame of the client with a payload of at most
+  /// ``maxPayloadSize`` bytes (control frames: 125). Blocks until the frame is complete.
   ///
-  /// - Throws: ``WsError`` for violations of the protocol, `NanoSocketError` if the connection ends.
+  /// - Throws: ``WsError`` for violations of the protocol, `NanoSocketError` if the
+  ///   connection ends.
   public func readFrame() throws -> Frame {
     let frm = Frame()
     let fst = try socket.read()
@@ -589,8 +627,9 @@ public class NanoWebSocketSession: Hashable, Equatable {
     }
     let opc = fst & 0x0F
     guard let opcode = OpCode(rawValue: opc) else {
-      // "If an unknown opcode is received, the receiving endpoint MUST _Fail the WebSocket Connection_."
-      // http://tools.ietf.org/html/rfc6455#section-5.2 ( Page 29 )
+      // "If an unknown opcode is received, the receiving endpoint MUST _Fail the
+      // WebSocket Connection_." http://tools.ietf.org/html/rfc6455#section-5.2 ( Page 29
+      // )
       throw WsError.unknownOpCode("\(opc)")
     }
     if frm.fin == false {
@@ -634,11 +673,13 @@ public class NanoWebSocketSession: Hashable, Equatable {
       throw WsError.protocolError("Control frames must not carry more than 125 bytes.")
     }
     guard len <= UInt64(max(0, self.maxPayloadSize)) else {
-      throw WsError.messageTooBig("Frame of \(len) bytes exceeds the limit of \(self.maxPayloadSize) bytes.")
+      throw WsError.messageTooBig(
+        "Frame of \(len) bytes exceeds the limit of \(self.maxPayloadSize) bytes.")
     }
     
     let mask = [try socket.read(), try socket.read(), try socket.read(), try socket.read()]
-    // Read payload all at once, then apply mask (calling `socket.read` byte-by-byte is super slow).
+    // Read payload all at once, then apply mask (calling `socket.read` byte-by-byte is
+    // super slow).
     frm.payload = try socket.read(length: Int(len))
     for index in 0..<frm.payload.count {
       frm.payload[index] ^= mask[index % 4]

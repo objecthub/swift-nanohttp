@@ -32,13 +32,15 @@
 
 import Foundation
 
-/// A header value in the form `value; name=token; name="quoted string"`, like `Content-Type` and
-/// `Content-Disposition`: the value before the first `;`, and the parameters behind it. A `;`, an `=` or a `:` inside
-/// a quoted string belongs to the string, and a quoted string can hold `\"` and `\\`.
+/// A header value in the form `value; name=token; name="quoted string"`, like `Content-Type`
+/// and `Content-Disposition`: the value before the first `;`, and the parameters behind
+/// it. A `;`, an `=` or a `:` inside a quoted string belongs to the string, and a quoted
+/// string can hold `\"` and `\\`.
 struct NanoHeaderParameters {
   /// The part before the first `;`, without surrounding spaces.
   let value: String
-  /// The parameters in the order in which they appear, with names in lower case and values without quotes.
+  /// The parameters in the order in which they appear, with names in lower case and
+  /// values without quotes.
   let parameters: [(name: String, value: String)]
 
   init(_ text: String) {
@@ -73,7 +75,9 @@ struct NanoHeaderParameters {
       guard let equals = segment.firstIndex(of: "=") else {
         continue
       }
-      let name = segment[segment.startIndex..<equals].trimmingCharacters(in: .whitespaces).lowercased()
+      let name = segment[segment.startIndex..<equals]
+                   .trimmingCharacters(in: .whitespaces)
+                   .lowercased()
       if !name.isEmpty {
         let raw = segment[segment.index(after: equals)...].trimmingCharacters(in: .whitespaces)
         parameters.append((name, NanoHeaderParameters.unquoted(raw)))
@@ -87,8 +91,9 @@ struct NanoHeaderParameters {
     return self.parameters.first { $0.name == name }?.value
   }
 
-  /// The text between the quotes, if `raw` begins with one. `\"` and `\\` stand for the character behind the
-  /// backslash; any other backslash stays (browsers do not escape the backslashes of a Windows path).
+  /// The text between the quotes, if `raw` begins with one. `\"` and `\\` stand for the
+  /// character behind the backslash; any other backslash stays (browsers do not escape
+  /// the backslashes of a Windows path).
   private static func unquoted(_ raw: String) -> String {
     guard raw.first == "\"" else {
       return raw
@@ -101,7 +106,8 @@ struct NanoHeaderParameters {
       if scalar == "\"" {
         break
       }
-      if scalar == "\\" && index + 1 < scalars.count && (scalars[index + 1] == "\"" || scalars[index + 1] == "\\") {
+      if scalar == "\\" && index + 1 < scalars.count && (scalars[index + 1] == "\"" ||
+                                                         scalars[index + 1] == "\\") {
         index += 1
         result.append(scalars[index])
       } else {
@@ -112,8 +118,9 @@ struct NanoHeaderParameters {
     return String(result)
   }
 
-  /// Decodes an extended value (RFC 8187): `UTF-8''%E2%82%AC.txt`, the character set, an optional language and the
-  /// percent-encoded text. `nil` for another character set than UTF-8 and ISO-8859-1, and for bytes that are no text.
+  /// Decodes an extended value (RFC 8187): `UTF-8''%E2%82%AC.txt`, the character set, an
+  /// optional language and the percent-encoded text. `nil` for another character set than
+  /// UTF-8 and ISO-8859-1, and for bytes that are no text.
   static func decodeExtended(_ value: String) -> String? {
     let pieces = value.split(separator: "'", maxSplits: 2, omittingEmptySubsequences: false)
     guard pieces.count == 3 else {
@@ -162,17 +169,20 @@ struct NanoHeaderParameters {
 
 extension NanoHTTPRequest {
 
-  /// The parts of a `multipart/form-data` body (a form with file uploads), in order. Returns an empty
-  /// array if the request has another content type or the body is malformed. The whole body is in
-  /// memory, see ``NanoHTTPParser/Limits/maxBodyBytes``.
+  /// The parts of a `multipart/form-data` body (a form with file uploads), in order.
+  /// Returns an empty array if the request has another content type or the body is
+  /// malformed. The whole body is in memory, see ``NanoHTTPParser/Limits/maxBodyBytes``.
   ///
-  /// The body is read as RFC 2046 and RFC 7578 describe it, and is binary safe: a part ends at the line break that
-  /// precedes the next boundary line, and every byte before that belongs to the part, line breaks and `--` included.
-  /// Text before the first boundary and after the closing boundary is ignored. A boundary can be quoted
-  /// (`boundary="a b"`), and the names and file names of the parts can contain quotes (`\"`), `;`, `=` and `:`.
+  /// The body is read as RFC 2046 and RFC 7578 describe it, and is binary safe: a part
+  /// ends at the line break that precedes the next boundary line, and every byte before
+  /// that belongs to the part, line breaks and `--` included. Text before the first
+  /// boundary and after the closing boundary is ignored. A boundary can be quoted
+  /// (`boundary="a b"`), and the names and file names of the parts can contain quotes
+  /// (`\"`), `;`, `=` and `:`.
   ///
-  /// A body is refused as a whole (the result is empty) if it has no closing boundary, if the headers of a part
-  /// are not followed by an empty line, or if it exceeds ``NanoHTTPParser/Limits/maxMultipartParts`` or
+  /// A body is refused as a whole (the result is empty) if it has no closing boundary, if
+  /// the headers of a part are not followed by an empty line, or if it exceeds
+  /// ``NanoHTTPParser/Limits/maxMultipartParts`` or
   /// ``NanoHTTPParser/Limits/maxMultipartHeaderBytes``.
   public func parseMultiPartFormData() -> [MultiPart] {
     guard let contentType = self.header("content-type") else {
@@ -210,13 +220,15 @@ enum NanoMultipartParser {
     let bytes: UnsafeBufferPointer<UInt8>
     /// `--boundary`
     let delimiter: [UInt8]
-    /// A line feed and the delimiter: what the boundary line of every part but the first one begins with.
+    /// A line feed and the delimiter: what the boundary line of every part but the first
+    /// one begins with.
     let needle: [UInt8]
 
-    /// Is there a boundary line at `index`? A delimiter that is followed by more text (`--boundaryX`) is no boundary
-    /// line, and is content of the part. What follows the boundary on its line is optional blanks, and then `--` (the
-    /// closing boundary), or the line break after which the next part begins. A body that ends after the delimiter is
-    /// closed.
+    /// Is there a boundary line at `index`? A delimiter that is followed by more text
+    /// (`--boundaryX`) is no boundary line, and is content of the part. What follows the
+    /// boundary on its line is optional blanks, and then `--` (the closing boundary), or
+    /// the line break after which the next part begins. A body that ends after the
+    /// delimiter is closed.
     func delimiter(at index: Int) -> Delimiter? {
       guard index + self.delimiter.count <= self.bytes.count else {
         return nil
@@ -226,7 +238,7 @@ enum NanoMultipartParser {
       }
       var position = index + self.delimiter.count
       while position < self.bytes.count && (self.bytes[position] == NanoMultipartParser.space ||
-                                             self.bytes[position] == NanoMultipartParser.tab) {
+                                            self.bytes[position] == NanoMultipartParser.tab) {
         position += 1
       }
       if position == self.bytes.count {
@@ -234,7 +246,8 @@ enum NanoMultipartParser {
       }
       switch self.bytes[position] {
         case NanoMultipartParser.dash:
-          return position + 1 < self.bytes.count && self.bytes[position + 1] == NanoMultipartParser.dash ? .end : nil
+          return position + 1 < self.bytes.count &&
+                 self.bytes[position + 1] == NanoMultipartParser.dash ? .end : nil
         case NanoMultipartParser.cr:
           return position + 1 < self.bytes.count && self.bytes[position + 1] == NanoMultipartParser.lf
                    ? .part(start: position + 2) : nil
@@ -245,7 +258,8 @@ enum NanoMultipartParser {
       }
     }
 
-    /// The first boundary line that is preceded by a line feed, at or after `index` (the position of the line feed).
+    /// The first boundary line that is preceded by a line feed, at or after `index` (the
+    /// position of the line feed).
     func find(from index: Int) -> (lineFeed: Int, delimiter: Delimiter)? {
       guard let base = self.bytes.baseAddress else {
         return nil
@@ -264,7 +278,8 @@ enum NanoMultipartParser {
       return nil
     }
 
-    /// The first boundary line of the body, which may be the first line (there is no preamble then).
+    /// The first boundary line of the body, which may be the first line (there is no
+    /// preamble then).
     func first() -> Delimiter? {
       return self.delimiter(at: 0) ?? self.find(from: 0)?.delimiter
     }
@@ -273,10 +288,11 @@ enum NanoMultipartParser {
       return String(decoding: UnsafeBufferPointer(rebasing: self.bytes[range]), as: UTF8.self)
     }
 
-    /// Reads the headers of the part that begins at `start`, up to the empty line: the names in lower case, the values
-    /// without the blanks around them, repeated headers joined with `", "`, continuation lines (which begin with a
-    /// blank) appended with a space. Returns them and the position where the content of the part begins; `nil` if
-    /// there is no empty line within `maxBytes`.
+    /// Reads the headers of the part that begins at `start`, up to the empty line: the
+    /// names in lower case, the values without the blanks around them, repeated headers
+    /// joined with `", "`, continuation lines (which begin with a blank) appended with a
+    /// space. Returns them and the position where the content of the part begins; `nil`
+    /// if there is no empty line within `maxBytes`.
     func headers(from start: Int, maxBytes: Int) -> (headers: [String: String], contentStart: Int)? {
       guard let base = self.bytes.baseAddress else {
         return nil
@@ -297,7 +313,8 @@ enum NanoMultipartParser {
         if end == position {
           return (headers, lineFeed + 1) // the empty line
         }
-        if self.bytes[position] == NanoMultipartParser.space || self.bytes[position] == NanoMultipartParser.tab {
+        if self.bytes[position] == NanoMultipartParser.space ||
+                                   self.bytes[position] == NanoMultipartParser.tab {
           if let name = last {
             headers[name]! += " " + self.text(position..<end).trimmingCharacters(in: .whitespaces)
           }
@@ -330,18 +347,20 @@ enum NanoMultipartParser {
       while case .part(let start) = current {
         guard parts.count < maxParts,
               let (headers, contentStart) = input.headers(from: start, maxBytes: maxHeaderBytes),
-              // From the last line feed of the headers: a part that is empty may have only one line break before the
-              // next boundary.
+              // From the last line feed of the headers: a part that is empty may have
+              // only one line break before the next boundary.
               let (lineFeed, next) = input.find(from: contentStart - 1) else {
           return nil
         }
-        var end = lineFeed // the line break before a boundary belongs to the boundary, not to the part
+        // the line break before a boundary belongs to the boundary, not to the part
+        var end = lineFeed
         if lineFeed < contentStart {
           end = contentStart
         } else if lineFeed > contentStart && bytes[lineFeed - 1] == cr {
           end = lineFeed - 1
         }
-        parts.append(NanoHTTPRequest.MultiPart(headers: headers, body: Array(bytes[contentStart..<end])))
+        parts.append(NanoHTTPRequest.MultiPart(headers: headers,
+                                               body: Array(bytes[contentStart..<end])))
         current = next
       }
       return parts

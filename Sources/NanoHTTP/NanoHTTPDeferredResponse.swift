@@ -47,7 +47,8 @@ import Foundation
 ///
 ///   override func handle(connection: NanoHTTPConnection) {
 ///     let pending = connection.deferResponse()
-///     let response = connection.response() // the route that matches; it may do the work itself
+///     // the route that matches; it may do the work itself
+///     let response = connection.response()
 ///     self.workers.async {
 ///       pending.send(response)
 ///     }

@@ -54,7 +54,8 @@ public class NanoProcess {
     #endif
   }
   
-  /// The signals that ``watchSignals(_:)`` watches. (`SIGSTOP` is not one of them: no process can catch it.)
+  /// The signals that ``watchSignals(_:)`` watches. (`SIGSTOP` is not one of them: no
+  /// process can catch it.)
   static let terminationSignals: [Int32] = [SIGTERM, SIGHUP, SIGINT]
   
   /// A call of `watchSignals`: the signals it asked for, and what to call.
@@ -64,7 +65,8 @@ public class NanoProcess {
     let callback: (Int32) -> Void
   }
   
-  /// A signal that is watched: its dispatch source, and what the process did with the signal before.
+  /// A signal that is watched: its dispatch source, and what the process did with the
+  /// signal before.
   private struct Watched {
     let source: DispatchSourceSignal
     let previous: sig_t?
@@ -79,20 +81,24 @@ public class NanoProcess {
   /// The queue that the callbacks run on, one at a time.
   private static let queue = DispatchQueue(label: "NanoHTTP signals", qos: .userInitiated)
   
-  /// Registers `callback` to be called with the number of the signal when the process receives `SIGTERM`, `SIGHUP`
-  /// or `SIGINT` (Ctrl-C). All registered callbacks are called, in the order of registration.
+  /// Registers `callback` to be called with the number of the signal when the process
+  /// receives `SIGTERM`, `SIGHUP` or `SIGINT` (Ctrl-C). All registered callbacks are
+  /// called, in the order of registration.
   ///
-  /// The callbacks run on a queue of their own, not inside the signal handler of the system, so they can do whatever
-  /// is needed: stop a server (which makes ``NanoHTTPServerIO/run(_:)`` return), save state, write to a log. They run
-  /// one at a time. After the first call the process no longer ends by itself when it receives one of these
-  /// signals; a callback has to see to that (by stopping what the program is doing, or by calling `exit`).
+  /// The callbacks run on a queue of their own, not inside the signal handler of the
+  /// system, so they can do whatever is needed: stop a server (which makes
+  /// ``NanoHTTPServerIO/run(_:)`` return), save state, write to a log. They run one at a
+  /// time. After the first call the process no longer ends by itself when it receives one
+  /// of these signals; a callback has to see to that (by stopping what the program is
+  /// doing, or by calling `exit`).
   public static func watchSignals(_ callback: @escaping (Int32) -> Void) {
     _ = self.watch(self.terminationSignals, callback)
   }
   
-  /// Registers `callback` for `signals` and returns the number of the registration, see ``unwatch(_:)``. The signal is
-  /// ignored by the process from now on (as far as its default action goes: ending the process), and delivered to a
-  /// dispatch source instead.
+  /// Registers `callback` for `signals` and returns the number of the registration, see
+  /// ``unwatch(_:)``. The signal is ignored by the process from now on (as far as its
+  /// default action goes: ending the process), and delivered to a dispatch source
+  /// instead.
   @discardableResult
   static func watch(_ signals: [Int32], _ callback: @escaping (Int32) -> Void) -> Int {
     self.lock.lock()
@@ -100,7 +106,9 @@ public class NanoProcess {
       self.lock.unlock()
     }
     self.lastID += 1
-    self.registrations.append(Registration(id: self.lastID, signals: Set(signals), callback: callback))
+    self.registrations.append(Registration(id: self.lastID,
+                                           signals: Set(signals),
+                                           callback: callback))
     for signum in signals where self.watched[signum] == nil {
       // With the default action, the signal would end the process before the source sees it.
       let previous = signal(signum, SIG_IGN)
@@ -114,14 +122,16 @@ public class NanoProcess {
     return self.lastID
   }
   
-  /// Takes back a registration of ``watch(_:_:)``. A signal that nobody watches any more is treated as it was before.
+  /// Takes back a registration of ``watch(_:_:)``. A signal that nobody watches any more
+  /// is treated as it was before.
   static func unwatch(_ id: Int) {
     self.lock.lock()
     defer {
       self.lock.unlock()
     }
     self.registrations.removeAll { $0.id == id }
-    for (signum, entry) in Array(self.watched) where !self.registrations.contains(where: { $0.signals.contains(signum) }) {
+    for (signum, entry) in Array(self.watched) where !self.registrations.contains(
+                                                       where: { $0.signals.contains(signum) }) {
       entry.source.cancel()
       signal(signum, entry.previous)
       self.watched[signum] = nil

@@ -36,17 +36,22 @@
 
 import Foundation
 
-/// Receives the body of a response while a ``NanoHTTPResponse/Body/custom(_:contentType:)`` function
-/// produces it. The writer is the connection: whatever is written is sent to the client at once, so the
-/// function can stream content of any size.
+/// Receives the body of a response while a ``NanoHTTPResponse/Body/custom(_:contentType:)``
+/// function produces it. The writer is the connection: whatever is written is sent to the
+/// client at once, so the function can stream content of any size.
 public protocol NanoHTTPResponseBodyWriter {
+  
   /// Writes the content of a file.
   func write(_ file: NanoFile) throws
-  /// Writes `length` bytes of a file, from `offset` on: fewer if the file ends earlier. This is how a part
-  /// of a file is sent (a range); where the system allows, the bytes do not pass through this process.
+  
+  /// Writes `length` bytes of a file, from `offset` on: fewer if the file ends earlier.
+  /// This is how a part of a file is sent (a range); where the system allows, the bytes
+  /// do not pass through this process.
   func write(_ file: NanoFile, offset: Int64, length: Int64) throws
+  
   /// Writes bytes.
   func write(_ data: ArraySlice<UInt8>) throws
+  
   /// Writes bytes.
   func write(_ data: Data) throws
 }

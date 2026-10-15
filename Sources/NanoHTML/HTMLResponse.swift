@@ -35,8 +35,9 @@ import Foundation
 import NanoHTTP
 
 extension NanoHTTPResponse {
-  /// A response that contains a page or any other node, as `text/html; charset=utf-8`. The page is
-  /// rendered at once, so the response has a length and the connection can be used again.
+  /// A response that contains a page or any other node, as `text/html; charset=utf-8`.
+  /// The page is rendered at once, so the response has a length and the connection can be
+  /// used again.
   ///
   /// ```swift
   /// let server = NanoHTTPServer()
@@ -46,7 +47,8 @@ extension NanoHTTPResponse {
   /// ```
   ///
   /// - Parameters:
-  ///   - page: The node to send: usually an ``Html`` element, which is sent as a complete document.
+  ///   - page: The node to send: usually an ``Html`` element, which is sent as a complete
+  ///     document.
   ///   - status: The status code of the response.
   ///   - headers: More headers of the response.
   public static func html(_ page: HTMLNode,
@@ -56,8 +58,9 @@ extension NanoHTTPResponse {
   }
 }
 
-/// Returns a handler that answers with a page that a block builds. The block runs for every request
-/// and receives the request, so that the page can show what the request asked for.
+/// Returns a handler that answers with a page that a block builds. The block runs for
+/// every request and receives the request, so that the page can show what the request
+/// asked for.
 ///
 /// ```swift
 /// let server = NanoHTTPServer()
@@ -76,9 +79,9 @@ extension NanoHTTPResponse {
 /// }
 /// ```
 ///
-/// The block can throw: the error is answered like the error of any other handler. The pages are
-/// built from values and share nothing, so the handler can run on several threads at the same time,
-/// and needs no locks on a server that runs on one thread.
+/// The block can throw: the error is answered like the error of any other handler. The
+/// pages are built from values and share nothing, so the handler can run on several
+/// threads at the same time, and needs no locks on a server that runs on one thread.
 ///
 /// - Parameter page: Builds the page for a request.
 public func htmlHandler(@HTMLBuilder _ page: @escaping (NanoHTTPRequest) throws -> HTMLNode)

@@ -44,11 +44,13 @@ public enum NanoLogLevel: Int, Comparable, CustomStringConvertible {
   /// response, a client that did not follow a protocol, a recovery.
   case info = 1
   
-  /// Something that the server worked around, but that should not happen and may need attention:
-  /// accepting connections fails, the connection limit is reached, a response header was dropped.
+  /// Something that the server worked around, but that should not happen and may need
+  /// attention: accepting connections fails, the connection limit is reached, a response
+  /// header was dropped.
   case warning = 2
   
-  /// A failure of the application: a handler that threw an error, a response that could not be built.
+  /// A failure of the application: a handler that threw an error, a response that could
+  /// not be built.
   case error = 3
   
   public static func < (lhs: NanoLogLevel, rhs: NanoLogLevel) -> Bool {
@@ -65,13 +67,14 @@ public enum NanoLogLevel: Int, Comparable, CustomStringConvertible {
   }
 }
 
-/// Receives the messages that a server reports: a response that could not be written, a pause in
-/// accepting connections, a handler that threw an error, a WebSocket client that broke the protocol.
-/// Set the logger of a server with ``NanoHTTPServerIO/Configuration/logger``.
+/// Receives the messages that a server reports: a response that could not be written, a
+/// pause in accepting connections, a handler that threw an error, a WebSocket client that
+/// broke the protocol. Set the logger of a server with
+/// ``NanoHTTPServerIO/Configuration/logger``.
 ///
-/// The message is given as an autoclosure: a logger that does not use a message (it is below the
-/// level that the logger wants) does not pay for building its text. A logger can be called from any
-/// thread, also at the same time, and has to be safe for that.
+/// The message is given as an autoclosure: a logger that does not use a message (it is
+/// below the level that the logger wants) does not pay for building its text. A logger
+/// can be called from any thread, also at the same time, and has to be safe for that.
 ///
 /// ```swift
 /// // file scope
@@ -118,15 +121,17 @@ extension NanoHTTPLogger {
   }
 }
 
-/// A logger that writes to the unified logging system of Apple's platforms (`os.Logger`): the messages
-/// appear in the console of Xcode and in the Console app, with the subsystem `org.objecthub.NanoHTTP`.
-/// It is the default logger of a server.
+/// A logger that writes to the unified logging system of Apple's platforms (`os.Logger`):
+/// the messages appear in the console of Xcode and in the Console app, with the subsystem
+/// `org.objecthub.NanoHTTP`. It is the default logger of a server.
 ///
-/// The messages are logged as public: they contain paths and error descriptions of your own server,
-/// which are what a developer wants to read. Messages of the level ``NanoLogLevel/debug`` are not
-/// kept by the system unless debug logging is switched on for the subsystem.
+/// The messages are logged as public: they contain paths and error descriptions of your
+/// own server, which are what a developer wants to read. Messages of the level
+/// ``NanoLogLevel/debug`` are not kept by the system unless debug logging is switched on
+/// for the subsystem.
 ///
-/// A command-line tool does not see these messages in its terminal; give it a ``NanoConsoleLogger``.
+/// A command-line tool does not see these messages in its terminal; give it a
+/// ``NanoConsoleLogger``.
 public final class NanoOSLogger: NanoHTTPLogger {
   private let logger: Logger
   
@@ -162,10 +167,11 @@ public final class NanoOSLogger: NanoHTTPLogger {
   }
 }
 
-/// A logger that prints one line for every message, such as `[WARNING] Unable to accept a connection`,
-/// for command-line tools and for tests. By default the lines are printed to the standard output, and every line is
-/// flushed: when the output goes to a pipe or a file (`tool | tee log`), the standard output is buffered, and the
-/// lines would otherwise show up late.
+/// A logger that prints one line for every message, such as
+/// `[WARNING] Unable to accept a connection`, for command-line tools and for tests. By
+/// default the lines are printed to the standard output, and every line is flushed: when
+/// the output goes to a pipe or a file (`tool | tee log`), the standard output is
+/// buffered, and the lines would otherwise show up late.
 public final class NanoConsoleLogger: NanoHTTPLogger {
   private let output: (String) -> Void
   
@@ -174,7 +180,8 @@ public final class NanoConsoleLogger: NanoHTTPLogger {
   
   /// - Parameters:
   ///   - minimumLevel: The lowest level that is logged; messages below it are not even built.
-  ///   - output: Receives every line. It is called from any thread: the default (`print`, and a flush) is safe for that.
+  ///   - output: Receives every line. It is called from any thread: the default (`print`,
+  ///     and a flush) is safe for that.
   public init(minimumLevel: NanoLogLevel = .info,
               output: @escaping (String) -> Void = { print($0); fflush(stdout) }) {
     self.minimumLevel = minimumLevel

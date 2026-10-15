@@ -100,7 +100,8 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     hasher.combine(ObjectIdentifier(self))
   }
   
-  /// Sockets are equal if they are the same object (not if they have the same descriptor number).
+  /// Sockets are equal if they are the same object (not if they have the same descriptor
+  /// number).
   public static func == (socket1: NanoSocket, socket2: NanoSocket) -> Bool {
     return socket1 === socket2
   }
@@ -117,9 +118,9 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   /// Runs `body` with the descriptor of this socket and keeps the socket from being released
   /// while `body` runs. Throws `closedError` if the socket is already closed.
   ///
-  /// This is what makes closing safe while other threads read or write: the number of a closed
-  /// descriptor is handed out again by the system, so an operation that still used it would read
-  /// from or write to an unrelated socket.
+  /// This is what makes closing safe while other threads read or write: the number of a
+  /// closed descriptor is handed out again by the system, so an operation that still used
+  /// it would read from or write to an unrelated socket.
   private func withDescriptor<T>(closedError: @autoclosure () -> NanoSocketError,
                                  _ body: (Int32) throws -> T) throws -> T {
     self.condition.lock()
@@ -140,13 +141,13 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     return try body(self.socketFileDescriptor)
   }
   
-  /// Closes the socket. Closing is idempotent and may be called from any thread, also while other
-  /// threads are reading from or writing to the socket.
+  /// Closes the socket. Closing is idempotent and may be called from any thread, also
+  /// while other threads are reading from or writing to the socket.
   ///
-  /// The connection is shut down first, which makes operations that are blocked right now fail
-  /// instead of waiting for the peer; then `close` waits (for at most two seconds) until all
-  /// running operations have returned, and only then releases the descriptor. Operations started
-  /// afterwards fail without touching the descriptor.
+  /// The connection is shut down first, which makes operations that are blocked right now
+  /// fail instead of waiting for the peer; then `close` waits (for at most two seconds)
+  /// until all running operations have returned, and only then releases the descriptor.
+  /// Operations started afterwards fail without touching the descriptor.
   public func close() {
     self.condition.lock()
     if self.closed {
@@ -188,12 +189,19 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
         if now >= deadline {
           break
         }
+        // 0 would mean "no timeout"
         let remaining = max(0.001,
-                            Double(deadline - now) / 1_000_000_000) // 0 would mean "no timeout"
+                            Double(deadline - now) / 1_000_000_000)
         var wait = timeval(tv_sec: Int(remaining),
                            tv_usec: Int32((remaining - remaining.rounded(.down)) * 1_000_000))
-        setsockopt(descriptor, SOL_SOCKET, SO_RCVTIMEO, &wait, socklen_t(MemoryLayout<timeval>.size))
-        let count = buffer.withUnsafeMutableBytes { Darwin.read(descriptor, $0.baseAddress, $0.count) }
+        setsockopt(descriptor,
+                   SOL_SOCKET,
+                   SO_RCVTIMEO,
+                   &wait,
+                   socklen_t(MemoryLayout<timeval>.size))
+        let count = buffer.withUnsafeMutableBytes {
+          Darwin.read(descriptor, $0.baseAddress, $0.count)
+        }
         if count > 0 {
           drained += count
         } else if count < 0 && errno == EINTR {
@@ -359,34 +367,36 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   /// The local port of the socket; for a listening socket started with port 0, the port
   /// that the system chose.
   public func port() throws -> in_port_t {
-    return try self.withDescriptor(closedError: .getSockNameFailed(Self.closedDescription)) { descriptor in
-      var addr = sockaddr_in()
-      return try withUnsafePointer(to: &addr) { pointer in
-        var len = socklen_t(MemoryLayout<sockaddr_in>.size)
-        if getsockname(descriptor, UnsafeMutablePointer(OpaquePointer(pointer)), &len) != 0 {
-          throw NanoSocketError.getSockNameFailed(Self.errnoDescription)
+    return try self.withDescriptor(closedError: .getSockNameFailed(Self.closedDescription)) {
+      descriptor in
+        var addr = sockaddr_in()
+        return try withUnsafePointer(to: &addr) { pointer in
+          var len = socklen_t(MemoryLayout<sockaddr_in>.size)
+          if getsockname(descriptor, UnsafeMutablePointer(OpaquePointer(pointer)), &len) != 0 {
+            throw NanoSocketError.getSockNameFailed(Self.errnoDescription)
+          }
+          let sin_port = pointer.pointee.sin_port
+          #if os(Linux)
+          return ntohs(sin_port)
+          #else
+          return Int(OSHostByteOrder()) != OSLittleEndian ? sin_port.littleEndian : sin_port.bigEndian
+          #endif
         }
-        let sin_port = pointer.pointee.sin_port
-        #if os(Linux)
-        return ntohs(sin_port)
-        #else
-        return Int(OSHostByteOrder()) != OSLittleEndian ? sin_port.littleEndian : sin_port.bigEndian
-        #endif
-      }
     }
   }
   
   /// Whether the local address of the socket is an IPv4 address.
   public func isIPv4() throws -> Bool {
-    return try self.withDescriptor(closedError: .getSockNameFailed(Self.closedDescription)) { descriptor in
-      var addr = sockaddr_in()
-      return try withUnsafePointer(to: &addr) { pointer in
-        var len = socklen_t(MemoryLayout<sockaddr_in>.size)
-        if getsockname(descriptor, UnsafeMutablePointer(OpaquePointer(pointer)), &len) != 0 {
-          throw NanoSocketError.getSockNameFailed(Self.errnoDescription)
+    return try self.withDescriptor(closedError: .getSockNameFailed(Self.closedDescription)) {
+      descriptor in
+        var addr = sockaddr_in()
+        return try withUnsafePointer(to: &addr) { pointer in
+          var len = socklen_t(MemoryLayout<sockaddr_in>.size)
+          if getsockname(descriptor, UnsafeMutablePointer(OpaquePointer(pointer)), &len) != 0 {
+            throw NanoSocketError.getSockNameFailed(Self.errnoDescription)
+          }
+          return Int32(pointer.pointee.sin_family) == AF_INET
         }
-        return Int32(pointer.pointee.sin_family) == AF_INET
-      }
     }
   }
   
@@ -477,17 +487,20 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     if self.input.isEmpty {
       self.input = [UInt8](repeating: 0, count: Self.inputCapacity)
     }
-    let count = try self.withDescriptor(closedError: .recvFailed(Self.closedDescription)) { descriptor -> Int in
-      while true {
-        let count = self.input.withUnsafeMutableBytes { Darwin.read(descriptor, $0.baseAddress, $0.count) }
-        if count > 0 {
-          return count
+    let count = try self.withDescriptor(closedError: .recvFailed(Self.closedDescription)) {
+      descriptor -> Int in
+        while true {
+          let count = self.input.withUnsafeMutableBytes {
+            Darwin.read(descriptor, $0.baseAddress, $0.count)
+          }
+          if count > 0 {
+            return count
+          }
+          if count < 0 && errno == EINTR {
+            continue
+          }
+          throw Self.readFailure(count)
         }
-        if count < 0 && errno == EINTR {
-          continue
-        }
-        throw Self.readFailure(count)
-      }
     }
     self.inputStart = 0
     self.inputEnd = count
@@ -519,7 +532,8 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
       return result
     }
     if remaining < Self.inputCapacity {
-      // ... a little more: read a block, which probably has more of what comes next as well ...
+      // ... a little more: read a block, which probably has more of what comes next as
+      // well ...
       while remaining > 0 {
         try self.fillInput()
         let count = min(self.inputEnd - self.inputStart, remaining)
@@ -579,14 +593,16 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     return String(cString: hostBuffer)
   }
   
-  /// Makes writes to a socket whose peer has gone fail with an error instead of raising `SIGPIPE`.
+  /// Makes writes to a socket whose peer has gone fail with an error instead of raising
+  /// `SIGPIPE`.
   public class func setNoSigPipe(_ socket: Int32) {
     #if os(Linux)
     // There is no SO_NOSIGPIPE in Linux (nor some other systems). You can instead use the
     // MSG_NOSIGNAL flag when calling send(), or use signal(SIGPIPE, SIG_IGN) to make your
     // entire application ignore SIGPIPE.
     #else
-    // Prevents crashes when blocking calls are pending and the app is paused ( via Home button ).
+    // Prevents crashes when blocking calls are pending and the app is paused ( via Home
+    // button ).
     var no_sig_pipe: Int32 = 1
     setsockopt(socket, SOL_SOCKET, SO_NOSIGPIPE, &no_sig_pipe, socklen_t(MemoryLayout<Int32>.size))
     #endif
@@ -601,7 +617,8 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     #endif
   }
   
-  /// Sends the content of a file, from its beginning to its end. Uses `sendfile` where the system has it.
+  /// Sends the content of a file, from its beginning to its end. Uses `sendfile` where
+  /// the system has it.
   public func writeFile(_ file: NanoFile) throws {
     try self.withDescriptor(closedError: .writeFailed(Self.closedDescription)) { descriptor in
       var offset: off_t = 0
@@ -636,30 +653,31 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     #if os(iOS) || os(tvOS) || os(Linux)
     return try self.writeFileByReading(file, offset: offset, length: length)
     #else
-    return try self.withDescriptor(closedError: .writeFailed(Self.closedDescription)) { descriptor in
-      var sent: Int64 = 0
-      while sent < length {
-        var count = off_t(length - sent)
-        let result = sendfile(fileno(file.pointer), descriptor, off_t(offset + sent), &count, nil, 0)
-        sent += Int64(count)
-        if result == 0 {
-          if count == 0 {
-            break // the file ends before `length`
+    return try self.withDescriptor(closedError: .writeFailed(Self.closedDescription)) {
+      descriptor in
+        var sent: Int64 = 0
+        while sent < length {
+          var count = off_t(length - sent)
+          let result = sendfile(fileno(file.pointer), descriptor, off_t(offset + sent), &count, nil, 0)
+          sent += Int64(count)
+          if result == 0 {
+            if count == 0 {
+              break // the file ends before `length`
+            }
+            continue
           }
-          continue
-        }
-        if errno == EINTR {
-          continue
-        }
-        if errno == EAGAIN || errno == EWOULDBLOCK {
-          if count == 0 {
-            throw NanoSocketError.timedOut // the send timeout has passed without progress
+          if errno == EINTR {
+            continue
           }
-          continue
+          if errno == EAGAIN || errno == EWOULDBLOCK {
+            if count == 0 {
+              throw NanoSocketError.timedOut // the send timeout has passed without progress
+            }
+            continue
+          }
+          throw NanoSocketError.writeFailed("sendfile: " + Self.errnoDescription)
         }
-        throw NanoSocketError.writeFailed("sendfile: " + Self.errnoDescription)
-      }
-      return sent
+        return sent
     }
     #endif
   }
@@ -696,17 +714,20 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   ///   - port: The port to listen at; `0` lets the system choose a free port (see ``port()``).
   ///   - address: Where to listen: ``NanoHTTPServerIO/NanoListenAddress/loopback`` (an IPv4
   ///       socket for `127.0.0.1`), ``NanoHTTPServerIO/NanoListenAddress/allInterfaces`` (an
-  ///       IPv6 socket for `::` that also accepts IPv4 connections), or one address, which also decides whether the socket is an IPv4 or an IPv6
-  ///       socket. An address that cannot be parsed, or cannot be bound on this machine, makes this
-  ///       method throw `NanoSocketError.bindFailed`; it never falls back to another address.
+  ///       IPv6 socket for `::` that also accepts IPv4 connections), or one address, which
+  ///       also decides whether the socket is an IPv4 or an IPv6
+  ///       socket. An address that cannot be parsed, or cannot be bound on this machine, makes
+  ///       this method throw `NanoSocketError.bindFailed`; it never falls back to another
+  ///       address.
   ///   - backlog: The length of the queue of connections that wait to be accepted.
   /// - Returns: The listening socket.
-  /// - Throws: `NanoSocketError` if the socket cannot be created, bound or put into the listening state.
+  /// - Throws: `NanoSocketError` if the socket cannot be created, bound or put into the
+  ///           listening state.
   public class func tcpSocketForListen(_ port: in_port_t,
                                        _ address: NanoHTTPServerIO.NanoListenAddress = .loopback,
                                        backlog: Int32 = SOMAXCONN) throws -> NanoSocket {
-    // Which kind of socket, and where it is bound: decided before a descriptor is created, so that a
-    // bad address leaves nothing to clean up.
+    // Which kind of socket, and where it is bound: decided before a descriptor is created,
+    // so that a bad address leaves nothing to clean up.
     var ipv4 = in_addr(s_addr: in_addr_t(0))
     var ipv6 = in6addr_any
     let useIPv4: Bool
@@ -722,7 +743,8 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
         } else if text.withCString({ inet_pton(AF_INET6, $0, &ipv6) }) == 1 {
           useIPv4 = false
         } else {
-          // Binding to "any address" instead would expose the server on every network interface.
+          // Binding to "any address" instead would expose the server on every network
+          // interface.
           throw NanoSocketError.bindFailed("invalid listen address \"\(text)\"")
         }
     }
@@ -824,9 +846,9 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     /// connection that was aborted before it could be accepted); the next attempt may succeed.
     case transient(String)
     
-    /// The process or the system is out of file descriptors or memory. Accepting works again once
-    /// resources are free. Connections that arrive meanwhile may be lost: macOS discards a
-    /// pending connection whose `accept` failed for lack of resources.
+    /// The process or the system is out of file descriptors or memory. Accepting works
+    /// again once resources are free. Connections that arrive meanwhile may be lost: macOS
+    /// discards a pending connection whose `accept` failed for lack of resources.
     case exhausted(String)
     
     /// The listening socket is closed or unusable; accepting will never work again.
@@ -867,8 +889,8 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
   }
   
   /// Waits for a connection to this listening socket and returns the socket of the connection.
-  /// Throws on every failure; the server uses a more careful variant that retries the failures that
-  /// are only temporary.
+  /// Throws on every failure; the server uses a more careful variant that retries the
+  /// failures that are only temporary.
   public func acceptClientSocket() throws -> NanoSocket {
     switch self.acceptOutcome() {
       case .accepted(let socket):
@@ -933,8 +955,8 @@ open class NanoSocket: Hashable, Equatable, NanoHTTPResponseBodyWriter {
     return String(cString: strerror(errno))
   }
   
-  /// The error for a read that returned `count` (zero: the peer closed the connection; negative: it
-  /// failed, which includes the receive timeout having passed).
+  /// The error for a read that returned `count` (zero: the peer closed the connection;
+  /// negative: it failed, which includes the receive timeout having passed).
   private static func readFailure(_ count: Int) -> NanoSocketError {
     if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
       return .timedOut

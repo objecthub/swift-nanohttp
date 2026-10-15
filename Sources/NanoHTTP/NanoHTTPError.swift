@@ -47,12 +47,14 @@ import Foundation
 /// }
 /// ```
 ///
-/// The server turns the error into the response of ``response``: the status code, the headers, and the
-/// message as a plain text body. Every other error that a handler throws is answered with
-/// `500 Internal Server Error`, without any details (they are logged), because the description of an
-/// error can tell an attacker more than it should. ``NanoHTTPServer/errorHandler`` changes how errors
-/// are answered, for example to send them as JSON, and middleware can catch them.
+/// The server turns the error into the response of ``response``: the status code, the
+/// headers, and the message as a plain text body. Every other error that a handler throws
+/// is answered with `500 Internal Server Error`, without any details (they are logged),
+/// because the description of an error can tell an attacker more than it should.
+/// ``NanoHTTPServer/errorHandler`` changes how errors are answered, for example to send
+/// them as JSON, and middleware can catch them.
 public struct NanoHTTPError: Error, Equatable, CustomStringConvertible {
+  
   /// The status code of the response.
   public var status: Int
   
@@ -88,8 +90,8 @@ public struct NanoHTTPError: Error, Equatable, CustomStringConvertible {
     return NanoHTTPError(status: 400, message: message, headers: headers)
   }
   
-  /// `401 Unauthorized`: the client has to authenticate; `wwwAuthenticate` is the challenge (for example
-  /// `Bearer` or `Basic realm="admin"`).
+  /// `401 Unauthorized`: the client has to authenticate; `wwwAuthenticate` is the
+  /// challenge (for example `Bearer` or `Basic realm="admin"`).
   public static func unauthorized(_ message: String? = nil,
                                   wwwAuthenticate: String? = nil,
                                   headers: [String: String] = [:]) -> NanoHTTPError {
@@ -112,7 +114,8 @@ public struct NanoHTTPError: Error, Equatable, CustomStringConvertible {
     return NanoHTTPError(status: 404, message: message, headers: headers)
   }
   
-  /// `405 Method Not Allowed`; `allow` lists the methods that are allowed (the `Allow` header).
+  /// `405 Method Not Allowed`; `allow` lists the methods that are allowed (the `Allow`
+  /// header).
   public static func methodNotAllowed(_ message: String? = nil,
                                       allow: [String] = [],
                                       headers: [String: String] = [:]) -> NanoHTTPError {
@@ -147,13 +150,15 @@ public struct NanoHTTPError: Error, Equatable, CustomStringConvertible {
     return NanoHTTPError(status: 415, message: message, headers: headers)
   }
   
-  /// `422 Unprocessable Content`: the request is well-formed, but its content cannot be processed.
+  /// `422 Unprocessable Content`: the request is well-formed, but its content cannot be
+  /// processed.
   public static func unprocessableContent(_ message: String? = nil,
                                           headers: [String: String] = [:]) -> NanoHTTPError {
     return NanoHTTPError(status: 422, message: message, headers: headers)
   }
   
-  /// `429 Too Many Requests`; `retryAfter` is the number of seconds after which the client may try again.
+  /// `429 Too Many Requests`; `retryAfter` is the number of seconds after which the
+  /// client may try again.
   public static func tooManyRequests(_ message: String? = nil,
                                      retryAfter: Int? = nil,
                                      headers: [String: String] = [:]) -> NanoHTTPError {
@@ -176,7 +181,8 @@ public struct NanoHTTPError: Error, Equatable, CustomStringConvertible {
     return NanoHTTPError(status: 501, message: message, headers: headers)
   }
   
-  /// `503 Service Unavailable`; `retryAfter` is the number of seconds after which the client may try again.
+  /// `503 Service Unavailable`; `retryAfter` is the number of seconds after which the
+  /// client may try again.
   public static func serviceUnavailable(_ message: String? = nil,
                                         retryAfter: Int? = nil,
                                         headers: [String: String] = [:]) -> NanoHTTPError {

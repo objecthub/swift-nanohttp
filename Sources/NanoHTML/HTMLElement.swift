@@ -34,8 +34,9 @@
 import Foundation
 import NanoHTTP
 
-/// What an element type is: its tag name, and whether it has content. Element types are described by
-/// enumerations in ``HTMLTags``; use the types that are built on them, such as ``Div``.
+/// What an element type is: its tag name, and whether it has content. Element types are
+/// described by enumerations in ``HTMLTags``; use the types that are built on them, such
+/// as ``Div``.
 public protocol HTMLTag {
   /// The name of the tag, in lower case.
   static var name: String { get }
@@ -65,9 +66,9 @@ public protocol HTMLRawTextTag: HTMLTag {}
 
 /// An element of a page: a tag, attributes and content.
 ///
-/// The element types of HTML (`Div`, `A`, `Ul`, ...) are this type with a tag. Content is written as
-/// a block, or as text for elements that contain only text. Attributes are set by calling methods
-/// on the element, which return the changed element:
+/// The element types of HTML (`Div`, `A`, `Ul`, ...) are this type with a tag. Content is
+/// written as a block, or as text for elements that contain only text. Attributes are set
+/// by calling methods on the element, which return the changed element:
 ///
 /// ```swift
 /// let link = A("Sign in").href("/login").class("button")
@@ -78,9 +79,10 @@ public protocol HTMLRawTextTag: HTMLTag {}
 /// .id("card").class("wide")
 /// ```
 ///
-/// Text and attribute values are escaped; an element is a plain value, and building one needs no
-/// locks. Setting an attribute again replaces its value, except for `class`, whose values are added.
-/// Attributes appear in the order in which they were set. A value of `nil` leaves the attribute out.
+/// Text and attribute values are escaped; an element is a plain value, and building one
+/// needs no locks. Setting an attribute again replaces its value, except for `class`,
+/// whose values are added. Attributes appear in the order in which they were set. A value
+/// of `nil` leaves the attribute out.
 public struct HTMLElement<Kind: HTMLTag>: HTMLNode {
   var tagName: String
   var isVoidElement: Bool
@@ -98,7 +100,8 @@ public struct HTMLElement<Kind: HTMLTag>: HTMLNode {
   
   public func render(into output: inout String) {
     output += Kind.prefix
-    guard !self.tagName.isEmpty else { // the name of a custom element was not valid: only its content
+    guard !self.tagName.isEmpty else {
+      // the name of a custom element was not valid: only its content
       for child in self.children {
         child.render(into: &output)
       }
@@ -135,8 +138,8 @@ public struct HTMLElement<Kind: HTMLTag>: HTMLNode {
     return copy
   }
   
-  /// Sets an attribute that has no value, such as `disabled`, if `condition` is true; otherwise
-  /// the attribute is left out.
+  /// Sets an attribute that has no value, such as `disabled`, if `condition` is true;
+  /// otherwise the attribute is left out.
   public func attribute(_ name: String, if condition: Bool = true) -> Self {
     guard HTMLElement.isValidName(name) else {
       return self
@@ -168,14 +171,15 @@ public struct HTMLElement<Kind: HTMLTag>: HTMLNode {
     return self.attribute("aria-" + name, value)
   }
   
-  /// Sets the script of an event handler: `on("click", "go()")` is `onclick="go()"`. The script is
-  /// JavaScript, which this module cannot make safe: do not build it from untrusted text.
+  /// Sets the script of an event handler: `on("click", "go()")` is `onclick="go()"`. The
+  /// script is JavaScript, which this module cannot make safe: do not build it from
+  /// untrusted text.
   public func on(_ event: String, _ script: String?) -> Self {
     return self.attribute("on" + event, script)
   }
   
-  /// Whether `name` can be used as the name of an attribute or a custom element: letters, digits and
-  /// `-`, `_`, `:` and `.`, starting with a letter, `_` or `:`.
+  /// Whether `name` can be used as the name of an attribute or a custom element: letters,
+  /// digits and `-`, `_`, `:` and `.`, starting with a letter, `_` or `:`.
   static func isValidName(_ name: String) -> Bool {
     guard let first = name.unicodeScalars.first,
           first.isASCII, first.properties.isAlphabetic || first == "_" || first == ":" else {
@@ -221,8 +225,8 @@ extension HTMLElement where Kind: HTMLRawTextTag {
     self.init(tagName: Kind.name, isVoid: false)
   }
   
-  /// An element with code as its content, which is inserted as it is: `Script("start()")`. The end
-  /// tag of the element is neutralized if the code contains it.
+  /// An element with code as its content, which is inserted as it is: `Script("start()")`.
+  /// The end tag of the element is neutralized if the code contains it.
   public init(_ code: String) {
     self.init()
     self.children = [HTMLRawText(text: code, element: Kind.name)]
@@ -238,9 +242,10 @@ extension HTMLTags {
   }
 }
 
-/// An element with a name of your choosing, for example a web component: `CustomElement("my-widget")`.
-/// Its content and attributes are set like those of any other element. A name that is not valid
-/// (letters, digits and `-`, starting with a letter) leaves only the content.
+/// An element with a name of your choosing, for example a web component:
+/// `CustomElement("my-widget")`. Its content and attributes are set like those of any
+/// other element. A name that is not valid (letters, digits and `-`, starting with a
+/// letter) leaves only the content.
 public typealias CustomElement = HTMLElement<HTMLTags.Custom>
 
 extension HTMLElement where Kind == HTMLTags.Custom {

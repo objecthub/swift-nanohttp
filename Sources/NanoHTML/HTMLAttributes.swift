@@ -33,8 +33,9 @@
 
 import Foundation
 
-// The attributes of HTML as methods of every element. They are not tied to the elements for which
-// HTML defines them; ``HTMLElement/attribute(_:_:)`` sets any attribute that is not here.
+// The attributes of HTML as methods of every element. They are not tied to the elements
+// for which HTML defines them; ``HTMLElement/attribute(_:_:)`` sets any attribute that is
+// not here.
 
 extension HTMLElement {
   // MARK: Attributes with a value

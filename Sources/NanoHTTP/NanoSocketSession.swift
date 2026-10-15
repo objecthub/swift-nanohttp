@@ -34,20 +34,22 @@
 
 import Foundation
 
-/// A conversation over a connection that has been switched away from HTTP, such as a WebSocket, which the
-/// server drives one step at a time. A response with such a session
-/// (``NanoHTTPResponse/switchProtocols(_:session:)``) turns the connection over to it once the `101` response
-/// has been sent.
+/// A conversation over a connection that has been switched away from HTTP, such as a
+/// WebSocket, which the server drives one step at a time. A response with such a session
+/// (``NanoHTTPResponse/switchProtocols(_:session:)``) turns the connection over to it
+/// once the `101` response has been sent.
 ///
-/// The server calls ``start(socket:drainTimeout:logger:)`` once, then ``receive()`` whenever the socket has
-/// something to read, and ``end()`` once the session is over. This lets a server that has only one thread
-/// (``NanoHTTPServerIO/Configuration/Threading/singleThread``) serve many sessions and all its other
-/// connections: it waits for all of them together, and a session never holds the thread longer than
-/// it takes to handle one message. A server with a thread per connection calls the same functions on the
-/// thread of the connection, which waits for the socket between the calls.
+/// The server calls ``start(socket:drainTimeout:logger:)`` once, then ``receive()``
+/// whenever the socket has something to read, and ``end()`` once the session is over.
+/// This lets a server that has only one thread
+/// (``NanoHTTPServerIO/Configuration/Threading/singleThread``) serve many sessions and
+/// all its other connections: it waits for all of them together, and a session never
+/// holds the thread longer than it takes to handle one message. A server with a thread
+/// per connection calls the same functions on the thread of the connection, which waits
+/// for the socket between the calls.
 ///
-/// Implement this protocol for a protocol of your own. For WebSockets, use
-/// ``NanoWebSocket/handler(text:binary:pong:connected:disconnected:maxMessageSize:origins:protocols:hub:)``.
+/// Implement this protocol for a protocol of your own. For WebSockets, use the handler of
+/// ``NanoWebSocket``.
 ///
 /// ```swift
 /// // file scope
@@ -74,27 +76,32 @@ import Foundation
 /// }
 /// ```
 ///
-/// The session is used from one thread at a time, but possibly from different threads one after the
-/// other. A session that is shared with other code (a hub that sends to all sessions) has to protect what it shares.
+/// The session is used from one thread at a time, but possibly from different threads one
+/// after the other. A session that is shared with other code (a hub that sends to all
+/// sessions) has to protect what it shares.
 public protocol NanoSocketSession: AnyObject {
+  
   /// Called once, after the response has been sent, on the thread that serves the connection.
   ///
-  /// The receive timeout of the socket is the ``NanoHTTPServerIO/Configuration/readTimeout`` of the server: a read
-  /// that waits longer than that for the rest of a message throws ``NanoSocketError/timedOut``. (The server waits
-  /// for the next message itself, without a limit.) `drainTimeout` is how long to read and drop what a client
-  /// still sends when the connection is closed because of an error: a connection that is closed while the peer is
-  /// still sending is reset, and the peer then loses the last message that the session sent (the close frame of a
-  /// WebSocket). `logger` is the logger of the server (``NanoHTTPServerIO/Configuration/logger``): report
-  /// what goes wrong in the session with it, for example a client that does not follow the protocol, instead of
-  /// printing it.
+  /// The receive timeout of the socket is the ``NanoHTTPServerIO/Configuration/readTimeout``
+  /// of the server: a read that waits longer than that for the rest of a message throws
+  /// ``NanoSocketError/timedOut``. (The server waits for the next message itself, without
+  /// a limit.) `drainTimeout` is how long to read and drop what a client still sends when
+  /// the connection is closed because of an error: a connection that is closed while the
+  /// peer is still sending is reset, and the peer then loses the last message that the
+  /// session sent (the close frame of a WebSocket). `logger` is the logger of the server
+  /// (``NanoHTTPServerIO/Configuration/logger``): report what goes wrong in the session
+  /// with it, for example a client that does not follow the protocol, instead of printing
+  /// it.
   func start(socket: NanoSocket, drainTimeout: TimeInterval, logger: NanoHTTPLogger)
   
-  /// Called when the socket has data to read, or has been closed by the peer or the server. Reads and
-  /// handles what has arrived and returns without waiting for more: a message that is only partly there
-  /// can be waited for, up to the read timeout. Returns `false` to end the session.
+  /// Called when the socket has data to read, or has been closed by the peer or the
+  /// server. Reads and handles what has arrived and returns without waiting for more: a
+  /// message that is only partly there can be waited for, up to the read timeout. Returns
+  /// `false` to end the session.
   func receive() -> Bool
   
-  /// Called once when the session is over: after ``receive()`` returned `false`, and when the server stops.
-  /// The server closes the socket afterwards.
+  /// Called once when the session is over: after ``receive()`` returned `false`, and when
+  /// the server stops. The server closes the socket afterwards.
   func end()
 }

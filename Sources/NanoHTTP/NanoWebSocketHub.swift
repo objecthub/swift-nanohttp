@@ -33,12 +33,12 @@
 
 import Foundation
 
-/// The WebSocket sessions of a server that belong together, such as the participants of a chat, with a way to send
-/// a message to all of them.
+/// The WebSocket sessions of a server that belong together, such as the participants of a
+/// chat, with a way to send a message to all of them.
 ///
-/// A hub is thread-safe: it can be used from the closures of the sessions, from request handlers, and from any other
-/// thread, and it needs no locks on your side, also on a server that runs on one thread. The sessions join
-/// when ``NanoWebSocket/handler(text:binary:pong:connected:disconnected:maxMessageSize:origins:protocols:hub:)``
+/// A hub is thread-safe: it can be used from the closures of the sessions, from request
+/// handlers, and from any other thread, and it needs no locks on your side, also on a
+/// server that runs on one thread. The sessions join when the handler of ``NanoWebSocket``
 /// is given the hub, and leave when their connections have ended.
 ///
 /// ```swift
@@ -53,9 +53,10 @@ import Foundation
 /// }
 /// ```
 ///
-/// A message is written to the sessions one after the other. A client that does not read holds up the ones behind it
-/// for at most the ``NanoHTTPServerIO/Configuration/sessionWriteTimeout`` (5 seconds by default); its connection
-/// is closed then, and it leaves the hub.
+/// A message is written to the sessions one after the other. A client that does not read
+/// holds up the ones behind it for at most the
+/// ``NanoHTTPServerIO/Configuration/sessionWriteTimeout`` (5 seconds by default); its
+/// connection is closed then, and it leaves the hub.
 public final class NanoWebSocketHub {
   private let lock = NSLock()
   private var members = [NanoWebSocketSession]()
@@ -81,8 +82,8 @@ public final class NanoWebSocketHub {
     return self.members.count
   }
   
-  /// Puts a session into the hub, if it is not in it already. Sessions that a handler was given the hub for join
-  /// by themselves.
+  /// Puts a session into the hub, if it is not in it already. Sessions that a handler was
+  /// given the hub for join by themselves.
   public func add(_ session: NanoWebSocketSession) {
     self.lock.lock()
     if !self.members.contains(session) {
@@ -91,7 +92,8 @@ public final class NanoWebSocketHub {
     self.lock.unlock()
   }
   
-  /// Takes a session out of the hub. Sessions leave by themselves when their connections have ended.
+  /// Takes a session out of the hub. Sessions leave by themselves when their connections
+  /// have ended.
   public func remove(_ session: NanoWebSocketSession) {
     self.lock.lock()
     self.members.removeAll { $0 == session }
@@ -102,7 +104,8 @@ public final class NanoWebSocketHub {
   ///
   /// - Parameters:
   ///   - text: The message.
-  ///   - except: A session that does not get it, for example the one that the message comes from.
+  ///   - except: A session that does not get it, for example the one that the message
+  ///     comes from.
   public func broadcast(text: String, except: NanoWebSocketSession? = nil) {
     let data = Array(text.utf8)[...]
     for session in self.sessions where session != except {

@@ -36,8 +36,8 @@
 
 import Foundation
 
-/// The answer to a request: a status code, headers and a body. Use the static functions to create
-/// the common responses:
+/// The answer to a request: a status code, headers and a body. Use the static functions
+/// to create the common responses:
 ///
 /// ```swift
 /// let responses: [NanoHTTPResponse] = [
@@ -50,36 +50,49 @@ import Foundation
 /// ]
 /// ```
 ///
-/// The server adds `Content-Length` (for bodies of known length), `Connection` and the `Content-Type`
-/// of the body; it does not add `Date` or `Server`.
+/// The server adds `Content-Length` (for bodies of known length), `Connection` and the
+/// `Content-Type` of the body; it does not add `Date` or `Server`.
 public struct NanoHTTPResponse {
   
   /// The content of a response. A string literal is a `.text` body, so `.ok("Hello")` works.
   public enum Body: ExpressibleByStringLiteral {
+    
     /// No content (`Content-Length: 0`).
     case empty
+    
     /// Plain text, sent as UTF-8 with the content type `text/plain; charset=utf-8`.
     case text(String)
-    /// HTML, sent as UTF-8 with the content type `text/html; charset=utf-8`. The string is the whole document; ``htmlBody(_:)`` wraps content in the basic elements.
+    
+    /// HTML, sent as UTF-8 with the content type `text/html; charset=utf-8`. The string
+    /// is the whole document; ``htmlBody(_:)`` wraps content in the basic elements.
     case html(String)
-    /// A JSON document, content type `application/json`. The value is a dictionary or array of Foundation values
-    /// (strings, numbers, booleans, `NSNull`, nested dictionaries and arrays), which `JSONSerialization` writes, or any
-    /// `Encodable` value (a model, a collection of models, a recursive enum for JSON values like the `JSON` type of the
-    /// package DynamicJSON), which a `JSONEncoder` writes. To choose the settings of the encoder, use
-    /// ``NanoHTTPResponse/json(_:status:headers:encoder:)``. If the value is neither, or the encoder fails, the server
-    /// answers `500 Internal Server Error` and logs the reason.
+    
+    /// A JSON document, content type `application/json`. The value is a dictionary or array
+    /// of Foundation values (strings, numbers, booleans, `NSNull`, nested dictionaries and
+    /// arrays), which `JSONSerialization` writes, or any `Encodable` value (a model, a
+    /// collection of models, a recursive enum for JSON values like the `JSON` type of the
+    /// package DynamicJSON), which a `JSONEncoder` writes. To choose the settings of the
+    /// encoder, use ``NanoHTTPResponse/json(_:status:headers:encoder:)``. If the value is
+    /// neither, or the encoder fails, the server answers `500 Internal Server Error` and
+    /// logs the reason.
     case json(Any)
+    
     /// Bytes with a content type (`application/octet-stream` if none is given).
     case data(Data, contentType: String? = nil)
-    /// A body that a function writes to the connection, for content that is not available as a whole
-    /// or too large to hold in memory. Whatever the function writes is sent at once. Its length is not
-    /// known, so the body is sent in chunks (`Transfer-Encoding: chunked`) and the connection can be used for
-    /// the next request; an HTTP/1.0 client, which does not know chunks, gets the body up to the end of the
-    /// connection. If the handler sets a `Content-Length` header, the body is sent with that length instead: the
-    /// function has to write exactly that many bytes, or the connection is closed after the response.
+    
+    /// A body that a function writes to the connection, for content that is not available as
+    /// a whole or too large to hold in memory. Whatever the function writes is sent at once.
+    /// Its length is not known, so the body is sent in chunks (`Transfer-Encoding: chunked`)
+    /// and the connection can be used for the next request; an HTTP/1.0 client, which does
+    /// not know chunks, gets the body up to the end of the connection. If the handler sets a
+    /// `Content-Length` header, the body is sent with that length instead: the function has
+    /// to write exactly that many bytes, or the connection is closed after the response.
     case custom((NanoHTTPResponseBodyWriter) throws -> Void, contentType: String? = nil)
-    /// The connection becomes something else than HTTP, see ``NanoHTTPResponse/switchProtocols(_:_:)``.
+    
+    /// The connection becomes something else than HTTP, see
+    /// ``NanoHTTPResponse/switchProtocols(_:_:)``.
     case socket((NanoSocket) -> Void)
+    
     /// The connection becomes something else than HTTP, and the server drives a session,
     /// see ``NanoHTTPResponse/switchProtocols(_:session:)``.
     case session(NanoSocketSession)
@@ -90,8 +103,8 @@ public struct NanoHTTPResponse {
     }
     
     /// An `.html` body with a complete document around `content`:
-    /// `<html><meta charset="UTF-8"><body>content</body></html>`. The content is inserted as it is: escape text
-    /// that does not come from you with `String.htmlEscaped`.
+    /// `<html><meta charset="UTF-8"><body>content</body></html>`. The content is inserted
+    /// as it is: escape text that does not come from you with `String.htmlEscaped`.
     public static func htmlBody(_ content: String) -> Body {
       return .html("<html><meta charset=\"UTF-8\"><body>\(content)</body></html>")
     }
@@ -116,10 +129,11 @@ public struct NanoHTTPResponse {
       }
     }
     
-    /// The JSON text of the value of a `.json` body: Foundation values are written by `JSONSerialization`, any other
-    /// `Encodable` value by a `JSONEncoder`.
+    /// The JSON text of the value of a `.json` body: Foundation values are written by
+    /// `JSONSerialization`, any other `Encodable` value by a `JSONEncoder`.
     ///
-    /// - Throws: ``ResponseError/invalidObject`` for a value that is neither, or the error of the encoder.
+    /// - Throws: ``ResponseError/invalidObject`` for a value that is neither, or the
+    ///           error of the encoder.
     static func jsonData(for object: Any) throws -> Data {
       if JSONSerialization.isValidJSONObject(object) {
         return try JSONSerialization.data(withJSONObject: object)
@@ -130,8 +144,9 @@ public struct NanoHTTPResponse {
       return try JSONEncoder().encode(encodable)
     }
     
-    /// The length of the body (`nil` if unknown) and a function that writes it. Throws if the body
-    /// cannot be produced, which only happens for `.json` with something that cannot be written as JSON.
+    /// The length of the body (`nil` if unknown) and a function that writes it. Throws if
+    /// the body cannot be produced, which only happens for `.json` with something that
+    /// cannot be written as JSON.
     func content() throws -> (Int?, ((NanoHTTPResponseBodyWriter) throws -> Void)?) {
       switch self {
         case .empty:
@@ -161,21 +176,25 @@ public struct NanoHTTPResponse {
     case invalidObject
   }
   
-  /// The HTTP status code (`200`, `404`, ...). The reason phrase is derived from it, see ``reasonPhrase``.
+  /// The HTTP status code (`200`, `404`, ...). The reason phrase is derived from it,
+  /// see ``reasonPhrase``.
   public var statusCode: Int
   
-  /// The headers of the response, besides the ones that the server writes itself (`Content-Length`,
-  /// `Connection`) and the `Content-Type` of the body, see ``allHeaders()``. A header name must be a valid
-  /// token; line breaks in values are replaced by spaces.
+  /// The headers of the response, besides the ones that the server writes itself
+  /// (`Content-Length`, `Connection`) and the `Content-Type` of the body, see
+  /// ``allHeaders()``. A header name must be a valid token; line breaks in values
+  /// are replaced by spaces.
   public var headers: [String : String]
   
   /// The body of the response.
   public var body: Body
   
-  /// The cookies that the response asks the client to store. The server writes one `Set-Cookie` header for each of
-  /// them (the dictionary ``headers`` cannot hold several headers of the same name), after the other headers;
-  /// a header `Set-Cookie` in ``headers`` is still sent too. See ``NanoHTTPCookie`` for what a cookie that is sent
-  /// looks like, and what makes the server leave one out. ``allHeaders()`` does not have the cookies.
+  /// The cookies that the response asks the client to store. The server writes one
+  /// `Set-Cookie` header for each of them (the dictionary ``headers`` cannot hold
+  /// several headers of the same name), after the other headers; a header `Set-Cookie`
+  /// in ``headers`` is still sent too. See ``NanoHTTPCookie`` for what a cookie that
+  /// is sent looks like, and what makes the server leave one out. ``allHeaders()``
+  /// does not have the cookies.
   public var cookies: [NanoHTTPCookie]
   
   /// Creates a response with any status code.
@@ -194,7 +213,8 @@ public struct NanoHTTPResponse {
     self.cookies = cookies
   }
   
-  /// Adds a cookie to the response, replacing the cookie that has the same name, path and domain.
+  /// Adds a cookie to the response, replacing the cookie that has the same name, path and
+  /// domain.
   public mutating func setCookie(_ cookie: NanoHTTPCookie) {
     if let index = self.cookies.firstIndex(where: {
       $0.name == cookie.name && $0.path == cookie.path && $0.domain == cookie.domain
@@ -205,13 +225,14 @@ public struct NanoHTTPResponse {
     }
   }
   
-  /// Asks the client to delete the cookie with this name. The path and domain have to be the ones that the cookie
-  /// was set with.
+  /// Asks the client to delete the cookie with this name. The path and domain have to be the
+  /// ones that the cookie was set with.
   public mutating func deleteCookie(named name: String, path: String? = "/", domain: String? = nil) {
     self.setCookie(NanoHTTPCookie.expired(name: name, path: path, domain: domain))
   }
   
-  /// A response with a JSON body that encodes `value`, which is the way to answer with a model.
+  /// A response with a JSON body that encodes `value`, which is the way to answer with a
+  /// model.
   ///
   /// ```swift
   /// // file scope
@@ -233,8 +254,8 @@ public struct NanoHTTPResponse {
   ///   - status: The status code of the response.
   ///   - headers: The headers of the response.
   ///   - encoder: The encoder to use, for dates or a pretty-printed form, for example.
-  /// - Throws: The error of the encoder, which the server answers with `500 Internal Server Error` and logs, like any
-  ///     error that a handler throws.
+  /// - Throws: The error of the encoder, which the server answers with
+  ///           `500 Internal Server Error` and logs, like any error that a handler throws.
   public static func json<T: Encodable>(_ value: T,
                                         status: Int = 200,
                                         headers: [String : String] = [:],
@@ -259,21 +280,23 @@ public struct NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 202)
   }
   
-  /// A `101 Switching Protocols` response. After the response was sent, `socketSession` runs on the
-  /// thread of the connection and owns the socket until it returns; the connection is closed afterwards.
+  /// A `101 Switching Protocols` response. After the response was sent, `socketSession`
+  /// runs on the thread of the connection and owns the socket until it returns; the
+  /// connection is closed afterwards.
   ///
-  /// On a server that has only one thread, nothing else is served while `socketSession` runs. Use
-  /// ``switchProtocols(_:session:)`` for a session that the server can drive between other work.
+  /// On a server that has only one thread, nothing else is served while `socketSession`
+  /// runs. Use ``switchProtocols(_:session:)`` for a session that the server can drive
+  /// between other work.
   public static func switchProtocols(_ headers: [String : String],
                                      _ socketSession: @escaping (NanoSocket) -> Void) -> NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 101, headers: headers, body: .socket(socketSession))
   }
   
-  /// A `101 Switching Protocols` response for a session that the server drives. After the response was sent,
-  /// the server calls the functions of `session` when the socket has something to read, see
-  /// ``NanoSocketSession``. Unlike the other variant, this does not hold the thread of a server that has only one
-  /// thread: this is how ``NanoWebSocket/handler(text:binary:pong:connected:disconnected:maxMessageSize:origins:protocols:hub:)`` upgrades a
-  /// connection.
+  /// A `101 Switching Protocols` response for a session that the server drives. After the
+  /// response was sent, the server calls the functions of `session` when the socket has
+  /// something to read, see ``NanoSocketSession``. Unlike the other variant, this does
+  /// not hold the thread of a server that has only one thread: this is how the handler of
+  /// ``NanoWebSocket`` upgrades a connection.
   public static func switchProtocols(_ headers: [String : String],
                                      session: NanoSocketSession) -> NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 101, headers: headers, body: .session(session))
@@ -287,7 +310,8 @@ public struct NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 301, headers: headers)
   }
   
-  /// A `307 Temporary Redirect` response that points to `location` (the method of the request is kept).
+  /// A `307 Temporary Redirect` response that points to `location` (the method of the
+  /// request is kept).
   public static func movedTemporarily(_ location: String,
                                       _ headers: [String : String] = [:]) -> NanoHTTPResponse {
     var headers = headers
@@ -295,8 +319,9 @@ public struct NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 307, headers: headers)
   }
   
-  /// A `303 See Other` response that points to `location`: the client fetches it with `GET`, whatever the method of
-  /// the request was. This is how to answer a form that was posted (the post/redirect/get pattern).
+  /// A `303 See Other` response that points to `location`: the client fetches it with `GET`,
+  /// whatever the method of the request was. This is how to answer a form that was posted
+  /// (the post/redirect/get pattern).
   public static func seeOther(_ location: String,
                               _ headers: [String : String] = [:]) -> NanoHTTPResponse {
     var headers = headers
@@ -304,15 +329,15 @@ public struct NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 303, headers: headers)
   }
   
-  /// A `307 Temporary Redirect` response that points to `location` (the method and the body of the request are
-  /// kept). The same as ``movedTemporarily(_:_:)``.
+  /// A `307 Temporary Redirect` response that points to `location` (the method and the body
+  /// of the request are kept). The same as ``movedTemporarily(_:_:)``.
   public static func temporaryRedirect(_ location: String,
                                        _ headers: [String : String] = [:]) -> NanoHTTPResponse {
     return NanoHTTPResponse.movedTemporarily(location, headers)
   }
   
-  /// A `308 Permanent Redirect` response that points to `location` (the method and the body of the request are
-  /// kept, unlike with ``movedPermanently(_:_:)``).
+  /// A `308 Permanent Redirect` response that points to `location` (the method and the body
+  /// of the request are kept, unlike with ``movedPermanently(_:_:)``).
   public static func permanentRedirect(_ location: String,
                                        _ headers: [String : String] = [:]) -> NanoHTTPResponse {
     var headers = headers
@@ -325,8 +350,8 @@ public struct NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 204, headers: headers)
   }
   
-  /// A `304 Not Modified` response: the copy of the client is current. Send the `ETag` (and `Last-Modified`) that
-  /// the response with the content would have.
+  /// A `304 Not Modified` response: the copy of the client is current. Send the `ETag`
+  /// (and `Last-Modified`) that the response with the content would have.
   public static func notModified(headers: [String : String] = [:]) -> NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 304, headers: headers)
   }
@@ -337,7 +362,8 @@ public struct NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 400, headers: headers, body: body)
   }
   
-  /// A `401 Unauthorized` response. Add a `WWW-Authenticate` header if the client can authenticate.
+  /// A `401 Unauthorized` response. Add a `WWW-Authenticate` header if the client can
+  /// authenticate.
   public static func unauthorized(headers: [String : String] = [:],
                                   _ body: Body = .empty) -> NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 401, headers: headers, body: body)
@@ -355,7 +381,8 @@ public struct NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 404, headers: headers, body: body)
   }
   
-  /// A `405 Method Not Allowed` response. Add an `Allow` header with the methods that are allowed.
+  /// A `405 Method Not Allowed` response. Add an `Allow` header with the methods that are
+  /// allowed.
   public static func methodNotAllowed(headers: [String : String] = [:],
                                       _ body: Body = .empty) -> NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 405, headers: headers, body: body)
@@ -384,8 +411,8 @@ public struct NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 415, headers: headers, body: body)
   }
   
-  /// A `422 Unprocessable Content` response: the request is well-formed, but its content is not acceptable (a
-  /// field that is missing, a value that is out of range).
+  /// A `422 Unprocessable Content` response: the request is well-formed, but its content
+  /// is not acceptable (a field that is missing, a value that is out of range).
   public static func unprocessableContent(headers: [String : String] = [:],
                                           _ body: Body = .empty) -> NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 422, headers: headers, body: body)
@@ -409,14 +436,15 @@ public struct NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 501, headers: headers, body: body)
   }
   
-  /// A `503 Service Unavailable` response. Add a `Retry-After` header (seconds) if the client can try again later.
+  /// A `503 Service Unavailable` response. Add a `Retry-After` header (seconds) if the
+  /// client can try again later.
   public static func serviceUnavailable(headers: [String : String] = [:],
                                         _ body: Body = .empty) -> NanoHTTPResponse {
     return NanoHTTPResponse(statusCode: 503, headers: headers, body: body)
   }
   
-  /// A response whose body is written by `writer`, see ``Body/custom(_:contentType:)``. The writer receives
-  /// an object it writes bytes, data or files to:
+  /// A response whose body is written by `writer`, see ``Body/custom(_:contentType:)``.
+  /// The writer receives an object it writes bytes, data or files to:
   ///
   /// ```swift
   /// let response: NanoHTTPResponse = .custom(200, contentType: "text/plain") { writer in
@@ -432,9 +460,9 @@ public struct NanoHTTPResponse {
                             body: .custom(writer, contentType: contentType))
   }
   
-  /// The standard reason phrase of the status code (RFC 9110), or an empty string for a code that
-  /// has none. (`HTTPURLResponse.localizedString` is not suitable: it is localized and lower case,
-  /// and calls 200 "no error".)
+  /// The standard reason phrase of the status code (RFC 9110), or an empty string for a
+  /// code that has none. (`HTTPURLResponse.localizedString` is not suitable: it is
+  /// localized and lower case, and calls 200 "no error".)
   public var reasonPhrase: String {
     return NanoHTTPResponse.reasonPhrases[self.statusCode] ?? ""
   }
@@ -461,8 +489,8 @@ public struct NanoHTTPResponse {
     510: "Not Extended", 511: "Network Authentication Required"
   ]
   
-  /// The headers that are sent: ``headers`` plus the `Content-Type` of the body, which replaces a header of
-  /// that exact name.
+  /// The headers that are sent: ``headers`` plus the `Content-Type` of the body, which
+  /// replaces a header of that exact name.
   public func allHeaders() -> [String : String] {
     var headers = self.headers
     if let contentType = self.body.contentType() {

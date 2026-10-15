@@ -36,10 +36,10 @@ import NanoHTTP
 
 /// A part of a page: an element, text, or several of them.
 ///
-/// A page is a tree of nodes that is built with plain values, one tree per request, and is turned
-/// into HTML by `rendered()`. Nothing is shared between pages, so building pages needs no locks,
-/// on whichever thread it happens. Text and attribute values are escaped when the page is
-/// rendered; ``Raw`` is the only way to insert HTML as it is.
+/// A page is a tree of nodes that is built with plain values, one tree per request, and
+/// is turned into HTML by `rendered()`. Nothing is shared between pages, so building
+/// pages needs no locks, on whichever thread it happens. Text and attribute values are
+/// escaped when the page is rendered; ``Raw`` is the only way to insert HTML as it is.
 public protocol HTMLNode {
   /// Appends the HTML of this node to `output`.
   func render(into output: inout String)
@@ -63,9 +63,10 @@ struct HTMLText: HTMLNode {
   }
 }
 
-/// The content of `script` and `style` elements, which is not HTML but code, and so is inserted as
-/// it is. Only the end tag of the element is neutralized: `</script` becomes `<\/script`, which has
-/// the same meaning in JavaScript strings and cannot end the element early.
+/// The content of `script` and `style` elements, which is not HTML but code, and so is
+/// inserted as it is. Only the end tag of the element is neutralized: `</script` becomes
+/// `<\/script`, which has the same meaning in JavaScript strings and cannot end the
+/// element early.
 struct HTMLRawText: HTMLNode {
   let text: String
   let element: String
@@ -82,9 +83,10 @@ struct HTMLRawText: HTMLNode {
   }
 }
 
-/// HTML that is inserted as it is. This is the one way to bypass escaping: use it for markup that
-/// you wrote yourself (an entity such as `&copy;`, a snippet from a template), never for text that
-/// came from a request, a file, or any other source that is not yours.
+/// HTML that is inserted as it is. This is the one way to bypass escaping: use it for
+/// markup that you wrote yourself (an entity such as `&copy;`, a snippet from a
+/// template), never for text that came from a request, a file, or any other source that
+/// is not yours.
 ///
 /// ```swift
 /// let page = Div {
@@ -135,8 +137,8 @@ public struct Fragment: HTMLNode {
   }
 }
 
-/// The result builder for the content of elements. Inside a block, every expression is a node or
-/// text, and `if`, `else`, `switch` and `for` decide what a page contains:
+/// The result builder for the content of elements. Inside a block, every expression is a
+/// node or text, and `if`, `else`, `switch` and `for` decide what a page contains:
 ///
 /// ```swift
 /// let showHint = true

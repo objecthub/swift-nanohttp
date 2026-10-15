@@ -45,7 +45,8 @@ public struct NanoNetworkInterface: Hashable {
   /// interface: `fe80::1%en0`.
   public let ip: String
   
-  /// The netmask in the same form as `ip` (`255.255.255.0`); empty if the system does not report one.
+  /// The netmask in the same form as `ip` (`255.255.255.0`); empty if the system does not
+  /// report one.
   public let netmask: String
   
   init(name: String, ipv4: Bool, ip: String, netmask: String) {
@@ -61,18 +62,21 @@ public struct NanoNetworkInterface: Hashable {
     return Self.localIP(ipv4: true) ?? Self.localIP(ipv4: false)
   }
   
-  /// The address of the preferred interface (see `preferred(among:)`) for the given IP version.
+  /// The address of the preferred interface (see `preferred(among:)`) for the given IP
+  /// version.
   public static func localIP(ipv4: Bool = true) -> String? {
     return Self.preferred(among: Self.available().filter { $0.ipv4 == ipv4 })?.ip
   }
   
-  /// The interface that is most likely the one that is connected to the local network. Wired and
-  /// Wi-Fi interfaces (`en0`, `en1`, ...) come first, in numeric order; link-local addresses
-  /// (`169.254.x.x`, `fe80::`) come after all others. Among equals the name and address decide, so
-  /// the result does not depend on the order in which the system lists the interfaces.
+  /// The interface that is most likely the one that is connected to the local network.
+  /// Wired and Wi-Fi interfaces (`en0`, `en1`, ...) come first, in numeric order;
+  /// link-local addresses (`169.254.x.x`, `fe80::`) come after all others. Among equals
+  /// the name and address decide, so the result does not depend on the order in which the
+  /// system lists the interfaces.
   static func preferred(among interfaces: Set<NanoNetworkInterface>) -> NanoNetworkInterface? {
     func rank(_ interface: NanoNetworkInterface) -> (Int, Int, String, String) {
-      let linkLocal = interface.ip.hasPrefix("169.254.") || interface.ip.lowercased().hasPrefix("fe80:")
+      let linkLocal = interface.ip.hasPrefix("169.254.") ||
+                      interface.ip.lowercased().hasPrefix("fe80:")
       var number = Int.max
       if interface.name.hasPrefix("en"), let n = Int(interface.name.dropFirst(2)) {
         number = n
@@ -102,14 +106,16 @@ public struct NanoNetworkInterface: Hashable {
     return interfaces
   }
   
-  /// The address that an entry of the list of `getifaddrs` stands for. `nil` for entries that are
-  /// not usable: interfaces that are down or loopback, entries without an address, and addresses
-  /// that are neither IPv4 nor IPv6 (link layer addresses, for example).
+  /// The address that an entry of the list of `getifaddrs` stands for. `nil` for entries
+  /// that are not usable: interfaces that are down or loopback, entries without an
+  /// address, and addresses that are neither IPv4 nor IPv6 (link layer addresses, for
+  /// example).
   static func interface(from entry: ifaddrs) -> NanoNetworkInterface? {
     // Check for running IPv4, IPv6 interfaces. Skip the loopback interface.
     let flags = Int32(entry.ifa_flags)
     guard flags & (IFF_UP | IFF_RUNNING | IFF_LOOPBACK) == (IFF_UP | IFF_RUNNING),
-          let address = entry.ifa_addr,   // some entries (tunnels, for example) have no address
+          // some entries (tunnels, for example) have no address
+          let address = entry.ifa_addr,
           let nameBytes = entry.ifa_name else {
       return nil
     }
@@ -117,22 +123,32 @@ public struct NanoNetworkInterface: Hashable {
     guard family == AF_INET || family == AF_INET6 else {
       return nil
     }
-    // Hand over the address where it is stored, with the size of its real type: copying it into a
-    // `sockaddr` would cut an IPv6 address (`sockaddr_in6` is larger) and garble it.
+    // Hand over the address where it is stored, with the size of its real type: copying
+    // it into a `sockaddr` would cut an IPv6 address (`sockaddr_in6` is larger) and
+    // garble it.
     let size = family == AF_INET ? MemoryLayout<sockaddr_in>.size : MemoryLayout<sockaddr_in6>.size
     var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-    guard getnameinfo(address, socklen_t(size), &host, socklen_t(host.count), nil, 0, NI_NUMERICHOST) == 0 else {
+    guard getnameinfo(address,
+                      socklen_t(size),
+                      &host,
+                      socklen_t(host.count),
+                      nil,
+                      0,
+                      NI_NUMERICHOST) == 0 else {
       return nil
     }
     return NanoNetworkInterface(name: String(cString: nameBytes),
                             ipv4: family == AF_INET,
                             ip: String(cString: host),
-                            netmask: entry.ifa_netmask.map { Self.text(ofNetmask: $0, ipv4: family == AF_INET) } ?? "")
+                            netmask: entry.ifa_netmask.map {
+        Self.text(ofNetmask: $0, ipv4: family == AF_INET)
+      } ?? "")
   }
   
-  /// The text form of a netmask. The system may store a netmask with its trailing zero bytes cut
-  /// off (`sa_len` is smaller than the structure, and `sa_family` is not reliable), so the bytes
-  /// are copied into a zeroed structure of the right type and printed from there.
+  /// The text form of a netmask. The system may store a netmask with its trailing zero
+  /// bytes cut off (`sa_len` is smaller than the structure, and `sa_family` is not
+  /// reliable), so the bytes are copied into a zeroed structure of the right type and
+  /// printed from there.
   private static func text(ofNetmask mask: UnsafePointer<sockaddr>, ipv4: Bool) -> String {
     var storage = sockaddr_storage()
     let length = min(Int(mask.pointee.sa_len), MemoryLayout<sockaddr_storage>.size)

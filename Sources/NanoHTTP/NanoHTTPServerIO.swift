@@ -38,8 +38,8 @@ import Foundation
 import Dispatch
 import os
 
-/// A lock that costs next to nothing when nobody else holds it. The state of a server is read several
-/// times for every request, by all connection threads.
+/// A lock that costs next to nothing when nobody else holds it. The state of a server is
+/// read several times for every request, by all connection threads.
 final class UnfairLock {
   private let storage: UnsafeMutablePointer<os_unfair_lock>
   
@@ -62,20 +62,22 @@ final class UnfairLock {
   }
 }
 
-/// The part of a server that deals with sockets and threads: it listens at a port, accepts
-/// connections, reads the requests of each connection on a thread of its own, hands them to
-/// ``dispatch(request:)`` and writes the responses. ``NanoHTTPServer`` builds routing on top of it;
-/// subclass this class to use the server without routing.
+/// The part of a server that deals with sockets and threads: it listens at a port,
+/// accepts connections, reads the requests of each connection on a thread of its own,
+/// hands them to ``dispatch(request:)`` and writes the responses. ``NanoHTTPServer``
+/// builds routing on top of it; subclass this class to use the server without routing.
 ///
-/// The lifecycle is ``start(_:)`` and ``stop()``. Both can be called from any thread, and a server
-/// can be started again after it was stopped. How the server listens and how much it accepts is set
-/// with its ``configuration``; by default it listens at the loopback address only.
+/// The lifecycle is ``start(_:)`` and ``stop()``. Both can be called from any thread, and
+/// a server can be started again after it was stopped. How the server listens and how
+/// much it accepts is set with its ``configuration``; by default it listens at the
+/// loopback address only.
 ///
 /// A connection serves one request at a time, on a thread of its own. Requests of different
 /// connections are served concurrently, so code that handles requests must be thread-safe.
 ///
-/// Requests are limited in size (see ``Configuration/limits``), and requests that exceed a limit or
-/// cannot be parsed are answered by the server itself with `400`, `413`, `414` or `431`.
+/// Requests are limited in size (see ``Configuration/limits``), and requests that exceed
+/// a limit or cannot be parsed are answered by the server itself with `400`, `413`, `414`
+/// or `431`.
 open class NanoHTTPServerIO {
   
   /// The states of a server.
@@ -115,29 +117,33 @@ open class NanoHTTPServerIO {
   public struct Configuration {
     /// The threads that run a server.
     public enum Threading: Equatable {
-      /// A thread accepts connections, and every connection has a thread of its own. Requests of
-      /// different connections are served at the same time, so handlers that share state need locks.
-      /// A slow handler delays only its own connection. This is the default.
+      /// A thread accepts connections, and every connection has a thread of its own.
+      /// Requests of different connections are served at the same time, so handlers that
+      /// share state need locks. A slow handler delays only its own connection. This is
+      /// the default.
       case perConnection
       
-      /// **One thread does everything**: it accepts connections, reads requests, calls the middleware
-      /// and the handlers, and writes the responses, one request at a time. Handlers, middleware and
-      /// everything else that runs in them need no locks, because they never run at the same time.
-      /// ``NanoHTTPServerIO/start(_:)`` starts that thread (``acceptQoS`` is its priority);
-      /// ``NanoHTTPServerIO/run(_:)`` uses the calling thread.
+      /// **One thread does everything**: it accepts connections, reads requests, calls
+      /// the middleware and the handlers, and writes the responses, one request at a
+      /// time. Handlers, middleware and everything else that runs in them need no locks,
+      /// because they never run at the same time. ``NanoHTTPServerIO/start(_:)`` starts
+      /// that thread (``acceptQoS`` is its priority); ``NanoHTTPServerIO/run(_:)`` uses
+      /// the calling thread.
       ///
-      /// Connections that wait for a request cost no thread and hold up nobody, so any number of
-      /// browsers and idle keep-alive connections are fine. But everything that blocks the thread
-      /// blocks the server:
+      /// Connections that wait for a request cost no thread and hold up nobody, so any
+      /// number of browsers and idle keep-alive connections are fine. But everything that
+      /// blocks the thread blocks the server:
       ///
       /// - A handler that takes a second delays all other requests by a second.
-      /// - A request that stalls half way (the pause is limited by ``readTimeout``), and a client that
-      ///   does not read its response (``writeTimeout``), hold up the server up to that long. Choose
-      ///   shorter timeouts than the defaults.
-      /// - A message of a WebSocket (or of another ``NanoSocketSession``) is handled by the one thread, between
-      ///   other work, like a request: a closure that takes long delays everything, and a message that
-      ///   stalls half way delays the others up to the ``readTimeout``. A socket session in the form of a
-      ///   function (``NanoHTTPResponse/switchProtocols(_:_:)``) is different: it has the thread until it returns.
+      /// - A request that stalls half way (the pause is limited by ``readTimeout``), and
+      ///   a client that does not read its response (``writeTimeout``), hold up the
+      ///   server up to that long. Choose shorter timeouts than the defaults.
+      /// - A message of a WebSocket (or of another ``NanoSocketSession``) is handled by
+      ///   the one thread, between other work, like a request: a closure that takes long
+      ///   delays everything, and a message that stalls half way delays the others up to
+      ///   the ``readTimeout``. A socket session in the form of a function
+      ///   (``NanoHTTPResponse/switchProtocols(_:_:)``) is different: it has the thread
+      ///   until it returns.
       ///
       /// ``connectionQoS`` has no effect.
       case singleThread
@@ -148,13 +154,14 @@ open class NanoHTTPServerIO {
       /// Every `Host`, and requests without one. This is the default.
       case any
       
-      /// A server that listens at the loopback address only answers `localhost`, `127.0.0.1` and `[::1]`
-      /// (at any port, so that a tunnel to another port works); a server that listens at other addresses
-      /// answers every `Host`, because the names under which it is reached are not known.
+      /// A server that listens at the loopback address only answers `localhost`,
+      /// `127.0.0.1` and `[::1]` (at any port, so that a tunnel to another port works); a
+      /// server that listens at other addresses answers every `Host`, because the names
+      /// under which it is reached are not known.
       case automatic
       
-      /// Only the given hosts: `"example.com"` (at any port), `"example.com:8080"` (at that port only),
-      /// `"[::1]"`. The case of the names does not matter.
+      /// Only the given hosts: `"example.com"` (at any port), `"example.com:8080"` (at
+      /// that port only), `"[::1]"`. The case of the names does not matter.
       case hosts([String])
     }
     
@@ -163,72 +170,81 @@ open class NanoHTTPServerIO {
       /// Every `Origin`. This is the default.
       case any
       
-      /// Only pages of the server itself: the `Origin` of a request has to be the address that the request was
-      /// sent to (its `Host`). A request from the page of another site, and one from a page that has no origin
-      /// (`Origin: null`: a local file, a sandboxed frame) is refused.
+      /// Only pages of the server itself: the `Origin` of a request has to be the address
+      /// that the request was sent to (its `Host`). A request from the page of another
+      /// site, and one from a page that has no origin (`Origin: null`: a local file, a
+      /// sandboxed frame) is refused.
       case sameOrigin
       
-      /// Pages of the server itself, and the pages of the given origins: `"https://app.example"`,
-      /// `"http://localhost:3000"`.
+      /// Pages of the server itself, and the pages of the given origins:
+      /// `"https://app.example"`, `"http://localhost:3000"`.
       case origins([String])
     }
     
-    /// Where the server listens. The default is ``NanoListenAddress/loopback``: only programs on this
-    /// machine can connect. Use ``NanoListenAddress/allInterfaces`` for a server that is meant to
-    /// be reached from other devices.
+    /// Where the server listens. The default is ``NanoListenAddress/loopback``: only
+    /// programs on this machine can connect. Use ``NanoListenAddress/allInterfaces`` for
+    /// a server that is meant to be reached from other devices.
     public var listenAddress: NanoListenAddress = .loopback
     
-    /// The largest requests the server accepts. A request that exceeds a limit is answered with
-    /// `413`, `414` or `431` and the connection is closed.
+    /// The largest requests the server accepts. A request that exceeds a limit is
+    /// answered with `413`, `414` or `431` and the connection is closed.
     public var limits = NanoHTTPParser.Limits()
     
-    /// How long a connection may wait for a request to begin: after it was accepted, and after a
-    /// response when the connection is kept alive. A connection that stays silent that long is closed
-    /// without an answer. `nil` (or zero) waits forever. The default is 60 seconds.
+    /// How long a connection may wait for a request to begin: after it was accepted, and
+    /// after a response when the connection is kept alive. A connection that stays silent
+    /// that long is closed without an answer. `nil` (or zero) waits forever. The default
+    /// is 60 seconds.
     public var idleTimeout: TimeInterval? = 60
     
-    /// How long the server waits for more of a request once it has begun: the longest pause between two
-    /// parts of the request that arrive. A request that stalls longer is answered with `408 Request
-    /// Timeout`. It is a pause, not the total time: a request that keeps arriving, slowly, is not cut
-    /// off. `nil` (or zero) waits forever. The default is 30 seconds.
+    /// How long the server waits for more of a request once it has begun: the longest
+    /// pause between two parts of the request that arrive. A request that stalls longer
+    /// is answered with `408 Request Timeout`. It is a pause, not the total time: a
+    /// request that keeps arriving, slowly, is not cut off. `nil` (or zero) waits
+    /// forever. The default is 30 seconds.
     public var readTimeout: TimeInterval? = 30
     
-    /// How long a write may be blocked because the peer does not read: the connection is closed when
-    /// the peer takes nothing for that long. `nil` (or zero) waits forever. The default is 30 seconds.
+    /// How long a write may be blocked because the peer does not read: the connection is
+    /// closed when the peer takes nothing for that long. `nil` (or zero) waits forever.
+    /// The default is 30 seconds.
     public var writeTimeout: TimeInterval? = 30
     
-    /// How long a write to a connection that has been turned over to a session, such as a WebSocket, may be blocked
-    /// because the peer does not read: a write that makes no progress for that long fails, and the session ends. It is
-    /// shorter than ``writeTimeout`` because a message that is sent to many sessions (a chat, see ``NanoWebSocketHub``)
-    /// must not be held up for long by one client that has stopped reading, and on a server with
-    /// ``Threading/singleThread`` a client that has stopped reading holds up the whole server for that long. `nil` (or
-    /// zero) waits forever. The default is 5 seconds.
+    /// How long a write to a connection that has been turned over to a session, such as a
+    /// WebSocket, may be blocked because the peer does not read: a write that makes no
+    /// progress for that long fails, and the session ends. It is shorter than ``writeTimeout``
+    /// because a message that is sent to many sessions (a chat, see ``NanoWebSocketHub``)
+    /// must not be held up for long by one client that has stopped reading, and on a
+    /// server with ``Threading/singleThread`` a client that has stopped reading holds up
+    /// the whole server for that long. `nil` (or zero) waits forever. The default is 5
+    /// seconds.
     public var sessionWriteTimeout: TimeInterval? = 5
     
-    /// The most connections the server serves at the same time (WebSocket sessions included). When
-    /// that many are open, a new connection is answered with `503 Service Unavailable` and closed.
-    /// `nil` accepts any number; every connection uses a thread and a file descriptor. The default
-    /// is 128.
+    /// The most connections the server serves at the same time (WebSocket sessions
+    /// included). When that many are open, a new connection is answered with
+    /// `503 Service Unavailable` and closed. `nil` accepts any number; every connection
+    /// uses a thread and a file descriptor. The default is 128.
     public var maxConnections: Int? = 128
     
-    /// Which threads run the server, see ``Threading``. The default is ``Threading/perConnection``.
+    /// Which threads run the server, see ``Threading``. The default is
+    /// ``Threading/perConnection``.
     public var threading: Threading = .perConnection
     
-    /// Which `Host` headers the server answers. A web page can reach a server on this machine too: with
-    /// *DNS rebinding* the page's own domain is made to point to `127.0.0.1`, and the browser then sends
-    /// requests to the server with that domain as `Host`, and lets the page read the answers. A server that
-    /// only accepts its own names is not fooled. The default is ``HostPolicy/any``, which accepts every
-    /// `Host`; ``HostPolicy/automatic`` is what a server that is used from the browser of the same machine
-    /// should switch on. Requests that are refused get `403 Forbidden`.
+    /// Which `Host` headers the server answers. A web page can reach a server on this
+    /// machine too: with *DNS rebinding* the page's own domain is made to point to
+    /// `127.0.0.1`, and the browser then sends requests to the server with that domain as
+    /// `Host`, and lets the page read the answers. A server that only accepts its own
+    /// names is not fooled. The default is ``HostPolicy/any``, which accepts every
+    /// `Host`; ``HostPolicy/automatic`` is what a server that is used from the browser of
+    /// the same machine should switch on. Requests that are refused get `403 Forbidden`.
     public var hostPolicy: HostPolicy = .any
     
-    /// Which `Origin` headers the server answers, for the requests that change something (everything but
-    /// `GET`, `HEAD` and `OPTIONS`) and for WebSocket handshakes. A browser sends the `Origin` of the page
-    /// with them, so that a page of another site that makes the browser send a request to this server
-    /// (a form that is submitted, a `fetch`, a WebSocket) can be told from the pages of the server itself.
-    /// Requests without an `Origin` (from tools that are not browsers) are always served. The default is
-    /// ``OriginPolicy/any``; ``OriginPolicy/sameOrigin`` refuses requests that come from pages of other
-    /// sites with `403 Forbidden`.
+    /// Which `Origin` headers the server answers, for the requests that change something
+    /// (everything but `GET`, `HEAD` and `OPTIONS`) and for WebSocket handshakes. A
+    /// browser sends the `Origin` of the page with them, so that a page of another site
+    /// that makes the browser send a request to this server (a form that is submitted, a
+    /// `fetch`, a WebSocket) can be told from the pages of the server itself. Requests
+    /// without an `Origin` (from tools that are not browsers) are always served. The
+    /// default is ``OriginPolicy/any``; ``OriginPolicy/sameOrigin`` refuses requests that
+    /// come from pages of other sites with `403 Forbidden`.
     public var originPolicy: OriginPolicy = .any
     
     /// The priority of the thread that accepts connections.
@@ -237,11 +253,12 @@ open class NanoHTTPServerIO {
     /// The priority of the threads that serve the connections.
     public var connectionQoS: QualityOfService = .userInitiated
     
-    /// Receives what the server reports: a response that could not be written, a pause in accepting
-    /// connections, a handler that threw an error, a WebSocket client that broke the protocol. The default
-    /// is a ``NanoOSLogger``, which writes to the unified logging system (the console of Xcode, the Console
-    /// app). A command-line tool that should print to its terminal uses a ``NanoConsoleLogger``; a
-    /// ``NanoSilentLogger`` switches logging off.
+    /// Receives what the server reports: a response that could not be written, a pause in
+    /// accepting connections, a handler that threw an error, a WebSocket client that
+    /// broke the protocol. The default is a ``NanoOSLogger``, which writes to the unified
+    /// logging system (the console of Xcode, the Console app). A command-line tool that
+    /// should print to its terminal uses a ``NanoConsoleLogger``; a ``NanoSilentLogger``
+    /// switches logging off.
     public var logger: NanoHTTPLogger = NanoOSLogger()
     
     /// Creates the configuration of a new server: loopback only, default limits.
@@ -251,8 +268,8 @@ open class NanoHTTPServerIO {
   
   /// Creates a server that is not running.
   ///
-  /// - Parameter configuration: How the server listens and what it accepts; it can still be changed
-  ///     with ``configuration`` until the server is started.
+  /// - Parameter configuration: How the server listens and what it accepts; it can still
+  ///     be changed with ``configuration`` until the server is started.
   public init(configuration: Configuration = Configuration()) {
     self.configurationValue = configuration
     self.activeConfigurationValue = configuration
@@ -267,12 +284,13 @@ open class NanoHTTPServerIO {
   /// The configuration of the current (or last) run (guarded by `stateLock`)
   private var activeConfigurationValue: Configuration
   
-  /// The threads that serve the connections of the current run, if it has threads per connection
-  /// (guarded by `stateLock`)
+  /// The threads that serve the connections of the current run, if it has threads per
+  /// connection (guarded by `stateLock`)
   private var connectionPoolValue: NanoThreadPool?
   
-  /// How the server listens and what it accepts. A change takes effect the next time the server is
-  /// started; a server that is running keeps the configuration it was started with.
+  /// How the server listens and what it accepts. A change takes effect the next time the
+  /// server is started; a server that is running keeps the configuration it was started
+  /// with.
   public var configuration: Configuration {
     get {
       self.stateLock.lock()
@@ -322,9 +340,9 @@ open class NanoHTTPServerIO {
     }
   }
   
-  /// Changes the state to `new` if it is `expected` right now, as one atomic step. Returns `false`
-  /// without a change otherwise. This decides which of several concurrent calls of `start` or
-  /// `stop` does the work.
+  /// Changes the state to `new` if it is `expected` right now, as one atomic step.
+  /// Returns `false` without a change otherwise. This decides which of several concurrent
+  /// calls of `start` or `stop` does the work.
   private func transition(from expected: State, to new: State) -> Bool {
     self.stateLock.lock()
     defer {
@@ -374,15 +392,16 @@ open class NanoHTTPServerIO {
     self.stop()
   }
   
-  /// Starts to accept connections at `port` (`0` picks a free port, see `port()`) and returns: the
-  /// connections are accepted and served on threads of the server (see ``Configuration/threading``).
-  /// Does nothing if the server is already running or is being started or stopped by another thread.
+  /// Starts to accept connections at `port` (`0` picks a free port, see `port()`) and
+  /// returns: the connections are accepted and served on threads of the server (see
+  /// ``Configuration/threading``). Does nothing if the server is already running or is
+  /// being started or stopped by another thread.
   ///
   /// The server starts with the current ``configuration``.
   ///
-  /// - Throws: `NanoSocketError` if the listening socket cannot be set up (for example because the
-  ///     port is in use, or because the listen address is no address of this machine). The server
-  ///     is stopped then.
+  /// - Throws: `NanoSocketError` if the listening socket cannot be set up (for example
+  ///     because the port is in use, or because the listen address is no address of this
+  ///     machine). The server is stopped then.
   public func start(_ port: UInt16 = 8080) throws {
     guard let configuration = try self.launch(port) else {
       return
@@ -392,11 +411,12 @@ open class NanoHTTPServerIO {
     }
   }
   
-  /// Starts the server like ``start(_:)``, but accepts connections on the calling thread, and returns
-  /// only when the server has been stopped (with ``stop()``, from another thread or a signal handler).
+  /// Starts the server like ``start(_:)``, but accepts connections on the calling thread,
+  /// and returns only when the server has been stopped (with ``stop()``, from another
+  /// thread or a signal handler).
   ///
-  /// With ``Configuration/threading`` set to ``Configuration/Threading/singleThread``, the calling thread
-  /// is the thread that runs the whole server, handlers included.
+  /// With ``Configuration/threading`` set to ``Configuration/Threading/singleThread``,
+  /// the calling thread is the thread that runs the whole server, handlers included.
   ///
   /// - Throws: `NanoSocketError` if the listening socket cannot be set up, as ``start(_:)``.
   public func run(_ port: UInt16 = 8080) throws {
@@ -406,8 +426,9 @@ open class NanoHTTPServerIO {
     self.listen()
   }
   
-  /// Creates the listening socket and switches to the state `running`. Returns the configuration of
-  /// the run, or `nil` if the server was not stopped (somebody else starts or stops it).
+  /// Creates the listening socket and switches to the state `running`. Returns the
+  /// configuration of the run, or `nil` if the server was not stopped (somebody else
+  /// starts or stops it).
   private func launch(_ port: UInt16) throws -> Configuration? {
     guard self.transition(from: .stopped, to: .starting) else {
       return nil
@@ -439,17 +460,18 @@ open class NanoHTTPServerIO {
     thread.start()
   }
   
-  /// Stops the server: the listening socket and all open connections are closed. Does nothing if
-  /// the server is not running; if several threads call `stop` at the same time, one of them does
-  /// the work.
+  /// Stops the server: the listening socket and all open connections are closed. Does
+  /// nothing if the server is not running; if several threads call `stop` at the same
+  /// time, one of them does the work.
   open func stop() {
     self.shutDown(run: nil)
   }
   
-  /// Stops the server if it is running. If `listener` is given, only the run that uses this
-  /// listening socket is stopped. Whether the server is running that run, and the switch to the
-  /// state `stopping`, is decided in one atomic step: an accept loop of an earlier run that is
-  /// late to notice that it is over must not stop a server that has been started again.
+  /// Stops the server if it is running. If `listener` is given, only the run that uses
+  /// this listening socket is stopped. Whether the server is running that run, and the
+  /// switch to the state `stopping`, is decided in one atomic step: an accept loop of an
+  /// earlier run that is late to notice that it is over must not stop a server that has
+  /// been started again.
   func shutDown(run listener: NanoSocket?) {
     self.stateLock.lock()
     guard self.stateValue == .running, listener == nil || self.listeningSocket === listener else {
@@ -468,14 +490,15 @@ open class NanoHTTPServerIO {
     self.state = .stopped
   }
   
-  /// Accepts connections until the server is stopped or the listening socket fails. Runs on the
-  /// accepting thread; the server calls it by itself after ``start(_:)`` and ``run(_:)``.
+  /// Accepts connections until the server is stopped or the listening socket fails. Runs
+  /// on the accepting thread; the server calls it by itself after ``start(_:)`` and
+  /// ``run(_:)``.
   ///
-  /// A failed attempt to accept does not stop the server unless the listening socket itself is
-  /// gone: an interrupted call or an aborted connection is simply retried, and running out of file
-  /// descriptors or memory pauses accepting (with a growing delay of up to a second) until the
-  /// shortage is over. Connections that arrive during the shortage can be lost, because the system
-  /// discards a connection it cannot hand out.
+  /// A failed attempt to accept does not stop the server unless the listening socket
+  /// itself is gone: an interrupted call or an aborted connection is simply retried, and
+  /// running out of file descriptors or memory pauses accepting (with a growing delay of
+  /// up to a second) until the shortage is over. Connections that arrive during the
+  /// shortage can be lost, because the system discards a connection it cannot hand out.
   ///
   /// With ``Configuration/Threading/singleThread`` this thread also serves the connections.
   open func listen() {
@@ -485,9 +508,9 @@ open class NanoHTTPServerIO {
       self.serveOnOneThread(listener, configuration)
       return
     }
-    // Connections get threads of their own instead of threads of the dispatch queues, which hold only a
-    // few dozen blocked threads and stop running anything else when connections that wait for
-    // requests use them up. The threads are reused.
+    // Connections get threads of their own instead of threads of the dispatch queues,
+    // which hold only a few dozen blocked threads and stop running anything else when
+    // connections that wait for requests use them up. The threads are reused.
     self.stateLock.lock()
     let pool = self.connectionPoolValue ?? NanoThreadPool(name: "NanoHTTP connection",
                                                            qos: configuration.connectionQoS)
@@ -552,11 +575,13 @@ open class NanoHTTPServerIO {
         return .immediately
       case .transient(let reason):
         guard self.isRunning(listener) else {
-          return .giveUp // `stop` closed the listening socket, which makes the accept that waits for it fail
+          // `stop` closed the listening socket, which makes the accept that waits for it fail
+          return .giveUp
         }
         failures.count += 1
         if failures.count == 1 {
-          // Routine: a client that gave up before it was accepted (a reset connection) is no problem of the server.
+          // Routine: a client that gave up before it was accepted (a reset connection) is
+          // no problem of the server.
           self.log(.info, "Unable to accept a connection (\(reason)); retrying")
         }
         guard failures.count > 100 else {
@@ -578,22 +603,22 @@ open class NanoHTTPServerIO {
         failures.delay = min(delay * 2, 1.0)
         return .after(delay)
       case .failed:
-        // The listening socket is gone: either `stop` closed it, or it failed by itself. In the
-        // second case the server stops; in the first it already has been stopped, and it may even
-        // have been started again, which this loop must not touch.
+        // The listening socket is gone: either `stop` closed it, or it failed by itself.
+        // In the second case the server stops; in the first it already has been stopped,
+        // and it may even have been started again, which this loop must not touch.
         self.shutDown(run: listener)
         return .giveUp
     }
   }
   
-  /// Registers an accepted connection with the server and counts it. If the server has too many
-  /// connections already, the client is told so and `false` is returned.
+  /// Registers an accepted connection with the server and counts it. If the server has
+  /// too many connections already, the client is told so and `false` is returned.
   private func admit(_ socket: NanoSocket,
                      _ configuration: Configuration,
                      refusing: inout Bool,
                      inline: Bool) -> Bool {
-    // Count the connection now, not when its thread has started: a burst of connections must not get
-    // past the limit before the first of them is registered.
+    // Count the connection now, not when its thread has started: a burst of connections
+    // must not get past the limit before the first of them is registered.
     self.remember(socket: socket)
     guard let limit = configuration.maxConnections, self.openConnections > limit else {
       refusing = false
@@ -611,24 +636,27 @@ open class NanoHTTPServerIO {
     if inline {
       refuse() // the server has no other thread
     } else {
-      // Telling the client takes a while (it may still be sending); not on the accepting thread.
+      // Telling the client takes a while (it may still be sending); not on the accepting
+      // thread.
       DispatchQueue.global(qos: .utility).async(execute: refuse)
     }
     return false
   }
   
-  /// A connection of a single-thread server that waits for its next request, or a session that waits for its
-  /// next message.
+  /// A connection of a single-thread server that waits for its next request, or a session
+  /// that waits for its next message.
   private struct Waiting {
     let socket: NanoSocket
-    /// When the connection is closed if it has not sent a request by then (uptime in nanoseconds).
+    /// When the connection is closed if it has not sent a request by then (uptime in
+    /// nanoseconds).
     var deadline: UInt64?
-    /// The session that the connection has been turned over to, if it is not a connection that sends requests.
+    /// The session that the connection has been turned over to, if it is not a connection
+    /// that sends requests.
     var session: NanoSocketSession?
     /// Has the connection ended during this round of the loop?
     var finished = false
-    /// Does the connection wait for an answer that another thread sends (``NanoHTTPDeferredResponse``)? It is
-    /// not polled then, and has no deadline.
+    /// Does the connection wait for an answer that another thread sends
+    /// (``NanoHTTPDeferredResponse``)? It is not polled then, and has no deadline.
     var suspended = false
   }
   
@@ -641,12 +669,12 @@ open class NanoHTTPServerIO {
     case deferred
   }
   
-  /// The session that a response has just turned a connection over to, until the loop of the single thread
-  /// has taken it over. Only used by the one thread.
+  /// The session that a response has just turned a connection over to, until the loop of
+  /// the single thread has taken it over. Only used by the one thread.
   private var adoptedSession: (socket: NanoSocket, session: NanoSocketSession)?
   
-  /// Called by a connection of a server with one thread when its response switches to a session: the loop
-  /// waits for the socket and calls the session.
+  /// Called by a connection of a server with one thread when its response switches to a
+  /// session: the loop waits for the socket and calls the session.
   func adopt(session: NanoSocketSession, on socket: NanoSocket) {
     self.adoptedSession = (socket, session)
   }
@@ -664,11 +692,12 @@ open class NanoHTTPServerIO {
     return self.stateValue == .running && self.listeningSocket === listener
   }
   
-  /// The loop of a server that has only one thread, ``Configuration/Threading/singleThread``: it waits
-  /// for the listening socket and every connection together, and serves one request at a time.
-  /// A connection that has not sent anything is not read, so it holds up nobody; it is closed when the
-  /// idle timeout has passed. Once a connection has sent the beginning of a request, the thread reads
-  /// the rest of it and answers it, which a client that stalls can delay for up to the read timeout.
+  /// The loop of a server that has only one thread, ``Configuration/Threading/singleThread``:
+  /// it waits for the listening socket and every connection together, and serves one
+  /// request at a time. A connection that has not sent anything is not read, so it holds
+  /// up nobody; it is closed when the idle timeout has passed. Once a connection has sent
+  /// the beginning of a request, the thread reads the rest of it and answers it, which a
+  /// client that stalls can delay for up to the read timeout.
   private func serveOnOneThread(_ listener: NanoSocket, _ configuration: Configuration) {
     // A connection that is gone before it is accepted must not make `accept` wait.
     listener.setNonBlocking(true)
@@ -684,11 +713,13 @@ open class NanoHTTPServerIO {
     }
     var failures = AcceptFailures()
     var refusing = false
-    var acceptAgainAt: UInt64 = 0 // when to look at the listening socket again after a shortage
-    // What `poll` waits for: the listening socket first, then the pipe that other threads write to when they have
-    // an answer for the loop (`-1` until a request has been deferred), then the sockets of `waiting`, in their
-    // order. Connections that wait for their answer are not polled (`-1`). It is built again only when connections
-    // have come or gone, not for every message.
+    // when to look at the listening socket again after a shortage
+    var acceptAgainAt: UInt64 = 0
+    // What `poll` waits for: the listening socket first, then the pipe that other threads
+    // write to when they have an answer for the loop (`-1` until a request has been
+    // deferred), then the sockets of `waiting`, in their order. Connections that wait for
+    // their answer are not polled (`-1`). It is built again only when connections have
+    // come or gone, not for every message.
     let listenerDescriptor = listener.socketFileDescriptor
     var wakeupDescriptor: Int32 = -1
     var pollers = [pollfd]()
@@ -702,14 +733,17 @@ open class NanoHTTPServerIO {
     while self.isRunning(listener) {
       let begin = NanoHTTPServerIO.uptime()
       let accepting = begin >= acceptAgainAt
-      // At most a tenth of a second, so that a stop is noticed, and not longer than the next deadline.
+      // At most a tenth of a second, so that a stop is noticed, and not longer than the
+      // next deadline.
       var wait = 100_000_000 as UInt64 // nanoseconds
       for entry in waiting where !entry.suspended {
         if let due = entry.deadline {
           wait = min(wait, due > begin ? due - begin : 0)
         }
         if entry.socket.hasBufferedData {
-          wait = 0 // a request or a message has been read ahead: it is waiting for us, not for the system
+          // a request or a message has been read ahead: it is waiting for us,
+          // not for the system
+          wait = 0
         }
       }
       if !accepting {
@@ -724,12 +758,12 @@ open class NanoHTTPServerIO {
         rebuild = false
       }
       pollers[0].fd = accepting ? listenerDescriptor : -1 // a negative descriptor is ignored
-      // The sockets can be closed by other threads meanwhile (`stop`): at worst `poll` reports a socket that
-      // has nothing to read, and the read that follows fails.
+      // The sockets can be closed by other threads meanwhile (`stop`): at worst `poll`
+      // reports a socket that has nothing to read, and the read that follows fails.
       let result = poll(&pollers, nfds_t(pollers.count), Int32(min(UInt64(Int32.max), (wait + 999_999) / 1_000_000)))
       var removed = false
-      // The answers that other threads have handed over: the loop writes them, and goes on waiting for the next
-      // request of those connections.
+      // The answers that other threads have handed over: the loop writes them, and goes
+      // on waiting for the next request of those connections.
       if result > 0 && pollers[1].revents != 0 {
         self.drainWakeup(wakeupDescriptor)
         for completion in self.takeCompletions() {
@@ -738,7 +772,8 @@ open class NanoHTTPServerIO {
             completion.connection.close() // the connection has gone meanwhile
             continue
           }
-          _ = completion.connection.send(completion.response, dontKeepAlive: completion.dontKeepAlive) // nil: one thread
+          // nil: one thread
+          _ = completion.connection.send(completion.response, dontKeepAlive: completion.dontKeepAlive)
           switch self.outcome(of: socket) {
             case .closed:
               waiting[index].finished = true
@@ -896,27 +931,29 @@ open class NanoHTTPServerIO {
     }
   }
   
-  /// Chooses the handler for a request and returns it with the variables that the request's route
-  /// defined (see `NanoHTTPRequest.params`). The implementation of this class answers every request
-  /// with `404 Not Found`; ``NanoHTTPServer`` overrides it to route.
+  /// Chooses the handler for a request and returns it with the variables that the
+  /// request's route defined (see `NanoHTTPRequest.params`). The implementation of this
+  /// class answers every request with `404 Not Found`; ``NanoHTTPServer`` overrides it to
+  /// route.
   ///
   /// Called on the thread of the connection.
   open func dispatch(request: NanoHTTPRequest) -> ([String: String], NanoHTTPRequestHandler) {
     return ([:], { _ in NanoHTTPResponse.notFound() })
   }
   
-  /// Serves a connection: calls the handler of its first request, sends the response and, as long as
-  /// the connection is kept alive, does the same for the following requests. Returns when the
-  /// connection has ended. Runs on the thread of the connection.
+  /// Serves a connection: calls the handler of its first request, sends the response and,
+  /// as long as the connection is kept alive, does the same for the following requests.
+  /// Returns when the connection has ended. Runs on the thread of the connection.
   ///
-  /// A server with ``Configuration/Threading/singleThread`` calls it for every request that arrives:
-  /// it returns after the response has been sent, and the connection, if it is kept alive, is left open
-  /// for the server to wait for the next request.
+  /// A server with ``Configuration/Threading/singleThread`` calls it for every request
+  /// that arrives: it returns after the response has been sent, and the connection, if it
+  /// is kept alive, is left open for the server to wait for the next request.
   ///
-  /// Override to wrap the handling (to measure the time of requests, for example) and call `super`. An
-  /// override that does not call `super` can answer later, from another thread, instead: it calls
-  /// ``NanoHTTPConnection/deferResponse()``, passes the result on and returns. The server calls it again for
-  /// the next request of the connection after the answer has been sent (see ``NanoHTTPDeferredResponse``).
+  /// Override to wrap the handling (to measure the time of requests, for example) and
+  /// call `super`. An override that does not call `super` can answer later, from another
+  /// thread, instead: it calls ``NanoHTTPConnection/deferResponse()``, passes the result
+  /// on and returns. The server calls it again for the next request of the connection
+  /// after the answer has been sent (see ``NanoHTTPDeferredResponse``).
   open func handle(connection: NanoHTTPConnection) {
     var connection = connection
     while let next = connection.send(connection.response()) {
@@ -926,7 +963,8 @@ open class NanoHTTPServerIO {
   
   // MARK: - Deferred responses
   
-  /// An answer that another thread has handed over to the loop of a server with one thread, which writes it.
+  /// An answer that another thread has handed over to the loop of a server with one
+  /// thread, which writes it.
   private struct Completion {
     let connection: NanoHTTPConnection
     let response: NanoHTTPResponse
@@ -936,12 +974,13 @@ open class NanoHTTPServerIO {
   /// Guards `completions` and `wakeup`.
   private let completionLock = NSLock()
   private var completions = [Completion]()
-  /// The pipe that wakes the loop of a server with one thread when it has an answer to write: threads write a
-  /// byte to `write`, the loop polls `read`. Created by the first deferred response of a run.
+  /// The pipe that wakes the loop of a server with one thread when it has an answer to
+  /// write: threads write a byte to `write`, the loop polls `read`. Created by the first
+  /// deferred response of a run.
   private var wakeup: (read: Int32, write: Int32)? = nil
   
-  /// Called by ``NanoHTTPConnection/deferResponse()``: a server with one thread needs its wake-up pipe before
-  /// the answer can come.
+  /// Called by ``NanoHTTPConnection/deferResponse()``: a server with one thread needs its
+  /// wake-up pipe before the answer can come.
   func prepareDeferral() {
     guard self.activeConfiguration.threading == .singleThread else {
       return
@@ -965,9 +1004,10 @@ open class NanoHTTPServerIO {
     self.wakeup = (descriptors[0], descriptors[1])
   }
   
-  /// Takes over the answer of a deferred response (or, if `response` is `nil`, the end of its connection) from
-  /// any thread. A server with threads per connection writes it on a thread of its pool, which then waits for the
-  /// next request, as it would have after the first one; a server with one thread has its loop write it.
+  /// Takes over the answer of a deferred response (or, if `response` is `nil`, the end of
+  /// its connection) from any thread. A server with threads per connection writes it on a
+  /// thread of its pool, which then waits for the next request, as it would have after
+  /// the first one; a server with one thread has its loop write it.
   func complete(_ connection: NanoHTTPConnection, with response: NanoHTTPResponse?, dontKeepAlive: Bool) {
     guard self.operating else {
       connection.close()
@@ -1013,7 +1053,8 @@ open class NanoHTTPServerIO {
     }
     if let wakeup = self.wakeup {
       var byte: UInt8 = 1
-      _ = write(wakeup.write, &byte, 1) // a full pipe means that the loop has been woken already
+      // a full pipe means that the loop has been woken already
+      _ = write(wakeup.write, &byte, 1)
     }
   }
   
@@ -1042,8 +1083,8 @@ open class NanoHTTPServerIO {
     return taken
   }
   
-  /// The loop of a server with one thread has ended: the pipe is closed, and the answers that nobody has
-  /// written any more end their connections.
+  /// The loop of a server with one thread has ended: the pipe is closed, and the answers
+  /// that nobody has written any more end their connections.
   private func endDeferral() {
     self.completionLock.lock()
     let wakeup = self.wakeup
@@ -1060,8 +1101,8 @@ open class NanoHTTPServerIO {
     }
   }
   
-  /// The logger of the server: the one of ``Configuration/logger`` of the run that is going on, or, if the
-  /// server is not running, the one that the next run will use.
+  /// The logger of the server: the one of ``Configuration/logger`` of the run that is
+  /// going on, or, if the server is not running, the one that the next run will use.
   public var logger: NanoHTTPLogger {
     self.stateLock.lock()
     defer {
@@ -1070,10 +1111,10 @@ open class NanoHTTPServerIO {
     return self.stateValue == .stopped ? self.configurationValue.logger : self.activeConfigurationValue.logger
   }
   
-  /// Logs a message with the ``logger`` of the server. The server reports problems that nobody else
-  /// can see (a response that could not be written, a pause in accepting connections, a response header
-  /// that was dropped); your own code can use it too. May be called from any thread. The message is only
-  /// built if the logger wants it.
+  /// Logs a message with the ``logger`` of the server. The server reports problems that
+  /// nobody else can see (a response that could not be written, a pause in accepting
+  /// connections, a response header that was dropped); your own code can use it too. May
+  /// be called from any thread. The message is only built if the logger wants it.
   public func log(_ level: NanoLogLevel, _ message: @autoclosure () -> String) {
     self.logger.log(level, message())
   }
@@ -1083,9 +1124,9 @@ open class NanoHTTPServerIO {
     self.logger.log(.info, message)
   }
   
-  /// Registers an open connection so that ``stop()`` and ``closeAndforgetAllConnections()`` can close
-  /// it. Connections that the server creates are registered automatically; this is for subclasses that
-  /// do their own connection handling.
+  /// Registers an open connection so that ``stop()`` and ``closeAndforgetAllConnections()``
+  /// can close it. Connections that the server creates are registered automatically; this
+  /// is for subclasses that do their own connection handling.
   public func remember(socket: NanoSocket) {
     self.lock.lock()
     self.sockets.insert(socket)

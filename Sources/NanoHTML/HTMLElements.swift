@@ -33,12 +33,12 @@
 
 import Foundation
 
-/// The tags of the element types, which are the ones of HTML. They are only the markers that the
-/// element types are built on, see ``HTMLElement``.
+/// The tags of the element types, which are the ones of HTML. They are only the markers
+/// that the element types are built on, see ``HTMLElement``.
 public enum HTMLTags {}
 
-// The element types. Elements that were removed from HTML (`center`, `font`, `marquee`, ...) have
-// none; ``CustomElement`` writes any other element.
+// The element types. Elements that were removed from HTML (`center`, `font`, `marquee`,
+// ...) have none; ``CustomElement`` writes any other element.
 //
 // Some names are also names of types in SwiftUI or AppKit (`Button`, `Label`, `Link`, `Form`,
 // `Table`, `Menu`, `Section`, `Canvas`): in a file that imports one of these frameworks, write
@@ -53,7 +53,8 @@ extension HTMLTags {
   }
 }
 
-/// The `html` element: the root of a document. It writes the document type (`<!DOCTYPE html>`) before itself.
+/// The `html` element: the root of a document. It writes the document type (`<!DOCTYPE html>`)
+/// before itself.
 public typealias Html = HTMLElement<HTMLTags.Html>
 
 // MARK: - Elements with content
@@ -217,7 +218,8 @@ extension HTMLTags {
   }
 }
 
-/// The `data` element: a value in a machine-readable form (the type is not called `Data`, which is a Foundation type).
+/// The `data` element: a value in a machine-readable form (the type is not called `Data`,
+/// which is a Foundation type).
 public typealias DataValue = HTMLElement<HTMLTags.DataValue>
 
 extension HTMLTags {
@@ -640,7 +642,8 @@ extension HTMLTags {
   }
 }
 
-/// The `progress` element: the progress of a task (the type is not called `Progress`, which is a Foundation type).
+/// The `progress` element: the progress of a task (the type is not called `Progress`,
+/// which is a Foundation type).
 public typealias ProgressBar = HTMLElement<HTMLTags.ProgressBar>
 
 extension HTMLTags {

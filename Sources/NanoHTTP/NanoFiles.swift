@@ -37,16 +37,17 @@
 import Foundation
 import UniformTypeIdentifiers
 
-/// Maps the percent-decoded, client-supplied path `relativePath` to a file system path below
-/// `directory`. Returns `nil` if the request must be refused because the path could lead out of
-/// `directory`:
+/// Maps the percent-decoded, client-supplied path `relativePath` to a file system path
+/// below `directory`. Returns `nil` if the request must be refused because the path could
+/// lead out of `directory`:
 ///
-/// - a path segment is `..` (segments that are empty or `.` are ignored, so an absolute-looking
-///   path such as `/etc/passwd` just names `<directory>/etc/passwd`),
+/// - a path segment is `..` (segments that are empty or `.` are ignored, so an
+///   absolute-looking path such as `/etc/passwd` just names `<directory>/etc/passwd`),
 /// - the path contains a NUL character (it would end the C string early: `a.txt\0.png` opens
 ///   `a.txt`), or
-/// - the path exists, but, after following symbolic links, lies outside of `directory`. This last
-///   check is skipped if `followSymlinks` is `true`; the other two are always applied.
+/// - the path exists, but, after following symbolic links, lies outside of `directory`.
+///   This last check is skipped if `followSymlinks` is `true`; the other two are always
+///   applied.
 ///
 /// A path that does not exist is returned as is; opening it fails and the caller answers 404.
 /// There remains a small window between this check and opening the file in which someone with
@@ -103,16 +104,20 @@ private func kind(of path: String) -> FileKind {
 
 /// The part of a file that a `Range` header asks for.
 enum NanoFileRange: Equatable {
+  
   /// There is no usable range: the whole file is sent.
   case ignore
+  
   /// The range does not overlap the file (`416`).
   case unsatisfiable
+  
   /// The bytes from `first` to `last`, both included.
   case bytes(first: Int64, last: Int64)
   
-  /// Reads the value of a `Range` header (RFC 9110 14.1.2) for a file of `size` bytes. Only a single range of
-  /// bytes is served: a header with several ranges, with another unit or with a syntax that is not understood is
-  /// ignored, which the protocol allows (the whole file is sent).
+  /// Reads the value of a `Range` header (RFC 9110 14.1.2) for a file of `size` bytes.
+  /// Only a single range of bytes is served: a header with several ranges, with another
+  /// unit or with a syntax that is not understood is ignored, which the protocol allows
+  /// (the whole file is sent).
   static func parse(_ header: String, size: Int64) -> NanoFileRange {
     let parts = header.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
     guard parts.count == 2, parts[0].trimmingCharacters(in: .whitespaces).lowercased() == "bytes" else {
@@ -150,8 +155,9 @@ enum NanoFileRange: Equatable {
   }
 }
 
-/// Whether the value of an `If-None-Match` header (a list of entity tags, or `*`) contains `tag`. The tags are
-/// compared weakly: `W/"a"` and `"a"` are the same (RFC 9110 8.8.3.2).
+/// Whether the value of an `If-None-Match` header (a list of entity tags, or `*`)
+/// contains `tag`. The tags are compared weakly: `W/"a"` and `"a"` are the same (RFC 9110
+/// 8.8.3.2).
 func entityTagMatches(_ header: String, _ tag: String) -> Bool {
   let wanted = tag.hasPrefix("W/") ? String(tag.dropFirst(2)) : tag
   for item in header.split(separator: ",") {
@@ -169,8 +175,8 @@ func entityTagMatches(_ header: String, _ tag: String) -> Bool {
   return false
 }
 
-/// Whether the value of an `If-Range` header says that the client has the file as it is now: it is its (strong)
-/// entity tag, or the date of its modification, exactly.
+/// Whether the value of an `If-Range` header says that the client has the file as it is
+/// now: it is its (strong) entity tag, or the date of its modification, exactly.
 private func ifRangeMatches(_ header: String, tag: String, modification: Int64) -> Bool {
   let value = header.trimmingCharacters(in: .whitespaces)
   if value.hasPrefix("\"") {
@@ -185,14 +191,18 @@ private func ifRangeMatches(_ header: String, tag: String, modification: Int64) 
   return Int64(date.timeIntervalSince1970) == modification
 }
 
-/// The response that sends `file`: its MIME type (from `name`, if it has an extension that is known), its
-/// size as `Content-Length`, `ETag`, `Last-Modified`, and the content, which is closed when it has been sent or,
-/// if the response is dropped (the request was `HEAD`, or the client went away), when the response is released.
+/// The response that sends `file`: its MIME type (from `name`, if it has an extension
+/// that is known), its size as `Content-Length`, `ETag`, `Last-Modified`, and the
+/// content, which is closed when it has been sent or, if the response is dropped (the
+/// request was `HEAD`, or the client went away), when the response is released.
 ///
-/// Conditional requests are answered with `304` (`If-None-Match`, else `If-Modified-Since`), and a `Range` header
-/// that asks for one part of the file with `206` (`416` if the file has nothing there); `If-Range` can turn a
-/// range into the whole file. A file whose length changes while it is sent ends the connection.
-private func response(for file: NanoFile, named name: String, request: NanoHTTPRequest) -> NanoHTTPResponse {
+/// Conditional requests are answered with `304` (`If-None-Match`, else `If-Modified-Since`),
+/// and a `Range` header that asks for one part of the file with `206` (`416` if the file
+/// has nothing there); `If-Range` can turn a range into the whole file. A file whose
+/// length changes while it is sent ends the connection.
+private func response(for file: NanoFile,
+                      named name: String,
+                      request: NanoHTTPRequest) -> NanoHTTPResponse {
   guard let info = file.status(), (info.st_mode & S_IFMT) == S_IFREG, info.st_size >= 0 else {
     return .notFound("Unable to open file")
   }
@@ -302,10 +312,10 @@ public enum NanoFiles {
   
   /// Returns a handler that serves one file.
   ///
-  /// The response carries the MIME type derived from the extension of `path`, the size of the file as
-  /// `Content-Length`, and `ETag` and `Last-Modified`, which clients use to ask whether their copy is still good
-  /// (`304 Not Modified`). The file can be requested in parts (`Range`). If the file cannot be opened, the response
-  /// is `404 Not Found`.
+  /// The response carries the MIME type derived from the extension of `path`, the size of
+  /// the file as `Content-Length`, and `ETag` and `Last-Modified`, which clients use to
+  /// ask whether their copy is still good (`304 Not Modified`). The file can be requested
+  /// in parts (`Range`). If the file cannot be opened, the response is `404 Not Found`.
   ///
   /// - Parameter path: The file to serve.
   public static func share(file path: String) -> NanoHTTPRequestHandler {
@@ -320,22 +330,25 @@ public enum NanoFiles {
   /// Returns a handler that serves the files of a directory.
   ///
   /// Register the handler for a route that ends in a path variable, for example
-  /// `server["/public/::path"] = NanoFiles.share(directory: "/var/www")`. The value of that variable selects
-  /// the file below `path`. A request for a directory is redirected to the same address with a `/` at the end (so
-  /// that links in the files of the directory work), and then answers with the first existing file of `defaults`
-  /// in it, or `404 Not Found`. Files are sent as by ``NanoFiles/share(file:)``: with `ETag` and `Last-Modified`, and in parts.
+  /// `server["/public/::path"] = NanoFiles.share(directory: "/var/www")`. The value of
+  /// that variable selects the file below `path`. A request for a directory is redirected
+  /// to the same address with a `/` at the end (so that links in the files of the
+  /// directory work), and then answers with the first existing file of `defaults` in it,
+  /// or `404 Not Found`. Files are sent as by ``NanoFiles/share(file:)``: with `ETag` and
+  /// `Last-Modified`, and in parts.
   ///
   /// Requests containing `..` segments or NUL characters are always answered with
-  /// `403 Forbidden`. Symbolic links that stay inside the directory are always followed. By default,
-  /// requests for paths that lead out of the directory through a symbolic link are refused with
-  /// `403 Forbidden` as well; set `followSymlinks` to serve them. Missing files give
-  /// `404 Not Found`.
+  /// `403 Forbidden`. Symbolic links that stay inside the directory are always followed.
+  /// By default, requests for paths that lead out of the directory through a symbolic
+  /// link are refused with `403 Forbidden` as well; set `followSymlinks` to serve them.
+  /// Missing files give `404 Not Found`.
   ///
   /// - Parameters:
   ///   - path: The directory to serve.
   ///   - defaults: File names that are served for a directory.
-  ///   - followSymlinks: If `true`, symbolic links are followed even if their target lies outside
-  ///       of `path`. Only enable this if everyone who can create files in `path` is trusted.
+  ///   - followSymlinks: If `true`, symbolic links are followed even if their target lies
+  ///       outside of `path`. Only enable this if everyone who can create files in `path`
+  ///       is trusted.
   public static func share(directory path: String,
                            defaults: [String] = ["index.html", "default.html"],
                            followSymlinks: Bool = false) -> NanoHTTPRequestHandler {
@@ -373,19 +386,21 @@ public enum NanoFiles {
   /// Returns a handler that lists the directories and serves the files below a directory.
   ///
   /// Register the handler for a route that ends in a path variable, for example
-  /// `server["/files/::path"] = NanoFiles.browse(directory: "/var/www")`. The value of that variable selects
-  /// the file or directory below `dir`. Directories are answered with an HTML list of links; files are sent as by
-  /// ``NanoFiles/share(file:)``.
+  /// `server["/files/::path"] = NanoFiles.browse(directory: "/var/www")`. The value of
+  /// that variable selects the file or directory below `dir`. Directories are answered
+  /// with an HTML list of links; files are sent as by ``NanoFiles/share(file:)``.
   ///
-  /// Like `NanoFiles.share(directory:defaults:followSymlinks:)`, the handler does not reach beyond `dir`:
-  /// requests containing `..` segments or NUL characters are always answered with `403 Forbidden`,
-  /// and so are paths that lead out of the directory through a symbolic link, unless
-  /// `followSymlinks` is set. Symbolic links that stay inside the directory are always followed.
+  /// Like `NanoFiles.share(directory:defaults:followSymlinks:)`, the handler does not
+  /// reach beyond `dir`: requests containing `..` segments or NUL characters are always
+  /// answered with `403 Forbidden`, and so are paths that lead out of the directory
+  /// through a symbolic link, unless `followSymlinks` is set. Symbolic links that stay
+  /// inside the directory are always followed.
   ///
   /// - Parameters:
   ///   - dir: The directory to browse.
-  ///   - followSymlinks: If `true`, symbolic links are followed even if their target lies outside
-  ///       of `dir`. Only enable this if everyone who can create files in `dir` is trusted.
+  ///   - followSymlinks: If `true`, symbolic links are followed even if their target lies
+  ///       outside of `dir`. Only enable this if everyone who can create files in `dir`
+  ///       is trusted.
   public static func browse(directory dir: String, followSymlinks: Bool = false) -> NanoHTTPRequestHandler {
     return { request in
       guard let (_, path) = request.params.first else { // decoded by the router, once

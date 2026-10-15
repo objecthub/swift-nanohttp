@@ -36,6 +36,10 @@ platforms only (macOS 12, iOS 15, tvOS 15).
   `NanoHTTPParserError`, which the server answers (`400`, `413`, `414`, `431`, `501`, `505`) before it closes the connection.
 * **`NanoHTTPServerIO`** knows nothing about routes: `dispatch(request:)` returns the handler (a subclass decides; the
   implementation of `NanoHTTPServer` runs the middleware and the router), and `handle(connection:)` drives a connection.
+  The router is asked through `routeWithRawParams`, which returns the route variables decoded (`request.params`, which the
+  connection sets from the result of `dispatch`) and as sent (`request.rawParams`). The signature of `dispatch` is
+  public and cannot take the second dictionary, so `NanoHTTPServer.dispatch`, or its middleware chain, sets
+  `rawParams` on the request itself.
 * **`NanoHTTPConnection`** is a value: the parser (and so the socket), the request that was read, the handler chosen for
   it and the configuration of the run. `response()` checks the Host and Origin policies, calls the handler and turns errors
   into responses. `send(_:dontKeepAlive:)` writes the response, and, with threads per connection, waits for and reads the
@@ -110,7 +114,8 @@ server affects the next run, and connections read the copy once instead of locki
 * **Limits and timeouts are on by default** (`NanoHTTPParser.Limits`, idle/read/write timeouts, `maxConnections`): a
   single request cannot exhaust the process, and a silent connection cannot hold a thread for ever.
 * **Strict parsing, lenient where it is safe.** Ambiguous framing (`Content-Length` with chunks) is refused; request
-  values (`path`, query, route variables, cookies) are **decoded exactly once**, which is why code must not decode them again.
+  values (`path`, query, route variables, cookies) are **decoded exactly once**, which is why code must not decode them again
+  (`rawParams` has the route variables as sent, for code that needs the difference between `%2F` and `/`).
   A multipart body that is not well-formed gives no parts at all.
 * **Everything a response writes is sanitized at the last moment** (`NanoHTTPResponseSerializer`): header names must be
   tokens, line breaks in values become spaces, and a cookie that could add attributes is dropped and logged.

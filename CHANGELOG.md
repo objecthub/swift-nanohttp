@@ -4,7 +4,34 @@ All notable changes to this project are documented in this file. The format is b
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [2.1.2] - 2026-10-16
+
+Adds `request.rawParams`. Nothing else changes: `swift package diagnose-api-breaking-changes 2.1.1` reports no breaking
+change. A lookup in the router of a path without percent-escapes is a little faster than before (the segments of the path
+are collected with a reserved capacity); a path with escapes takes about 0.1 to 0.15 µs longer, which is the cost of
+collecting the raw values.
+
+### Added
+- **`NanoHTTPRequest.rawParams`**: the values of the route variables as the client sent them, still percent-encoded, next
+  to the decoded `params`. A router that decodes a path variable (`::path`) loses what `a%2Fb/c` and `a/b/c` differ in; both
+  are `a/b/c` in `params`. `rawParams` has the same names as `params` (the anonymous `*` and `**` have no entry in either):
+  a variable `:name` gets its raw segment, and a path variable `::name` its raw segments joined with `/`. Nothing is
+  decoded, also not a `+`; empty segments are left out, a path variable that matches no segment has `""`, and the query is
+  no part of a value. `/p/a%2Fb?x=1` with `/p/:name` has `params["name"] == "a/b"` and `rawParams["name"] == "a%2Fb"`.
+  Like `params`, it is set when the request has been routed (in handlers, and in middleware after `next` has returned),
+  also for a `HEAD` request that the route for `GET` answers. It is empty for a request that is created by hand and for a
+  router that does not offer raw values. A raw value is untrusted input: decode it at most once, and never use it as a file
+  path without checking it.
+- **`NanoHTTPRouter.routeWithRawParams(_:path:)`**: a new requirement of the router protocol, with a default implementation
+  that calls `route(_:path:)` and has no raw values, so that existing routers keep compiling and working (their
+  `rawParams` stay empty). `NanoHTTPServer` calls it instead of `route(_:path:)`.
+  `NanoHTTPSegmentRouter` implements it: the raw values are taken in the search itself, from the same segments that the
+  decoded values come from, so they are right also where the search backtracks (`/files/::path/edit`). Its `route(_:path:)`
+  calls it. `NanoHTTPServer.dispatch(request:)` keeps its signature and sets `rawParams` on the request itself, as its
+  result has no room for them.
+
+Subclasses of `NanoHTTPSegmentRouter` that override `route(_:path:)` to change how requests are routed have to override
+`routeWithRawParams(_:path:)` instead: the server no longer calls `route(_:path:)`.
 
 ## [2.1.1] - 2026-10-15
 

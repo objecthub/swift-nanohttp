@@ -30,8 +30,8 @@ have gets `405` and the methods that it has, and `OPTIONS` requests list them, s
 | In the route | Matches | Value |
 |---|---|---|
 | `about` | the segment `about` | |
-| `:id` | exactly one segment | `request.params["id"]`, percent-decoded |
-| `::path` | any number of segments, also none | `request.params["path"]`, the percent-decoded segments joined by `/` |
+| `:id` | exactly one segment | `request.params["id"]`, percent-decoded; `request.rawParams["id"]`, as sent |
+| `::path` | any number of segments, also none | `request.params["path"]`, the percent-decoded segments joined by `/`; `request.rawParams["path"]`, the segments as sent, joined by `/` |
 | `*` | exactly one segment | |
 | `**` | any number of segments, also none | |
 
@@ -60,6 +60,40 @@ GET /a%2Fb                     does not match the route /a/b  (but does match /:
 
 All values are decoded once, also those of path variables: do not decode them again (see <doc:ReadingRequests>).
 A segment that is not valid percent-encoding (`%zz`, or bytes that are no UTF-8) does not match anything.
+
+### The values as the client sent them
+
+A decoded value cannot tell `a%2Fb/c` from `a/b/c`: both are `a/b/c`. ``NanoHTTPRequest/rawParams`` has the same
+variables with their values as the client sent them, still percent-encoded and not decoded at all (a `+` stays a `+`):
+a variable `:name` gets its segment, and a path variable `::name` its segments joined by `/`. Use it where the
+difference matters, for example to pass a path on to another service in the form that the client sent it.
+
+```swift
+let server = NanoHTTPServer()
+server.get["/files/::path"] = { request in
+  let decoded = request.params["path"] ?? ""     // "a/b/c" for GET /files/a%2Fb/c
+  let raw = request.rawParams["path"] ?? ""      // "a%2Fb/c"
+  return .ok(.text("\(decoded) was sent as \(raw)"))
+}
+```
+
+```text
+GET /users/caf%C3%A9         params["id"]   == "café"        rawParams["id"]   == "caf%C3%A9"
+GET /users/a%2Fb             params["id"]   == "a/b"         rawParams["id"]   == "a%2Fb"
+GET /users/%252e%252e        params["id"]   == "%2e%2e"      rawParams["id"]   == "%252e%252e"
+GET /files/caf%C3%A9/x%20y   params["path"] == "café/x y"    rawParams["path"] == "caf%C3%A9/x%20y"
+GET /files                   params["path"] == ""            rawParams["path"] == ""
+```
+
+The names are those of ``NanoHTTPRequest/params``: the anonymous `*` and `**` have no entry in either. As there, empty
+segments are left out, a path variable that matches no segment has the value `""`, and the query is not part of a
+value. The raw value is that of the segments that the route matched, also where the search backtracks
+(`/files/::path/edit`). Like ``NanoHTTPRequest/params``, ``NanoHTTPRequest/rawParams`` is known in the handler, and in
+middleware after `next` has returned; a `HEAD` request answered by the route for `GET` has both.
+
+A raw value is untrusted input, too: decode it at most once, and do not use it as a file path without checking it
+(see <doc:ReadingRequests>). A router that does not offer raw values (see <doc:MiddlewareAndExtending>) leaves
+``NanoHTTPRequest/rawParams`` empty, and so does a request that you create yourself in a test.
 
 ### A variable at the end of a route
 

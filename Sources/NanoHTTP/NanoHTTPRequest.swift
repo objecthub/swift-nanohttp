@@ -98,8 +98,35 @@ public final class NanoHTTPRequest: Hashable {
   
   /// The variables of the route that matched (`/users/:id` gives `["id": "42"]`); empty
   /// if the route has none. Their values are **decoded**, also those of path variables
-  /// (`/files/::path`), which are the decoded segments joined with `/`.
+  /// (`/files/::path`), which are the decoded segments joined with `/`. ``rawParams`` has
+  /// the values as the client sent them.
+  ///
+  /// A decoded value can contain anything, line breaks and NUL characters included, and
+  /// `%2F` has become a `/` that cannot be told from a separator. It is decoded **once**:
+  /// do not decode it again, and do not use it as a file path without checking it.
   public var params: [String : String] = [:]
+  
+  /// The values of ``params`` as the client sent them, still percent-encoded and **not
+  /// decoded** (a `+` stays a `+` as well): `/users/:id` with the path `/users/a%2Fb` has
+  /// `["id": "a%2Fb"]` where `params` has `["id": "a/b"]`. A variable (`:name`) has its
+  /// segment, and a path variable (`::name`) its segments joined with `/`
+  /// (`/files/caf%C3%A9/x%20y` gives `caf%C3%A9/x%20y`), so an encoded slash can be told
+  /// from a separator. The names are those of `params`: the anonymous `*` and `**` have no
+  /// entry. As in `params`, empty segments are left out, a path variable that matches no
+  /// segment has the value `""`, and the query is not part of a value.
+  ///
+  /// It is empty if the route has no variables, for a request that was created by hand
+  /// (``init(method:path:queryParams:headers:body:httpVersion:)``), and if the router of
+  /// the server does not offer the values as sent, see
+  /// ``NanoHTTPRouter/routeWithRawParams(_:path:)``. Like `params`, it is set when the
+  /// request has been routed: in a handler, and in middleware after `next` has returned.
+  ///
+  /// Decode a raw value **at most once**, and never decode a value of ``params`` again:
+  /// `%252e%252e` is `%2e%2e` after the first time and `..` after the second. It can
+  /// contain anything a client can encode (`%00`, `%0A`, `%2e%2e`): do not write it to a
+  /// log or into HTML as it is (`htmlEscaped`), and do not use it as a file path without
+  /// checking it (see `NanoFiles.share(directory:)`).
+  public var rawParams: [String : String] = [:]
   
   /// HTTP request headers (keys are case insensitive)
   private var headers: [String : String] = [:]

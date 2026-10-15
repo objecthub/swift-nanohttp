@@ -158,6 +158,97 @@ final class MiddlewareTests: XCTestCase {
     }
   }
 
+  func testRawRouteVariablesAreKnownOnceTheRequestHasBeenRouted() throws {
+    let seen = Events()
+    try serve(configure: { server in
+      server.get["/items/:id/::rest"] = { request in
+        .ok(.text("\(request.params["id"] ?? "?")|\(request.rawParams["id"] ?? "?")"))
+      }
+      server.middleware.append { request, next in
+        seen.add("before: \(request.rawParams.count)")
+        let response = try next(request)
+        seen.add("after: \(request.params["id"] ?? "-") \(request.rawParams["id"] ?? "-") " +
+                 "\(request.params["rest"] ?? "-") \(request.rawParams["rest"] ?? "-")")
+        return response
+      }
+    }) { _, port in
+      XCTAssertEqual(try RawClient.get("/items/a%2Fb/c%20d/e%2Ff", port: port).bodyString, "a/b|a%2Fb")
+      XCTAssertEqual(seen.all, ["before: 0", "after: a/b a%2Fb c d/e/f c%20d/e%2Ff"])
+    }
+  }
+
+  func testRawRouteVariablesWithSeveralMiddlewareAndOneThread() throws {
+    for threading in [NanoHTTPServer.Configuration.Threading.perConnection, .singleThread] {
+      let seen = Events()
+      try serve(threading: threading, configure: { server in
+        server.get["/items/:id"] = { request in .ok(.text(request.rawParams["id"] ?? "?")) }
+        for index in 0..<3 {
+          server.middleware.append { request, next in
+            let response = try next(request)
+            seen.add("\(index): \(request.rawParams["id"] ?? "-")")
+            return response
+          }
+        }
+      }) { _, port in
+        XCTAssertEqual(try RawClient.get("/items/caf%C3%A9", port: port).bodyString, "caf%C3%A9")
+        XCTAssertEqual(seen.all, ["2: caf%C3%A9", "1: caf%C3%A9", "0: caf%C3%A9"], "\(threading)")
+      }
+    }
+  }
+
+  /// The request is routed after the middleware, from the path that it has then.
+  func testRawRouteVariablesFollowAPathThatMiddlewareRewrote() throws {
+    try serve(configure: { server in
+      server.get["/items/:id"] = { request in
+        .ok(.text("\(request.params["id"] ?? "?")|\(request.rawParams["id"] ?? "?")"))
+      }
+      server.middleware.append { request, next in
+        if request.rawPath.hasPrefix("/old/") {
+          request.rawPath = "/items/" + request.rawPath.dropFirst(5)
+        }
+        return try next(request)
+      }
+    }) { _, port in
+      XCTAssertEqual(try RawClient.get("/old/x%2Fy", port: port).bodyString, "x/y|x%2Fy")
+    }
+  }
+
+  /// A middleware that calls `next` again for another path does not see the variables of the first.
+  func testRawRouteVariablesAreReplacedWhenMiddlewareRoutesAgain() throws {
+    let seen = Events()
+    try serve(configure: { server in
+      server.get["/items/:id"] = { _ in .ok(.text("item")) }
+      server.middleware.append { request, next in
+        _ = try next(request)
+        seen.add("first: \(request.params["id"] ?? "-") \(request.rawParams["id"] ?? "-")")
+        request.rawPath = "/nothing/here"
+        let response = try next(request)
+        seen.add("second: \(request.params.count) \(request.rawParams.count)")
+        return response
+      }
+    }) { _, port in
+      XCTAssertEqual(try RawClient.get("/items/a%2Fb", port: port).status, 404)
+      XCTAssertEqual(seen.all, ["first: a/b a%2Fb", "second: 0 0"])
+    }
+  }
+
+  func testRawRouteVariablesOfRequestsWithoutAMatchingRouteAreEmpty() throws {
+    let seen = Events()
+    try serve(configure: { server in
+      server.get["/items/:id"] = { _ in .ok(.text("item")) }
+      server.notFoundHandler = { request in .notFound(.text("\(request.rawParams.count)")) }
+      server.middleware.append { request, next in
+        let response = try next(request)
+        seen.add("\(request.method) \(request.rawPath): \(request.rawParams.count)")
+        return response
+      }
+    }) { _, port in
+      XCTAssertEqual(try RawClient.get("/other/a%2Fb", port: port).bodyString, "0")
+      XCTAssertEqual(try RawClient.request("POST", "/items/a%2Fb", port: port).status, 405)
+      XCTAssertEqual(seen.all, ["GET /other/a%2Fb: 0", "POST /items/a%2Fb: 0"])
+    }
+  }
+
   // MARK: Errors
 
   func testMiddlewareCanCatchTheErrorsOfTheHandler() throws {

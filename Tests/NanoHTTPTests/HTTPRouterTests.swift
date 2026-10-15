@@ -262,4 +262,137 @@ class HTTPRouterTests: XCTestCase {
     XCTAssertTrue(foundFirstVariableRoute)
     XCTAssertTrue(foundSecondVariableRoute)
   }
+
+  // MARK: Raw values of variables
+
+  /// The decoded and the raw values of the variables of the route for `path`, or `nil`.
+  private func values(_ path: String,
+                      method: String = "GET") -> (params: [String: String], rawParams: [String: String])? {
+    return router.routeWithRawParams(method, path: path).map { ($0.params, $0.rawParams) }
+  }
+
+  func testAVariableHasItsRawSegmentNextToTheDecodedValue() {
+    router.register(nil, path: "/p/:name", handler: { _ in .ok(.text("p")) })
+    let cases: [(path: String, decoded: String, raw: String)] = [
+      ("/p/caf%C3%A9", "café", "caf%C3%A9"),
+      ("/p/a%2Fb", "a/b", "a%2Fb"),
+      ("/p/a%20b%2Bc", "a b+c", "a%20b%2Bc"),
+      ("/p/%252e%252e", "%2e%2e", "%252e%252e"),
+      ("/p/a+b", "a+b", "a+b"),
+      ("/p/a%2Fb?x=1", "a/b", "a%2Fb"),
+      ("/p/plain", "plain", "plain"),
+      ("/p/%61%62", "ab", "%61%62"),
+      ("//p///a%2Fb//", "a/b", "a%2Fb")
+    ]
+    for (path, decoded, raw) in cases {
+      let found = values(path)
+      XCTAssertEqual(found?.params, ["name": decoded], path)
+      XCTAssertEqual(found?.rawParams, ["name": raw], path)
+    }
+  }
+
+  func testAPathVariableHasItsRawSegmentsJoinedWithSlashes() {
+    router.register(nil, path: "/q/::path", handler: { _ in .ok(.text("q")) })
+    let cases: [(path: String, decoded: String, raw: String)] = [
+      ("/q/caf%C3%A9/x%20y", "café/x y", "caf%C3%A9/x%20y"),
+      ("/q/a%2Fb/c", "a/b/c", "a%2Fb/c"),
+      ("/q/a/b/c", "a/b/c", "a/b/c"),
+      ("/q/%252e%252e/z", "%2e%2e/z", "%252e%252e/z"),
+      ("/q/a+b/c%2Bd", "a+b/c+d", "a+b/c%2Bd"),
+      ("/q/a%2Fb/c?x=1", "a/b/c", "a%2Fb/c"),
+      ("/q//a///b%20c/", "a/b c", "a/b%20c"),
+      ("/q", "", ""),
+      ("/q/", "", ""),
+      ("/q?x=1", "", "")
+    ]
+    for (path, decoded, raw) in cases {
+      let found = values(path)
+      XCTAssertEqual(found?.params, ["path": decoded], path)
+      XCTAssertEqual(found?.rawParams, ["path": raw], path)
+    }
+  }
+
+  func testAnEncodedSlashIsToldFromASeparatorByTheRawValue() {
+    router.register(nil, path: "/q/::path", handler: { _ in .ok(.text("q")) })
+    XCTAssertEqual(values("/q/a%2Fb/c")?.params, values("/q/a/b/c")?.params)
+    XCTAssertNotEqual(values("/q/a%2Fb/c")?.rawParams, values("/q/a/b/c")?.rawParams)
+  }
+
+  /// The search for `/files/::path/edit` takes more segments for the path variable than the
+  /// first attempt does; both values are taken from the segments that the search ends with.
+  func testARawPathVariableFollowedByOtherSegmentsIsTakenWhereTheSearchBacktracks() {
+    router.register(nil, path: "/files/::path/edit", handler: { _ in .ok(.text("edit")) })
+    XCTAssertEqual(values("/files/a%2Fb/c/edit")?.params, ["path": "a/b/c"])
+    XCTAssertEqual(values("/files/a%2Fb/c/edit")?.rawParams, ["path": "a%2Fb/c"])
+    // `edit` is also a segment of the value
+    XCTAssertEqual(values("/files/a%2Fb/edit/c%20d/edit")?.params, ["path": "a/b/edit/c d"])
+    XCTAssertEqual(values("/files/a%2Fb/edit/c%20d/edit")?.rawParams, ["path": "a%2Fb/edit/c%20d"])
+    XCTAssertEqual(values("/files/edit")?.params, ["path": ""])
+    XCTAssertEqual(values("/files/edit")?.rawParams, ["path": ""])
+    XCTAssertNil(values("/files/a%2Fb/c"))
+  }
+
+  /// A fixed segment is compared decoded; when its branch fails, the variable gets the segment
+  /// as it was sent.
+  func testARawVariableIsTakenWhereAFixedSegmentFailed() {
+    router.register(nil, path: "/a/b c/e", handler: { _ in .ok(.text("fixed")) })
+    router.register(nil, path: "/a/:v/d", handler: { _ in .ok(.text("variable")) })
+    XCTAssertEqual(values("/a/b%20c/e")?.params, [:])
+    XCTAssertEqual(values("/a/b%20c/e")?.rawParams, [:])
+    XCTAssertEqual(values("/a/b%20c/d")?.params, ["v": "b c"])
+    XCTAssertEqual(values("/a/b%20c/d")?.rawParams, ["v": "b%20c"])
+  }
+
+  func testARouteWithTwoVariables() {
+    router.register(nil, path: "/u/:id/p/::rest", handler: { _ in .ok(.text("u")) })
+    let found = values("/u/a%2Fb/p/c%20d/e%2Ff")
+    XCTAssertEqual(found?.params, ["id": "a/b", "rest": "c d/e/f"])
+    XCTAssertEqual(found?.rawParams, ["id": "a%2Fb", "rest": "c%20d/e%2Ff"])
+    let empty = values("/u/%C3%A9/p")
+    XCTAssertEqual(empty?.params, ["id": "é", "rest": ""])
+    XCTAssertEqual(empty?.rawParams, ["id": "%C3%A9", "rest": ""])
+    // only one of the segments has an escape: the others are their own raw values
+    let mixed = values("/u/plain/p/x/y%20z")
+    XCTAssertEqual(mixed?.params, ["id": "plain", "rest": "x/y z"])
+    XCTAssertEqual(mixed?.rawParams, ["id": "plain", "rest": "x/y%20z"])
+    // no escape at all: the raw values are the decoded ones
+    let plain = values("/u/7/p/x//y/")
+    XCTAssertEqual(plain?.params, ["id": "7", "rest": "x/y"])
+    XCTAssertEqual(plain?.rawParams, ["id": "7", "rest": "x/y"])
+  }
+
+  func testAnonymousVariablesHaveNoValueAndNoRawValue() {
+    router.register(nil, path: "/a/*/c/**", handler: { _ in .ok(.text("a")) })
+    router.register(nil, path: "/m/*/:x/**", handler: { _ in .ok(.text("m")) })
+    XCTAssertEqual(values("/a/x%20y/c/d%2Fe/f")?.params, [:])
+    XCTAssertEqual(values("/a/x%20y/c/d%2Fe/f")?.rawParams, [:])
+    XCTAssertEqual(values("/m/s%20t/u%20v/w%2Fx")?.params, ["x": "u v"])
+    XCTAssertEqual(values("/m/s%20t/u%20v/w%2Fx")?.rawParams, ["x": "u%20v"])
+  }
+
+  func testRawValuesHaveTheNamesOfTheDecodedValues() {
+    router.register(nil, path: "/a/:x/*/::y/**/:z", handler: { _ in .ok(.text("a")) })
+    guard let found = values("/a/1%20/2/3%2F/4/5/6%20") else {
+      return XCTFail("no route")
+    }
+    XCTAssertEqual(Set(found.params.keys), ["x", "y", "z"])
+    XCTAssertEqual(Set(found.rawParams.keys), Set(found.params.keys))
+    XCTAssertEqual(found.rawParams["x"], "1%20")
+    XCTAssertEqual(found.rawParams["z"], "6%20")
+  }
+
+  func testRouteAndRouteWithRawParamsFindTheSameHandlerAndParams() throws {
+    router.register(nil, path: "/p/:name", handler: { _ in .ok(.text("p")) })
+    router.register(nil, path: "/q/::path", handler: { _ in .ok(.text("q")) })
+    for path in ["/p/a%2Fb", "/q/a%2Fb/c", "/q", "/p", "/p/%zz", "/nothing"] {
+      let plain = router.route("GET", path: path)
+      let raw = router.routeWithRawParams("GET", path: path)
+      XCTAssertEqual(plain == nil, raw == nil, path)
+      XCTAssertEqual(plain?.0, raw?.params, path)
+      if let plain, let raw {
+        XCTAssertEqual(try plain.1(NanoHTTPRequest(method: "GET", path: path)).capturedBody(),
+                       try raw.handler(NanoHTTPRequest(method: "GET", path: path)).capturedBody(), path)
+      }
+    }
+  }
 }

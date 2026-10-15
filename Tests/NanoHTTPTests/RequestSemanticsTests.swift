@@ -335,6 +335,38 @@ final class DecodedRoutingTests: XCTestCase {
     }
   }
 
+  func testHandlersSeeTheValuesAsSentNextToTheDecodedOnes() throws {
+    for threading in [NanoHTTPServer.Configuration.Threading.perConnection, .singleThread] {
+      try withTestServer(configure: { server in
+        server.configuration.threading = threading
+        server.get["/echo/:name/::rest"] = { request in
+          .ok(headers: ["X-Raw-Name": request.rawParams["name"] ?? "-"],
+              .text([request.params["name"] ?? "-",
+                     request.params["rest"] ?? "-",
+                     request.rawParams["name"] ?? "-",
+                     request.rawParams["rest"] ?? "-",
+                     String(request.rawParams.count)].joined(separator: "|")))
+        }
+        let api = NanoHTTPSegmentRouter()
+        api.register("GET", path: "/items/:id") { request in
+          .ok(.text("\(request.params["id"] ?? "-")|\(request.rawParams["id"] ?? "-")"))
+        }
+        try? server.use("/api/v1", router: api)
+      }) { _, port in
+        let response = try RawClient.get("/echo/J%C3%B6rg%2FM/a%2Fb/c%20d+e?q=x%20y&plus=1+1", port: port)
+        XCTAssertEqual(response.bodyString, "Jörg/M|a/b/c d+e|J%C3%B6rg%2FM|a%2Fb/c%20d+e|2", "\(threading)")
+        // a request for HEAD is answered by the route for GET
+        let head = try RawClient.request("HEAD", "/echo/a%2Fb/x", port: port)
+        XCTAssertEqual(head.status, 200)
+        XCTAssertEqual(head.header("x-raw-name"), "a%2Fb", "\(threading)")
+        XCTAssertEqual(try RawClient.get("/echo/x/", port: port).bodyString, "x||x||2")
+        XCTAssertEqual(try RawClient.get("/api/v1/items/a%2Fb%25", port: port).bodyString, "a/b%|a%2Fb%25")
+        XCTAssertEqual(try RawClient.get("/echo/%252e%252e/%252e%252e/z", port: port).bodyString,
+                       "%2e%2e|%2e%2e/z|%252e%252e|%252e%252e/z|2")
+      }
+    }
+  }
+
   func testTheNotFoundHandlerSeesTheDecodedPath() throws {
     try withTestServer(configure: { server in
       server.notFoundHandler = { request in .notFound(.text(request.path)) }

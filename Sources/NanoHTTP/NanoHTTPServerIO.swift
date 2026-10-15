@@ -934,7 +934,8 @@ open class NanoHTTPServerIO {
   /// Chooses the handler for a request and returns it with the variables that the
   /// request's route defined (see `NanoHTTPRequest.params`). The implementation of this
   /// class answers every request with `404 Not Found`; ``NanoHTTPServer`` overrides it to
-  /// route.
+  /// route, and sets `NanoHTTPRequest.rawParams` on the request, as the result has no
+  /// room for it.
   ///
   /// Called on the thread of the connection.
   open func dispatch(request: NanoHTTPRequest) -> ([String: String], NanoHTTPRequestHandler) {

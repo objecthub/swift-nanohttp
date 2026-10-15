@@ -40,7 +40,8 @@ The first middleware of the array is the outermost: it sees the request first an
 
 Middleware sees every request, also the ones that no route matches (and which get their `404` from the
 ``NanoHTTPServer/notFoundHandler`` or the server). Because it runs before routing, the variables of the route
-(``NanoHTTPRequest/params``) are known only after `next` has returned.
+(``NanoHTTPRequest/params``, and ``NanoHTTPRequest/rawParams`` with the values as the client sent them) are known only
+after `next` has returned.
 
 An error that is not caught is answered as for a handler (see <doc:HandlersAndResponses#Errors>). To turn the
 errors into a JSON response in one place, catch them in a middleware, or set ``NanoHTTPServer/errorHandler``:
@@ -299,6 +300,15 @@ thread, nothing else is served meanwhile.
 A router maps a method and a path to a handler and the variables of the route: the protocol ``NanoHTTPRouter`` has
 four functions. The default ``NanoHTTPSegmentRouter`` is a good fit for path-based routes; implement the protocol
 for something else, for instance to match on patterns of another form. Routers have to be thread-safe.
+
+Two more functions have default implementations: ``NanoHTTPRouter/allowedMethods(path:)`` (without it, a request
+that no route matches is always answered with `404`) and ``NanoHTTPRouter/routeWithRawParams(_:path:)``, which the
+server calls to route a request. It returns what `route` returns, and the values of the variables as the client sent
+them, which the server sets as ``NanoHTTPRequest/rawParams``. The default implementation calls `route` and has no
+raw values: a router that does not implement it leaves ``NanoHTTPRequest/rawParams`` empty. A router that decodes
+the values should take the raw ones from the same segments, at the same time (deriving them afterwards goes wrong
+where the search backtracks). A subclass of ``NanoHTTPSegmentRouter`` that changes `route` has to override
+`routeWithRawParams` instead (`route` calls it), or the server does not see the change.
 
 ## Topics
 

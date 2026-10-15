@@ -276,6 +276,136 @@ final class RouterBehaviorTests: XCTestCase {
     }
     XCTAssertEqual(group.wait(timeout: .now() + 20), .success)
   }
+
+  // MARK: Raw values of variables
+
+  private func raw(_ method: String,
+                   _ path: String) -> (params: [String: String], rawParams: [String: String])? {
+    return self.router.routeWithRawParams(method, path: path).map { ($0.params, $0.rawParams) }
+  }
+
+  func testRawValuesOfAMergedRoute() throws {
+    let sub = NanoHTTPSegmentRouter()
+    sub.register("GET", path: "/items/:id/::rest", handler: handler("item"))
+    try self.router.merge(sub, withPrefix: "/api/v1")
+    let found = raw("GET", "/api/v1/items/a%2Fb/c%20d/e%2Ff")
+    XCTAssertEqual(found?.params, ["id": "a/b", "rest": "c d/e/f"])
+    XCTAssertEqual(found?.rawParams, ["id": "a%2Fb", "rest": "c%20d/e%2Ff"])
+  }
+
+  func testRawValuesOfARouteMountedOnAServer() throws {
+    let server = NanoHTTPServer()
+    let sub = NanoHTTPSegmentRouter()
+    sub.register("GET", path: "/items/:id", handler: handler("item"))
+    try server.use("/api", router: sub)
+    let request = NanoHTTPRequest(method: "GET", rawPath: "/api/items/a%2Fb", rawQuery: nil)
+    _ = server.dispatch(request: request)
+    XCTAssertEqual(request.rawParams, ["id": "a%2Fb"])
+  }
+
+  func testHeadIsAnsweredByTheRouteOfGetWithItsRawValues() {
+    self.router.register("GET", path: "/p/:name", handler: handler("get"))
+    self.router.register("GET", path: "/q/::path", handler: handler("get"))
+    self.router.register("HEAD", path: "/own/:name", handler: handler("head"))
+    self.router.register("GET", path: "/own/:name", handler: handler("get"))
+    self.router.register(nil, path: "/any/:name", handler: handler("any"))
+    XCTAssertEqual(raw("HEAD", "/p/a%2Fb")?.params, ["name": "a/b"])
+    XCTAssertEqual(raw("HEAD", "/p/a%2Fb")?.rawParams, ["name": "a%2Fb"])
+    XCTAssertEqual(raw("HEAD", "/q/caf%C3%A9/x%20y")?.rawParams, ["path": "caf%C3%A9/x%20y"])
+    XCTAssertEqual(raw("HEAD", "/own/a%2Fb")?.rawParams, ["name": "a%2Fb"])
+    XCTAssertEqual(raw("HEAD", "/any/a%2Fb")?.rawParams, ["name": "a%2Fb"])
+    XCTAssertEqual(raw("POST", "/any/a%2Fb")?.rawParams, ["name": "a%2Fb"])
+    XCTAssertNil(raw("POST", "/p/a%2Fb"))
+  }
+
+  func testAPathWithAnInvalidPercentSequenceStillMatchesNoRoute() throws {
+    self.router.register(nil, path: "/p/:name", handler: handler("p"))
+    self.router.register(nil, path: "/q/::path", handler: handler("q"))
+    self.router.register(nil, path: "/*/x", handler: handler("x"))
+    for path in ["/p/%zz", "/p/%", "/p/a%2", "/p/%FF", "/q/a/%zz", "/q/%C3", "/%zz/x"] {
+      XCTAssertNil(self.router.routeWithRawParams("GET", path: path), path)
+      XCTAssertNil(self.router.routeWithRawParams("HEAD", path: path), path)
+      XCTAssertNil(self.router.route("GET", path: path), path)
+      XCTAssertEqual(self.router.allowedMethods(path: path), [], path)
+    }
+  }
+
+  func testNoVariablesHaveNoRawValues() {
+    self.router.register(nil, path: "/plain/path", handler: handler("plain"))
+    self.router.register(nil, path: "/", handler: handler("root"))
+    XCTAssertEqual(raw("GET", "/plain/path")?.rawParams, [:])
+    XCTAssertEqual(raw("GET", "/")?.rawParams, [:])
+  }
+
+  func testARequestThatWasCreatedByHandHasNoRawValues() {
+    XCTAssertEqual(NanoHTTPRequest(method: "GET", path: "/a%2Fb").rawParams, [:])
+    XCTAssertEqual(NanoHTTPRequest(method: "GET", rawPath: "/a%2Fb", rawQuery: nil).rawParams, [:])
+  }
+
+  func testASubclassThatChangesRoutingOverridesTheFunctionTheServerCalls() throws {
+    final class Lowercase: NanoHTTPSegmentRouter {
+      override func routeWithRawParams(_ method: String, path: String)
+        -> (params: [String: String],
+            rawParams: [String: String],
+            handler: NanoHTTPRequestHandler)? {
+        return super.routeWithRawParams(method, path: path.lowercased())
+      }
+    }
+    let router = Lowercase()
+    router.register(nil, path: "/p/:name", handler: handler("p"))
+    XCTAssertEqual(router.route("GET", path: "/P/AB")?.0, ["name": "ab"])
+    XCTAssertEqual(router.routeWithRawParams("GET", path: "/P/A%2fB")?.rawParams, ["name": "a%2fb"])
+  }
+
+  // MARK: Routers that do not know the raw values
+
+  /// A router that implements only what the protocol required in 2.1.1.
+  private final class FixedRouter: NanoHTTPRouter {
+    func register(_ method: String?, path: String, handler: NanoHTTPRequestHandler?) {}
+    func merge(_ router: NanoHTTPRouter, withPrefix prefix: String) throws {}
+    func routes() -> [String] { return ["/*"] }
+    func route(_ method: String, path: String) -> ([String: String], NanoHTTPRequestHandler)? {
+      guard path.hasPrefix("/x/") else {
+        return nil
+      }
+      return (["name": "decoded"], { request in
+        .ok(.text("\(request.params["name"] ?? "-")|\(request.rawParams.count)"))
+      })
+    }
+  }
+
+  func testTheDefaultOfARouterHasTheDecodedValuesAndNoRawValues() throws {
+    let router = FixedRouter()
+    let found = router.routeWithRawParams("GET", path: "/x/a%2Fb")
+    XCTAssertEqual(found?.params, ["name": "decoded"])
+    XCTAssertEqual(found?.rawParams, [:])
+    XCTAssertNil(router.routeWithRawParams("GET", path: "/y/a"))
+    let request = NanoHTTPRequest(method: "GET", path: "/x/a%2Fb")
+    request.params = found?.params ?? [:]
+    request.rawParams = found?.rawParams ?? ["-": "-"]
+    XCTAssertEqual(try found?.handler(request).capturedBody(), "decoded|0")
+  }
+
+  func testAServerWithSuchARouterLeavesTheRawValuesEmpty() throws {
+    final class FixedServer: NanoHTTPServer {
+      override class func initialRouter() -> NanoHTTPRouter {
+        return FixedRouter()
+      }
+    }
+    for layers in [0, 1] {
+      let server = FixedServer()
+      if layers > 0 {
+        server.middleware.append { request, next in try next(request) }
+      }
+      let request = NanoHTTPRequest(method: "GET", rawPath: "/x/a%2Fb", rawQuery: nil)
+      let (params, handler) = server.dispatch(request: request)
+      request.params = params
+      XCTAssertEqual(try handler(request).capturedBody(), "decoded|0", "\(layers) middleware")
+      XCTAssertEqual(request.params, ["name": "decoded"])
+      XCTAssertEqual(request.rawParams, [:])
+    }
+  }
+
 }
 
 private final class StopFlag {

@@ -54,6 +54,22 @@ public protocol NanoHTTPRouter {
   /// sent it (percent-encoded).
   func route(_ method: String, path: String) -> ([String: String], NanoHTTPRequestHandler)?
   
+  /// Like ``route(_:path:)``, and the values of the variables also as the client sent them
+  /// (`rawParams`, which the server sets as `request.rawParams`): still percent-encoded,
+  /// not decoded, so that `a%2Fb` can be told from `a/b`. The names are those of `params`.
+  /// The server calls this function, not ``route(_:path:)``.
+  ///
+  /// The default implementation calls ``route(_:path:)`` and has no raw values (an empty
+  /// `rawParams`), so that a router that does not offer them still works. A router that
+  /// decodes the values itself should take the raw ones from the same segments, at the
+  /// same time: deriving them afterwards goes wrong where the search backtracks (see
+  /// ``NanoHTTPSegmentRouter``, where a path variable has the raw segments, joined with
+  /// `/`, that its decoded value is made of).
+  func routeWithRawParams(_ method: String, path: String)
+    -> (params: [String: String],
+        rawParams: [String: String],
+        handler: NanoHTTPRequestHandler)?
+  
   /// The registered route patterns; the methods are not part of them.
   func routes() -> [String]
   
@@ -70,6 +86,16 @@ public protocol NanoHTTPRouter {
 extension NanoHTTPRouter {
   public func allowedMethods(path: String) -> [String] {
     return []
+  }
+  
+  public func routeWithRawParams(_ method: String, path: String)
+    -> (params: [String: String],
+        rawParams: [String: String],
+        handler: NanoHTTPRequestHandler)? {
+    guard let (params, handler) = self.route(method, path: path) else {
+      return nil
+    }
+    return (params, [:], handler)
   }
 }
 

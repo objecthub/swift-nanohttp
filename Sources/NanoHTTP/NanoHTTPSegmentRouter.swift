@@ -40,8 +40,33 @@ import Foundation
 /// full path segment and its value is being url-decoded: `/users/:id` answers `/users/7`,
 /// but not `/users`. A path variable matches a (potentially empty) sequence of path
 /// segments and its value is the url-decoded segments joined with `/`: `/files/::path`
-/// answers `/files/a/b` and `/files`.
+/// answers `/files/a/b` and `/files`. The values are also available as the client sent
+/// them, still percent-encoded (``routeWithRawParams(_:path:)``).
 open class NanoHTTPSegmentRouter: NanoHTTPRouter {
+  
+  /// What a lookup finds: the variables of the route, decoded and as sent by the client
+  /// (the same names), and the handler.
+  fileprivate typealias Match = (params: [String : String],
+                                 rawParams: [String : String],
+                                 handler: NanoHTTPRequestHandler)
+  
+  /// The segments of the path of a request, decoded and as the client sent them.
+  fileprivate struct PathSegments {
+    
+    /// The segments as the client sent them, still percent-encoded.
+    let raw: [String]
+    
+    /// The same segments, percent-decoded.
+    let decoded: [String]
+    
+    /// Has a segment a percent-escape? If not, `decoded` and `raw` are the same, and so are
+    /// the values of the variables: the search then does not build the raw ones.
+    let isEncoded: Bool
+    
+    var count: Int {
+      return self.decoded.count
+    }
+  }
   
   /// The children of a segment that are variables, in the order in which they were
   /// registered: when several of them match, the first one wins, so that routing does
@@ -92,25 +117,32 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
       self.handler = handler
     }
     
-    /// Finds the handler for the segments of a path from `index` on. Fixed segments are
-    /// tried first, then variables and then path variables, each in the order of their
-    /// registration; the search backtracks.
+    /// Finds the handler for the segments of a path from `index` on, with the variables
+    /// of the route as they are in the decoded segments and as the client sent them. Fixed
+    /// segments are tried first, then variables and then path variables, each in the order
+    /// of their registration; the search backtracks. Both values of a variable are taken
+    /// from the segments at the same indices, here, where the search has settled on them.
+    /// The raw values are left out if `path` has no escapes (`isEncoded`): they are the
+    /// decoded ones then.
     ///
     /// A variable (`:name`, `*`) matches exactly one segment, and a path with no segment
     /// left does not match it: `/users/:id` does not answer `/users`. A path variable
     /// (`::name`, `**`) matches any number of segments, none included: `/files/::path`
     /// answers `/files`, with an empty value.
-    func match(path: [String], index: Int) -> ([String : String], NanoHTTPRequestHandler)? {
+    func match(path: PathSegments, index: Int) -> Match? {
       guard index < path.count else {
         // All the path has been matched already: if there is a handler, return it
         if let handler = self.handler {
-          return ([:], handler)
+          return ([:], [:], handler)
         }
         // Otherwise a path variable may stand for the empty rest of the path
         for (variable, next) in self.pathVariableChildren {
           if var result = next.match(path: path, index: index) {
             if let variable {
-              result.0[variable] = ""
+              result.params[variable] = ""
+              if path.isEncoded {
+                result.rawParams[variable] = ""
+              }
             }
             return result
           }
@@ -119,7 +151,7 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
       }
       // There is at least one more component from the current path (the segments are
       // decoded already)...
-      let component = path[index]
+      let component = path.decoded[index]
       if let next = self.pathChildren[component],
          let result = next.match(path: path, index: index + 1) {
         return result
@@ -127,7 +159,10 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
       for (variable, next) in self.variableChildren {
         if var result = next.match(path: path, index: index + 1) {
           if let variable {
-            result.0[variable] = component
+            result.params[variable] = component
+            if path.isEncoded {
+              result.rawParams[variable] = path.raw[index]
+            }
           }
           return result
         }
@@ -136,7 +171,10 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
         for i in index...path.count {
           if var result = next.match(path: path, index: i) {
             if let variable {
-              result.0[variable] = path[index..<i].joined(separator: "/")
+              result.params[variable] = path.decoded[index..<i].joined(separator: "/")
+              if path.isEncoded {
+                result.rawParams[variable] = path.raw[index..<i].joined(separator: "/")
+              }
             }
             return result
           }
@@ -347,18 +385,51 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
   /// values of the variables; a path variable (`::name`, `**`) gets its decoded segments
   /// joined with `/`. A path with a segment that is not valid percent-encoded UTF-8
   /// matches no route.
+  ///
+  /// The server asks ``routeWithRawParams(_:path:)``, which this calls: a subclass that
+  /// changes how requests are routed overrides that one, and `route` follows.
   open func route(_ method: String, path: String) -> ([String: String], NanoHTTPRequestHandler)? {
-    guard let segments = self.decodedSegments(of: path) else {
+    guard let match = self.routeWithRawParams(method, path: path) else {
+      return nil
+    }
+    return (match.params, match.handler)
+  }
+  
+  /// Finds the handler for a request like ``route(_:path:)`` does, and returns the variables
+  /// of the route twice: as `params` (decoded) and as `rawParams`, the values as the client
+  /// sent them, still percent-encoded (`a%2Fb`, not `a/b`; a `+` stays a `+`). A variable
+  /// (`:name`) has its raw segment as its raw value, and a path variable (`::name`) its raw
+  /// segments joined with `/`; empty segments are left out, a path variable that matches no
+  /// segment has `""`, and the query is not part of a value. Both have the same names: the
+  /// anonymous `*` and `**` have no entry in either. They are taken from the same segments,
+  /// also where the search backtracks (`/files/::path/edit`).
+  ///
+  /// ``NanoHTTPServer`` calls this to set `request.params` and `request.rawParams`. A
+  /// subclass that overrides ``route(_:path:)`` has to override this function too, or the
+  /// server does not see the change.
+  open func routeWithRawParams(_ method: String, path: String)
+    -> (params: [String: String],
+        rawParams: [String: String],
+        handler: NanoHTTPRequestHandler)? {
+    guard let segments = self.pathSegments(of: path) else {
       return nil
     }
     let routes = self.snapshot()
+    let found: Match?
     if method == "HEAD" {
-      return routes["HEAD"]?.match(path: segments, index: 0) ??
-             routes["GET"]?.match(path: segments, index: 0) ??
-             routes[nil]?.match(path: segments, index: 0)
+      found = routes["HEAD"]?.match(path: segments, index: 0) ??
+              routes["GET"]?.match(path: segments, index: 0) ??
+              routes[nil]?.match(path: segments, index: 0)
+    } else {
+      found = routes[method]?.match(path: segments, index: 0) ??
+              routes[nil]?.match(path: segments, index: 0)
     }
-    return routes[method]?.match(path: segments, index: 0) ??
-           routes[nil]?.match(path: segments, index: 0)
+    guard var match = found, !segments.isEncoded else {
+      return found
+    }
+    // Without escapes the values as sent are the decoded ones, and share their storage
+    match.rawParams = match.params
+    return match
   }
   
   /// The methods of the routes that match `path`, in the usual order (`GET`, `HEAD`,
@@ -375,7 +446,7 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
           methods.insert(method)
         }
       }
-    } else if let segments = self.decodedSegments(of: path) {
+    } else if let segments = self.pathSegments(of: path) {
       for (method, segment) in routes {
         if let method, segment.match(path: segments, index: 0) != nil {
           methods.insert(method)
@@ -393,25 +464,36 @@ open class NanoHTTPSegmentRouter: NanoHTTPRouter {
     return usual.filter { methods.contains($0) } + methods.subtracting(usual).sorted()
   }
   
-  /// The segments of a path as the client sent it, each decoded; `nil` if one of them
+  /// The segments of a path as the client sent it, and each decoded; `nil` if one of them
   /// is not valid percent-encoding. Empty segments are left out, and so is everything
   /// from a `?` on. Only a segment that has a `%` is decoded.
-  private func decodedSegments(of path: String) -> [String]? {
-    var segments = [String]()
+  private func pathSegments(of path: String) -> PathSegments? {
+    var isEncoded = false
     let utf8 = path.utf8
     let end = utf8.firstIndex(of: 63) ?? utf8.endIndex // `?`
-    for part in utf8[..<end].split(separator: 47) { // `/`
-      let segment = String(decoding: part, as: UTF8.self)
-      if part.contains(37) { // `%`
-        guard let decoded = segment.removingPercentEncoding else {
+    let parts = utf8[..<end].split(separator: 47) // `/`
+    var raw = [String]()
+    raw.reserveCapacity(parts.count)
+    for part in parts {
+      raw.append(String(decoding: part, as: UTF8.self))
+      isEncoded = isEncoded || part.contains(37) // `%`
+    }
+    guard isEncoded else {
+      return PathSegments(raw: raw, decoded: raw, isEncoded: false)
+    }
+    var decoded = [String]()
+    decoded.reserveCapacity(raw.count)
+    for segment in raw {
+      if segment.utf8.contains(37) {
+        guard let value = segment.removingPercentEncoding else {
           return nil
         }
-        segments.append(decoded)
+        decoded.append(value)
       } else {
-        segments.append(segment)
+        decoded.append(segment)
       }
     }
-    return segments
+    return PathSegments(raw: raw, decoded: decoded, isEncoded: true)
   }
   
   private func selectors(from path: String) -> [String] {

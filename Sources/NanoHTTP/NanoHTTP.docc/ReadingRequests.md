@@ -34,19 +34,23 @@ server.get["/search"] = { request in
 }
 ```
 
-What the client sent is available as ``NanoHTTPRequest/rawPath`` and ``NanoHTTPRequest/rawQuery``. The router routes
-on the raw path, which is how an encoded slash (`%2F`) stays inside its segment, while ``NanoHTTPRequest/path``
-cannot tell it from a separator.
+What the client sent is available as ``NanoHTTPRequest/rawPath`` and ``NanoHTTPRequest/rawQuery``, and the values of
+the route variables as sent as ``NanoHTTPRequest/rawParams`` (`/users/a%2Fb` has `params["id"] == "a/b"` and
+`rawParams["id"] == "a%2Fb"`; a path variable has its segments as sent, joined by `/`, see <doc:Routing>). The router
+routes on the raw path, which is how an encoded slash (`%2F`) stays inside its segment, while
+``NanoHTTPRequest/path`` cannot tell it from a separator.
 
 Two things follow from this:
 
 - **Do not decode the values again.** Decoding is done once. `removingPercentEncoding` on a value turns
   `%252e%252e` into `%2e%2e` the first time, which is what the client sent, and into `..` the second time, which
   is what it did not send: a check that looks at the first and a use that follows the second is a way out of a
-  directory.
+  directory. A raw value (``NanoHTTPRequest/rawParams``, ``NanoHTTPRequest/rawPath``) has not been decoded yet:
+  decode it at most once, and never a value that is decoded already.
 - **The values can contain anything.** `%0A` is a line feed, `%00` a NUL character. Do not write a path or a query
   value to a log or into HTML as it is (``Swift/String/htmlEscaped``), and do not use one as a file path
-  without checking it. Use ``NanoHTTPRequest/rawPath`` for logs: it cannot contain control characters.
+  without checking it, a raw value of a route variable no more than a decoded one. Use
+  ``NanoHTTPRequest/rawPath`` for logs: it cannot contain control characters.
 
 Text that is not valid percent-encoding is kept as it is (`/100%` stays `/100%`), and bytes that are not valid UTF-8
 become the replacement character U+FFFD.

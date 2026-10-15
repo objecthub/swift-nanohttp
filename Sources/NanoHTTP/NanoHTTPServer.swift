@@ -154,8 +154,8 @@ open class NanoHTTPServer: NanoHTTPServerIO {
   /// ```
   ///
   /// Middleware sees every request, including those that no route matches. It runs before
-  /// the request is routed, so the variables of the route (`request.params`) are known
-  /// only after `next` has returned.
+  /// the request is routed, so the variables of the route (`request.params`, and
+  /// `request.rawParams` with the values as sent) are known only after `next` has returned.
   ///
   /// Middleware runs on the threads of the connections. Configure it before starting the
   /// server.
@@ -217,14 +217,21 @@ open class NanoHTTPServer: NanoHTTPServerIO {
   /// handler is the chain of the middleware around that: the router is asked when the
   /// last middleware calls `next`. Returns the variables of the route (`request.params`;
   /// they are set by the chain when there is middleware) and the handler.
+  ///
+  /// The values of the variables as the client sent them (`request.rawParams`) do not fit
+  /// into the result: this function, or the chain, sets them on the request. A subclass
+  /// that does not call `super` has to set them itself, or the request has none.
   override open func dispatch(request: NanoHTTPRequest) -> ([String: String], NanoHTTPRequestHandler) {
     let layers = self.middleware
     guard !layers.isEmpty else {
-      return self.route(request)
+      let (params, rawParams, handler) = self.route(request)
+      request.rawParams = rawParams
+      return (params, handler)
     }
     var chain: NanoHTTPRequestHandler = { request in
-      let (params, handler) = self.route(request)
+      let (params, rawParams, handler) = self.route(request)
       request.params = params
+      request.rawParams = rawParams
       return try handler(request)
     }
     for layer in layers.reversed() {
@@ -237,22 +244,27 @@ open class NanoHTTPServer: NanoHTTPServerIO {
   /// The router; else, if the path has routes for other methods, the answer that the
   /// server gives itself (`204` with `Allow` to `OPTIONS`, `405` with `Allow` to the
   /// others); else the not-found handler, and finally the `404` of ``NanoHTTPServerIO``.
-  private func route(_ request: NanoHTTPRequest) -> ([String: String], NanoHTTPRequestHandler) {
-    if let result = router.route(request.method, path: request.rawPath) {
+  /// Only the router has values for the variables, decoded and as sent.
+  private func route(_ request: NanoHTTPRequest)
+    -> (params: [String: String],
+        rawParams: [String: String],
+        handler: NanoHTTPRequestHandler) {
+    if let result = router.routeWithRawParams(request.method, path: request.rawPath) {
       return result
     }
     let allowed = router.allowedMethods(path: request.rawPath)
     if !allowed.isEmpty {
       let allow = allowed.joined(separator: ", ")
       if request.method == "OPTIONS" {
-        return ([:], { _ in NanoHTTPResponse(statusCode: 204, headers: ["Allow": allow]) })
+        return ([:], [:], { _ in NanoHTTPResponse(statusCode: 204, headers: ["Allow": allow]) })
       }
-      return ([:], { _ in .methodNotAllowed(headers: ["Allow": allow]) })
+      return ([:], [:], { _ in .methodNotAllowed(headers: ["Allow": allow]) })
     }
     if let notFoundHandler = self.notFoundHandler {
-      return ([:], notFoundHandler)
+      return ([:], [:], notFoundHandler)
     }
-    return super.dispatch(request: request)
+    let (params, handler) = super.dispatch(request: request)
+    return (params, [:], handler)
   }
   
   /// The response for an error of a handler or middleware: the ``errorHandler`` decides,

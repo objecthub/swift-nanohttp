@@ -73,7 +73,7 @@ Middleware can catch errors as well, see <doc:MiddlewareAndExtending>.
 | `.empty` | none | `Content-Length: 0` |
 | `.text(String)` | `text/plain; charset=utf-8` | |
 | `.html(String)` | `text/html; charset=utf-8` | the whole document; `.htmlBody(content)` wraps content |
-| `.json(Any)` | `application/json` | a dictionary or array that `JSONSerialization` can write |
+| `.json(Any)` | `application/json` | a dictionary or array of Foundation values, or any `Encodable` value, see *JSON* |
 | `.data(Data, contentType:)` | the given one, or `application/octet-stream` | |
 | `.custom(writer, contentType:)` | the given one | streamed, length unknown |
 | `.socket(session)` | none | switches the connection to another protocol |

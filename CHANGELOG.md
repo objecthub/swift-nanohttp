@@ -6,12 +6,19 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-10-15
+
+2.1.1 makes `.json` bodies work with any `Encodable` value and publishes the documentation online. No other behavior
+changes: comments were re-wrapped (at most 95 characters per line) and some code was reformatted, without changing the code.
+
+### Fixed
+- **A `.json` body accepts any `Encodable` value** (a model, an array or dictionary of models, a single string or number, or a
+  recursive enum for JSON values like the `JSON` type of the package DynamicJSON) instead of being answered with
+  `500 Internal Server Error`. A `JSONEncoder` writes it, with its default settings; `NanoHTTPResponse.json(_:status:headers:encoder:)`
+  takes another encoder. Dictionaries and arrays of Foundation values are written by `JSONSerialization` as before, and a
+  value that is neither Foundation JSON nor `Encodable` still gets the `500`.
+
 ### Added
-- **A `.json` body accepts any `Encodable` value**: a model, an array or dictionary of models, a single string or number, or a
-  recursive enum for JSON values like the `JSON` type of the package DynamicJSON. A `JSONEncoder` writes it (with its default
-  settings; `NanoHTTPResponse.json(_:status:headers:encoder:)` takes another encoder). Dictionaries and arrays of Foundation
-  values are written by `JSONSerialization` as before. Such values used to be answered with `500 Internal Server Error`; a
-  value that is neither Foundation JSON nor `Encodable` still is.
 - The documentation is published online, at <https://objecthub.github.io/swift-nanohttp/documentation/nanohttp/> (NanoHTTP)
   and <https://objecthub.github.io/swift-nanohttp/documentation/nanohtml/> (NanoHTML), from the branch `gh-pages`.
   `Scripts/generate-docs.sh` generates the site with the Swift-DocC plugin, which `Package.swift` adds to the dependencies only
@@ -471,7 +478,8 @@ First release (replaces the former `0.1 (2024-07-19)` entry, which was never tag
   they are reachable.
 - Swift Package Manager support; demo server for macOS (command line) and iOS (SwiftUI app).
 
-[Unreleased]: https://github.com/objecthub/swift-nanohttp/compare/2.1.0...HEAD
+[Unreleased]: https://github.com/objecthub/swift-nanohttp/compare/2.1.1...HEAD
+[2.1.1]: https://github.com/objecthub/swift-nanohttp/compare/2.1.0...2.1.1
 [2.1.0]: https://github.com/objecthub/swift-nanohttp/compare/2.0.0...2.1.0
 [2.0.0]: https://github.com/objecthub/swift-nanohttp/compare/1.0.2...2.0.0
 [1.0.3]: https://github.com/objecthub/swift-nanohttp/compare/1.0.2...1.0.3

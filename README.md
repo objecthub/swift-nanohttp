@@ -190,7 +190,7 @@ the measurement.
 Add the package to your `Package.swift`:
 
 ```text
-.package(url: "https://github.com/objecthub/swift-nanohttp.git", from: "2.1.0"),
+.package(url: "https://github.com/objecthub/swift-nanohttp.git", from: "2.1.1"),
 ```
 
 and the product `NanoHTTP` (and `NanoHTML`, if you build pages with it) to the dependencies of your target. In Xcode, use File > Add Package Dependencies.

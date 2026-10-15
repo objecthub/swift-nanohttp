@@ -170,10 +170,19 @@ public struct NanoHTTPResponse {
     }
   }
   
-  /// Errors that occur when the body of a response is produced.
-  public enum ResponseError: Error {
+  /// Errors that occur when the body of a response is produced. The error conforms to
+  /// `LocalizedError`: its `localizedDescription` says in English what failed.
+  public enum ResponseError: LocalizedError {
     /// The value of a `.json` body is neither Foundation JSON nor `Encodable`.
     case invalidObject
+    
+    /// What failed (the text that `localizedDescription` returns).
+    public var errorDescription: String? {
+      switch self {
+        case .invalidObject:
+          return "The value of a .json body is neither Foundation JSON nor Encodable"
+      }
+    }
   }
   
   /// The HTTP status code (`200`, `404`, ...). The reason phrase is derived from it,

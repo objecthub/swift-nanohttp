@@ -231,7 +231,10 @@ public struct NanoHTTPConnection {
   }
   
   /// Thrown when a connection that was expected to send a request stayed silent.
-  private struct IdleTimeout: Error {
+  private struct IdleTimeout: LocalizedError {
+    var errorDescription: String? {
+      return "The connection stayed silent for longer than the idle timeout"
+    }
   }
   
   /// Waits for the next request and reads it. The wait for its first byte is limited by

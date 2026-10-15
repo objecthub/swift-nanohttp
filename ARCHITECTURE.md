@@ -120,7 +120,9 @@ server affects the next run, and connections read the copy once instead of locki
 * **Everything a response writes is sanitized at the last moment** (`NanoHTTPResponseSerializer`): header names must be
   tokens, line breaks in values become spaces, and a cookie that could add attributes is dropped and logged.
 * **Errors become responses in one place.** A handler throws; `NanoHTTPServerIO.response(for:to:)` decides (a
-  `NanoHTTPError` is answered as it says, everything else is a `500` without details, which are logged).
+  `NanoHTTPError` is answered as it says, everything else is a `500` without details, which are logged). All error
+  types conform to `LocalizedError` (`errorDescription` is for people who read a log, never for a client; text that came
+  from a client is quoted and escaped in it).
 * **The server reports through a logger** (`NanoHTTPLogger`, messages are built lazily); nothing is printed.
 * **NanoHTML has no global state**: pages are values, text and attributes are escaped, and `Raw` is the only way around that.
 * **Performance is a requirement**, measured against 1.0.2 with `Benchmarks/run.py` (paired runs; see `Benchmarks/README.md`).

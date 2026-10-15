@@ -40,6 +40,12 @@ extension String {
     return self.split { $0 == separator }.map(String.init)
   }
   
+  /// This text followed by `: ` and `detail`, or only this text if there is no detail. The
+  /// descriptions of errors are made with it.
+  func withDetail(_ detail: String) -> String {
+    return detail.isEmpty ? self : self + ": " + detail
+  }
+  
   /// This string without one pair of surrounding double quotes, if it has them.
   func unquote() -> String {
     if self.first == "\"" && self.count >= 2 && self.last == "\"" {

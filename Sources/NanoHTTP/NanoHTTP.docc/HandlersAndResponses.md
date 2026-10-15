@@ -66,6 +66,30 @@ server.errorHandler = { error, request in
 
 Middleware can catch errors as well, see <doc:MiddlewareAndExtending>.
 
+### Showing errors
+
+All errors of NanoHTTP conform to `LocalizedError`, so that `localizedDescription` says what went wrong, for a log
+or for the output of a tool. ``NanoHTTPError`` describes itself with its status and message
+(`404 Not Found: There is no item 7`), ``NanoSocketError`` with what failed and the description of the system, and
+``NanoHTTPParserError`` with what is wrong with a request; ``NanoFileError``, ``NanoHTTPRouterError`` and the errors of
+responses and WebSockets do the same:
+
+```swift
+let server = NanoHTTPServer()
+do {
+  try server.start(8080)
+} catch {
+  print("The server did not start: \(error.localizedDescription)")
+  // The server did not start: Unable to bind the socket to the address: Address already in use
+}
+```
+
+The texts are in English (they are not translated), and `description` and the text of a string interpolation
+(`"\(error)"`) are what they were. The text of a description is for you, not for the client: do not put it into a
+response (the server answers all errors but a ``NanoHTTPError`` with a `500` that has no details). Where an error holds
+text that a client sent, as a ``NanoHTTPParserError`` does, the description has the text quoted and escaped, so that
+a control character cannot get into a log through it.
+
 ### Bodies
 
 | Body | Content type | Notes |

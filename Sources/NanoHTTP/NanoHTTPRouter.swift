@@ -99,12 +99,23 @@ extension NanoHTTPRouter {
   }
 }
 
-/// Errors of routers.
-public enum NanoHTTPRouterError: Error {
+/// Errors of routers. The error conforms to `LocalizedError`: its `localizedDescription`
+/// says in English what failed.
+public enum NanoHTTPRouterError: LocalizedError {
   
   /// Routers could not be merged.
   case unableToMerge
   
   /// The router does not support merging with a router of this type.
   case incompatibleRouterForMerge
+  
+  /// What failed (the text that `localizedDescription` returns).
+  public var errorDescription: String? {
+    switch self {
+      case .unableToMerge:
+        return "The routers could not be merged"
+      case .incompatibleRouterForMerge:
+        return "The router cannot be merged with a router of this type"
+    }
+  }
 }

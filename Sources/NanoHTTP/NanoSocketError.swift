@@ -35,7 +35,9 @@ import Foundation
 
 
 /// Errors of sockets. The associated text is the description of the system error (`strerror`).
-public enum NanoSocketError: Error {
+/// The error conforms to `LocalizedError`: its `localizedDescription` says in English what
+/// failed, followed by the description of the system error.
+public enum NanoSocketError: LocalizedError {
   
   /// A socket could not be created.
   case socketCreationFailed(String)
@@ -74,4 +76,34 @@ public enum NanoSocketError: Error {
   /// A read or write did not finish within the time set with
   /// ``NanoSocket/setReceiveTimeout(_:)`` or ``NanoSocket/setSendTimeout(_:)``.
   case timedOut
+  
+  /// What failed, and why (the text that `localizedDescription` returns).
+  public var errorDescription: String? {
+    switch self {
+      case .socketCreationFailed(let reason):
+        return "Unable to create a socket".withDetail(reason)
+      case .socketSettingReUseAddrFailed(let reason):
+        return "Unable to set SO_REUSEADDR on the socket".withDetail(reason)
+      case .bindFailed(let reason):
+        return "Unable to bind the socket to the address".withDetail(reason)
+      case .listenFailed(let reason):
+        return "Unable to listen on the socket".withDetail(reason)
+      case .writeFailed(let reason):
+        return "Unable to write to the socket".withDetail(reason)
+      case .getPeerNameFailed(let reason):
+        return "Unable to determine the address of the peer".withDetail(reason)
+      case .convertingPeerNameFailed:
+        return "Unable to convert the address of the peer"
+      case .getNameInfoFailed(let reason):
+        return "Unable to convert an address into text".withDetail(reason)
+      case .acceptFailed(let reason):
+        return "Unable to accept a connection".withDetail(reason)
+      case .recvFailed(let reason):
+        return "Unable to read from the socket".withDetail(reason)
+      case .getSockNameFailed(let reason):
+        return "Unable to determine the local address of the socket".withDetail(reason)
+      case .timedOut:
+        return "The socket did not finish reading or writing in time"
+    }
+  }
 }

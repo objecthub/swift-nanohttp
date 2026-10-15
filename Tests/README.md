@@ -26,6 +26,7 @@ NANOHTTP_CRASH_TESTS=1 swift test --filter <one test>   # see "Crash tests" belo
 | `CookieTests.swift` | cookies: the `Set-Cookie` lines, encoding of values, cookies that are left out (injection attempts), reading the `Cookie` header, a round trip through a server, several cookies and several `Cookie` headers |
 | `ResponseHelperTests.swift` | `json(_:)` from `Encodable`, the redirects and the status responses, in both threading modes |
 | `NanoProcessTests.swift` | the signal callbacks of `NanoProcess.watchSignals` (S8): another thread than the interrupted one, locks, order, independent registrations, the disposition of the signal, stopping a server (the tests that send themselves a signal are skipped under a debugger, which would stop the process at it) |
+| `LocalizedErrorTests.swift` | the `LocalizedError` descriptions of all error types (also of real errors: a server that cannot start, a request line, a missing file), text from the client escaped, descriptions and interpolation unchanged, the `500` without details |
 | `LoggerTests.swift` | the logger: levels, the built-in loggers, lazy messages, what the server and WebSocket sessions report (both threading modes) |
 | `HTMLDSLTests.swift` | the NanoHTML module: elements, attributes, block syntax, escaping, pages as responses |
 | `Support/` | `RawClient` (blocking raw TCP client), `withTestServer`, `FileSocket`, `FileFixture`, `expectKnownIssue` |

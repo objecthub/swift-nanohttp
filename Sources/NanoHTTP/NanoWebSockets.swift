@@ -403,8 +403,9 @@ final class NanoWebSocketSessionDriver: NanoSocketSession {
 /// connection is closed, and later writes are a harmless no-op.
 public class NanoWebSocketSession: Hashable, Equatable {
   
-  /// Violations of the WebSocket protocol that end a connection.
-  public enum WsError: Error {
+  /// Violations of the WebSocket protocol that end a connection. The error conforms to
+  /// `LocalizedError`: its `localizedDescription` says in English what is wrong.
+  public enum WsError: LocalizedError {
     /// A frame has an operation code that does not exist.
     case unknownOpCode(String)
     /// A frame of the client was not masked, as the protocol demands.
@@ -415,6 +416,22 @@ public class NanoWebSocketSession: Hashable, Equatable {
     case invalidUTF8(String)
     /// A frame or a message is larger than the limit (close code 1009).
     case messageTooBig(String)
+    
+    /// What is wrong (the text that `localizedDescription` returns).
+    public var errorDescription: String? {
+      switch self {
+        case .unknownOpCode(let detail):
+          return "A frame has an operation code that does not exist".withDetail(detail)
+        case .unMaskedFrame(let detail):
+          return "A frame of the client is not masked".withDetail(detail)
+        case .protocolError(let detail):
+          return "The WebSocket protocol was violated".withDetail(detail)
+        case .invalidUTF8(let detail):
+          return "A text message is not valid UTF-8".withDetail(detail)
+        case .messageTooBig(let detail):
+          return "A frame or a message is larger than the limit".withDetail(detail)
+      }
+    }
   }
   
   /// The operation codes of frames.
@@ -434,9 +451,18 @@ public class NanoWebSocketSession: Hashable, Equatable {
   }
   
   /// Not an error: how the processing of a connection is told that the client closed it.
-  public enum Control: Error {
+  /// It conforms to `LocalizedError`, so that it can be shown like one.
+  public enum Control: LocalizedError {
     /// The client closed the connection.
     case close
+    
+    /// What happened (the text that `localizedDescription` returns).
+    public var errorDescription: String? {
+      switch self {
+        case .close:
+          return "The client closed the connection"
+      }
+    }
   }
   
   /// A frame as it was read from the connection.

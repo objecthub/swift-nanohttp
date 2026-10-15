@@ -36,9 +36,21 @@
 
 import Foundation
 
-/// The error of a file operation. The value is the `errno` of the system call that failed.
-public enum NanoFileError: Error {
+/// The error of a file operation. The value is the `errno` of the system call that failed
+/// (`0` if the cause is not known). The error conforms to `LocalizedError`: its
+/// `localizedDescription` has the description of the system error.
+public enum NanoFileError: LocalizedError {
   case error(Int32)
+  
+  /// What failed, and why (the text that `localizedDescription` returns).
+  public var errorDescription: String? {
+    switch self {
+      case .error(let code):
+        // 0: the operation failed, but errno does not say why
+        let reason = code == 0 ? "" : String(cString: strerror(code))
+        return "The file operation failed".withDetail(reason)
+    }
+  }
 }
 
 /// An open file, for the content of a response (``NanoHTTPResponseBodyWriter`` sends it).

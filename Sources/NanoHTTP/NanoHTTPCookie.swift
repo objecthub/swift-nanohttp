@@ -147,8 +147,12 @@ public struct NanoHTTPCookie: Equatable {
   }
 
   /// Why a cookie cannot be sent.
-  struct Invalid: Error, CustomStringConvertible {
+  struct Invalid: LocalizedError, CustomStringConvertible {
     let description: String
+    
+    var errorDescription: String? {
+      return "The cookie cannot be sent".withDetail(self.description)
+    }
   }
 
   /// The value of the `Set-Cookie` header for this cookie.

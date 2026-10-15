@@ -39,8 +39,10 @@ import Foundation
 /// The reasons why `NanoHTTPParser` refuses a request. A server answers requests that
 /// fail with one of these errors with the matching HTTP status code and closes the
 /// connection; failures of the connection itself (peer closed, reset) surface as
-/// `NanoSocketError`.
-public enum NanoHTTPParserError: Error, Equatable {
+/// `NanoSocketError`. The error conforms to `LocalizedError`: its `localizedDescription`
+/// says in English what is wrong with the request. Text that the client sent is quoted
+/// and escaped in it, so a control character cannot get into a log through it.
+public enum NanoHTTPParserError: LocalizedError, Equatable {
   
   /// The first line is not of the form `METHOD TARGET VERSION` (HTTP status 400).
   case invalidStatusLine(String)
@@ -81,6 +83,40 @@ public enum NanoHTTPParserError: Error, Equatable {
   
   /// The `Expect` header asks for something other than `100-continue` (HTTP status 417).
   case expectationFailed(String)
+  
+  /// What is wrong with the request (the text that `localizedDescription` returns).
+  public var errorDescription: String? {
+    switch self {
+      case .invalidStatusLine(let line):
+        return "The request line is not of the form METHOD TARGET VERSION: " +
+               String(reflecting: line)
+      case .requestLineTooLong:
+        return "The request line is too long"
+      case .headerLineTooLong:
+        return "A header line is too long"
+      case .headersTooLarge:
+        return "The request line and the headers are too large"
+      case .invalidContentLength:
+        return "The Content-Length header is not a number"
+      case .negativeContentLength:
+        return "The Content-Length header is negative"
+      case .bodyTooLarge:
+        return "The body of the request is larger than the limit"
+      case .unsupportedVersion(let version):
+        return "The protocol version \(String(reflecting: version)) is not supported " +
+               "(HTTP/1.0 and HTTP/1.1 are)"
+      case .conflictingFraming:
+        return "The request has a Content-Length and a Transfer-Encoding header"
+      case .unsupportedTransferEncoding(let encoding):
+        return "The transfer encoding \(String(reflecting: encoding)) is not supported " +
+               "(only chunked is)"
+      case .invalidChunk:
+        return "The body of the request is not a valid sequence of chunks"
+      case .expectationFailed(let expectation):
+        return "The expectation \(String(reflecting: expectation)) of the request cannot be " +
+               "met (only 100-continue can)"
+    }
+  }
 }
 
 /// Reads HTTP requests from a socket.

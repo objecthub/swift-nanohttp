@@ -53,6 +53,7 @@
 		CC1D0C200000012A0CF6A02A /* NanoHTML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; };
 		CC1D0C200000012B0CF6A02B /* NanoHTML.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CC1D0C20000001020CF6A002 /* NanoHTML.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CC1D0C300000000200000A02 /* NanoLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000100000A01 /* NanoLogger.swift */; };
+		CC1D0C0E330000020CF6A602 /* LocalizedErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C0E330000010CF6A601 /* LocalizedErrorTests.swift */; };
 		CC1D0C300000000400000A04 /* LoggerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000300000A03 /* LoggerTests.swift */; };
 		CC1D0C300000000600000A06 /* NanoRequestPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000500000A05 /* NanoRequestPolicy.swift */; };
 		CC1D0C300000000800000A08 /* NanoMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D0C300000000700000A07 /* NanoMiddleware.swift */; };
@@ -296,6 +297,7 @@
 		CC1D0C200000011A0CF6A01A /* HTMLAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLAttributes.swift; sourceTree = "<group>"; };
 		CC1D0C200000011C0CF6A01C /* HTMLResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLResponse.swift; sourceTree = "<group>"; };
 		CC1D0C300000000100000A01 /* NanoLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoLogger.swift; sourceTree = "<group>"; };
+		CC1D0C0E330000010CF6A601 /* LocalizedErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizedErrorTests.swift; sourceTree = "<group>"; };
 		CC1D0C300000000300000A03 /* LoggerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggerTests.swift; sourceTree = "<group>"; };
 		CC1D0C300000000500000A05 /* NanoRequestPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoRequestPolicy.swift; sourceTree = "<group>"; };
 		CC1D0C300000000700000A07 /* NanoMiddleware.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoMiddleware.swift; sourceTree = "<group>"; };
@@ -522,6 +524,7 @@
 				CC60E9A5307E5051000EE746 /* HTTPProtocolTests.swift */,
 				CC80DA872C4E775F00FCFF2E /* HTTPRouterTests.swift */,
 				CC80DA8B2C4E797800FCFF2E /* IOSafetyTests.swift */,
+				CC1D0C0E330000010CF6A601 /* LocalizedErrorTests.swift */,
 				CC1D0C300000000300000A03 /* LoggerTests.swift */,
 				CC1D0C0E2D00000F0CF6A00F /* MiddlewareTests.swift */,
 				CC80DA892C4E790C00FCFF2E /* MimeTypeTests.swift */,
@@ -921,6 +924,7 @@
 				CC60E9B1307E5051000EE746 /* RequestParsingTests.swift in Sources */,
 				CC60E9B2307E5051000EE746 /* WebSocketIntegrationTests.swift in Sources */,
 				CC60E9B3307E5051000EE746 /* RobustnessTests.swift in Sources */,
+				CC1D0C0E330000020CF6A602 /* LocalizedErrorTests.swift in Sources */,
 				CC1D0C300000000400000A04 /* LoggerTests.swift in Sources */,
 				CC1D0C300000001000000A10 /* WebSocketHubTests.swift in Sources */,
 				CC1D0C300000000C00000A0C /* CORSTests.swift in Sources */,
@@ -1068,7 +1072,7 @@
 					"@loader_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 2.1.1;
+				MARKETING_VERSION = 2.1.2;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTML;
@@ -1114,7 +1118,7 @@
 					"@loader_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 2.1.1;
+				MARKETING_VERSION = 2.1.2;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTML;
@@ -1287,7 +1291,7 @@
 					"@loader_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 2.1.1;
+				MARKETING_VERSION = 2.1.2;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTTP;
@@ -1335,7 +1339,7 @@
 					"@loader_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 2.1.1;
+				MARKETING_VERSION = 2.1.2;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTTP;
@@ -1426,7 +1430,7 @@
 					"@loader_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 2.1.1;
+				MARKETING_VERSION = 2.1.2;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTTPDemo;
@@ -1471,7 +1475,7 @@
 					"@loader_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 2.1.1;
+				MARKETING_VERSION = 2.1.2;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = net.objecthub.NanoHTTPDemo;

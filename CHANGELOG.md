@@ -4,14 +4,28 @@ All notable changes to this project are documented in this file. The format is b
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+
 ## [2.1.2] - 2026-10-16
 
-Adds `request.rawParams`. Nothing else changes: `swift package diagnose-api-breaking-changes 2.1.1` reports no breaking
-change. A lookup in the router of a path without percent-escapes is a little faster than before (the segments of the path
-are collected with a reserved capacity); a path with escapes takes about 0.1 to 0.15 µs longer, which is the cost of
-collecting the raw values.
+2.1.2 adds `request.rawParams` and makes the errors of the framework `LocalizedError`s. Nothing else changes: `swift package diagnose-api-breaking-changes 2.1.1`
+reports no breaking change. A lookup in the router of a path without percent-escapes is a little faster than before (the
+segments of the path are collected with a reserved capacity); a path with escapes takes about 0.1 to 0.15 µs longer, which
+is the cost of collecting the raw values. The tests of `NanoProcessTests` that send a signal to the test process are
+skipped when a debugger is attached: lldb (and so Xcode) stops the process at `SIGUSR1` and `SIGUSR2`, and the test run
+seemed not to end.
 
 ### Added
+- **All errors conform to `LocalizedError`**: `NanoHTTPError`, `NanoSocketError`, `NanoHTTPParserError`,
+  `NanoHTTPRouterError`, `NanoFileError`, `NanoHTTPResponse.ResponseError`, `NanoWebSocketSession.WsError` and
+  `NanoWebSocketSession.Control` (and the internal errors of cookies and idle connections). `error.localizedDescription`
+  says in English what failed, instead of Foundation's `The operation couldn't be completed. (NanoHTTP.NanoSocketError
+  error 3.)`: `Unable to bind the socket to the address: Address already in use`, `404 Not Found: There is no item 7`,
+  `The request line is not of the form METHOD TARGET VERSION: "BAD"`. Text that a client sent (the request line, the
+  protocol version, an encoding) is quoted and escaped in it, like `String(reflecting:)` does, so that a control
+  character cannot get into a log. The texts are not translated. Nothing else about the errors changes: `description` of
+  `NanoHTTPError`, the text that string interpolation gives (`"\(error)"`, which the log messages of the server use) and the
+  answer of the server (a `500` without details for every error but a `NanoHTTPError`) are as before. A program that
+  declares `extension NanoSocketError: LocalizedError` (or the same for another of these types) itself has to remove it.
 - **`NanoHTTPRequest.rawParams`**: the values of the route variables as the client sent them, still percent-encoded, next
   to the decoded `params`. A router that decodes a path variable (`::path`) loses what `a%2Fb/c` and `a/b/c` differ in; both
   are `a/b/c` in `params`. `rawParams` has the same names as `params` (the anonymous `*` and `**` have no entry in either):
@@ -505,7 +519,8 @@ First release (replaces the former `0.1 (2024-07-19)` entry, which was never tag
   they are reachable.
 - Swift Package Manager support; demo server for macOS (command line) and iOS (SwiftUI app).
 
-[Unreleased]: https://github.com/objecthub/swift-nanohttp/compare/2.1.1...HEAD
+[Unreleased]: https://github.com/objecthub/swift-nanohttp/compare/2.1.2...HEAD
+[2.1.2]: https://github.com/objecthub/swift-nanohttp/compare/2.1.1...2.1.2
 [2.1.1]: https://github.com/objecthub/swift-nanohttp/compare/2.1.0...2.1.1
 [2.1.0]: https://github.com/objecthub/swift-nanohttp/compare/2.0.0...2.1.0
 [2.0.0]: https://github.com/objecthub/swift-nanohttp/compare/1.0.2...2.0.0

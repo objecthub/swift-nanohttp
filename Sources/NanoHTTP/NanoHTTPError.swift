@@ -53,7 +53,11 @@ import Foundation
 /// because the description of an error can tell an attacker more than it should.
 /// ``NanoHTTPServer/errorHandler`` changes how errors are answered, for example to send
 /// them as JSON, and middleware can catch them.
-public struct NanoHTTPError: Error, Equatable, CustomStringConvertible {
+///
+/// The error conforms to `LocalizedError`: `localizedDescription` is the status and the
+/// message (`404 Not Found: There is no item 7`), for a log or for the output of a tool.
+/// ``description`` is made for debugging and has the name of the type.
+public struct NanoHTTPError: LocalizedError, Equatable, CustomStringConvertible {
   
   /// The status code of the response.
   public var status: Int
@@ -82,6 +86,13 @@ public struct NanoHTTPError: Error, Equatable, CustomStringConvertible {
     let reason = self.response.reasonPhrase
     return "NanoHTTPError(\(self.status)\(reason.isEmpty ? "" : " " + reason)" +
            "\(self.message.map { ": " + $0 } ?? ""))"
+  }
+  
+  /// The status, its reason phrase and the message (`404 Not Found: There is no item 7`);
+  /// the text that `localizedDescription` returns.
+  public var errorDescription: String? {
+    let reason = self.response.reasonPhrase
+    return "\(self.status)\(reason.isEmpty ? "" : " " + reason)".withDetail(self.message ?? "")
   }
   
   /// `400 Bad Request`: the request is not valid.
